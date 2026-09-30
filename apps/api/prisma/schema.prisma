@@ -1,0 +1,227 @@
+// =============================================================================
+// Mira - esquema de datos (Entrega 1)
+//
+// Alcance E1: User, Project, ProjectMember, WorkItem, Comment, ActivityLog.
+// Reservado E2: Sprint y Organization.  Los campos `sprintId` y
+// `organizationId` YA existen como escalares nullable sin llave foranea, para
+// que en E2 solo haya que crear la tabla y agregar la relacion, en vez de
+// migrar datos existentes.
+//
+// Si cambias un enum aqui, cambialo tambien en packages/shared/src/domain.ts
+// en el MISMO commit: el frontend no importa @prisma/client a proposito.
+// =============================================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  // Pooler (puerto 6543) en Supabase; Postgres local en desarrollo.
+  url       = env("DATABASE_URL")
+  // Conexion directa (puerto 5432).  `prisma migrate` NO funciona contra el
+  // pooler de Supabase: por eso las dos URLs.
+  directUrl = env("DIRECT_URL")
+}
+
+// -----------------------------------------------------------------------------
+// Enums
+// -----------------------------------------------------------------------------
+
+enum ProjectRole {
+  OWNER
+  MEMBER
+  VIEWER
+}
+
+enum WorkItemType {
+  EPIC
+  STORY
+  TASK
+  BUG
+}
+
+enum WorkItemStatus {
+  BACKLOG
+  TODO
+  IN_PROGRESS
+  IN_REVIEW
+  DONE
+}
+
+enum WorkItemPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum ActivityAction {
+  ITEM_CREATED
+  ITEM_UPDATED
+  ITEM_STATUS_CHANGED
+  ITEM_ASSIGNED
+  ITEM_DELETED
+  COMMENT_ADDED
+  MEMBER_ADDED
+  MEMBER_ROLE_CHANGED
+  MEMBER_REMOVED
+}
+
+// -----------------------------------------------------------------------------
+// Modelos
+// -----------------------------------------------------------------------------
+
+model User {
+  id String @id @default(cuid())
+
+  name  String
+  email String @unique
+  /// Hash bcrypt. Nunca sale de la API: los DTO usan publicUserSchema.
+  passwordHash String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  memberships   ProjectMember[]
+  createdItems  WorkItem[]      @relation("WorkItemCreatedBy")
+  assignedItems WorkItem[]      @relation("WorkItemAssignee")
+  comments      Comment[]
+  activities    ActivityLog[]
+
+  @@map("users")
+}
+
+model Project {
+  id String @id @default(cuid())
+
+  name        String
+  /// Prefijo de las tarjetas: la clave MIR produce MIR-1, MIR-2, ...
+  key         String  @unique
+  description String?
+
+  /// Contador propio del proyecto para generar `reference` sin colisiones.
+  /// Se incrementa dentro de la misma transaccion que crea el WorkItem.
+  itemCounter Int @default(0)
+
+  /// Reservado para E2 (multi-organizacion). Sin FK todavia.
+  organizationId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  members    ProjectMember[]
+  workItems  WorkItem[]
+  activities ActivityLog[]
+
+  @@index([organizationId])
+  @@map("projects")
+}
+
+/// Tabla puente que ademas porta el ROL.
+/// El rol vive aqui y no en User: la misma persona puede ser OWNER en un
+/// proyecto y VIEWER en otro.
+model ProjectMember {
+  id String @id @default(cuid())
+
+  userId    String
+  projectId String
+  role      ProjectRole @default(MEMBER)
+
+  joinedAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, projectId])
+  @@index([projectId])
+  @@map("project_members")
+}
+
+model WorkItem {
+  id String @id @default(cuid())
+
+  /// Identificador legible y estable, tipo "MIR-12". Unico en todo el sistema.
+  reference String @unique
+
+  projectId String
+  title     String
+  description String?
+
+  type     WorkItemType     @default(TASK)
+  status   WorkItemStatus   @default(BACKLOG)
+  priority WorkItemPriority @default(MEDIUM)
+
+  /// Story points. Null = sin estimar.
+  estimate Int?
+  dueDate  DateTime?
+
+  /// Posicion dentro de su columna del Kanban (para ordenar al arrastrar).
+  position Int @default(0)
+
+  assigneeId  String?
+  createdById String
+
+  /// Reservado para E2 (Sprints). Sin FK todavia.
+  sprintId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee  User?         @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy User          @relation("WorkItemCreatedBy", fields: [createdById], references: [id])
+  comments  Comment[]
+  activities ActivityLog[]
+
+  // El tablero siempre consulta por proyecto + estado: ese es el indice que importa.
+  @@index([projectId, status])
+  @@index([projectId, sprintId])
+  @@index([assigneeId])
+  @@map("work_items")
+}
+
+model Comment {
+  id String @id @default(cuid())
+
+  body       String
+  workItemId String
+  authorId   String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workItem WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([workItemId, createdAt])
+  @@map("comments")
+}
+
+/// Historial de cambios relevantes (principio de Trazabilidad del enunciado).
+/// Se escribe con una llamada EXPLICITA desde el service, dentro de la misma
+/// transaccion que el cambio: o se registran ambos, o ninguno.
+model ActivityLog {
+  id String @id @default(cuid())
+
+  action    ActivityAction
+  projectId String
+  /// Null cuando la actividad es del proyecto y no de un item concreto.
+  workItemId String?
+  actorId   String
+
+  /// Campo modificado y sus valores, cuando aplica. Ej: "status", "TODO", "DONE".
+  field     String?
+  fromValue String?
+  toValue   String?
+
+  createdAt DateTime @default(now())
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItem WorkItem? @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  actor    User      @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([projectId, createdAt])
+  @@index([workItemId, createdAt])
+  @@map("activity_log")
+}
