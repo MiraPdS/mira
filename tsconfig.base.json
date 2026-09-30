@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+
+    // No se usa `composite` ni project references a proposito: quien compila
+    // es tsup (api) y Vite (web), y tsc solo verifica tipos con --noEmit.
+    // Anadir composite obligaria a emitir declaraciones que nadie consume y
+    // chocaria con el `noEmit` que necesita el frontend.
+    "noEmit": true
+  }
+}

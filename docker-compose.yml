@@ -1,0 +1,51 @@
+# Dos Postgres separados a proposito:
+#   - mira_dev  (5442) datos con los que programas; sobreviven entre sesiones.
+#   - mira_test (5443) la suite de integracion hace TRUNCATE aqui en cada test.
+# Estan separados para que correr los tests jamas te borre los datos de trabajo.
+# tmpfs en el de test = todo en RAM, sin volumen que limpiar y mucho mas rapido.
+#
+# Se usan 5442 y 5443 y no los 5432/5433 habituales porque es muy comun tener un
+# PostgreSQL instalado en la maquina ocupando el 5432. En Windows esa colision
+# no impide levantar el contenedor: simplemente te conecta al servidor
+# equivocado y falla la autenticacion. Se pueden cambiar con MIRA_DB_DEV_PORT y
+# MIRA_DB_TEST_PORT.
+services:
+  db-dev:
+    image: postgres:16-alpine
+    container_name: mira-db-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mira
+      POSTGRES_PASSWORD: mira
+      POSTGRES_DB: mira_dev
+    ports:
+      - '${MIRA_DB_DEV_PORT:-5442}:5432'
+    volumes:
+      - mira-db-dev-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mira -d mira_dev']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  db-test:
+    image: postgres:16-alpine
+    container_name: mira-db-test
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mira
+      POSTGRES_PASSWORD: mira
+      POSTGRES_DB: mira_test
+    ports:
+      - '${MIRA_DB_TEST_PORT:-5443}:5432'
+    tmpfs:
+      - /var/lib/postgresql/data
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mira -d mira_test']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mira-db-dev-data:
