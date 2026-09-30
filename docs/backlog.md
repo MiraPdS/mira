@@ -1,7 +1,21 @@
 # Backlog — Mira
 
-Backlog inicial de la Entrega 1, listo para cargar en Jira. La versión
-importable está en [`jira-import.csv`](./jira-import.csv).
+Backlog de la Entrega 1. **Ya está cargado en Jira**, con los mismos IDs que
+aparecen en este documento:
+
+- Tablero: https://bolgunn.atlassian.net/jira/software/projects/MIR/boards
+- `MIR-1` … `MIR-29` — Entrega 1
+- `MIR-30` … `MIR-33` — reservado para la Entrega 2
+- `MIR-34` … `MIR-40` — las épicas
+
+Los items se crearon antes que las épicas precisamente para que esta
+numeración coincida: si las épicas se hubieran creado primero, se habrían
+llevado `MIR-1..7` y cada rama, commit y PR de este documento apuntaría al
+item equivocado.
+
+El archivo [`jira-import.csv`](./jira-import.csv) se conserva como respaldo
+para reimportar en un sitio limpio; nótese que usa `Epic Link`, mientras que
+Jira ya migró al campo `Parent`.
 
 **Convenciones.**
 
