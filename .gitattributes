@@ -1,0 +1,22 @@
+# Normalizacion de fin de linea.
+#
+# Prettier esta configurado con endOfLine: "lf". Sin esta regla, Git convierte
+# los archivos a CRLF al hacer checkout en Windows y `npm run format:check`
+# falla en la maquina de quien trabaja en Windows aunque el archivo este
+# correcto en el repositorio.
+#
+# Con eol=lf el arbol de trabajo usa LF en todos los sistemas operativos.
+* text=auto eol=lf
+
+# Binarios: nunca tocar.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+
+# Los scripts de shell rompen con CRLF.
+*.sh text eol=lf
