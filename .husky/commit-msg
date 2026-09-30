@@ -1,0 +1,3 @@
+# Exige  <tipo>(<scope>): MIR-<n> <descripcion>
+# Es la cadena de trazabilidad que evalua la rubrica.
+npx --no -- commitlint --edit "$1"

@@ -1,0 +1,2 @@
+# Solo sobre los archivos en staging: rapido, no corre la suite completa.
+npx lint-staged

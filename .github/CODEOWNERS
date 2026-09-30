@@ -1,0 +1,8 @@
+# Toda modificacion requiere revision de al menos un integrante del equipo.
+# Reemplazar los marcadores por los usuarios reales de GitHub antes del push.
+#
+# *                    @MiraPdS/equipo
+# /apps/api/           @usuario-backend
+# /apps/web/           @usuario-frontend
+# /.github/workflows/  @usuario-devops
+# /packages/shared/    @MiraPdS/equipo
