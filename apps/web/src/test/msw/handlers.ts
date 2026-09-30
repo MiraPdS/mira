@@ -1,0 +1,52 @@
+import { http, HttpResponse } from 'msw';
+import type { ApiError, AuthResponse, PublicUser } from '@mira/shared';
+
+/**
+ * Handlers por defecto de MSW.
+ *
+ * Representan el camino feliz. Un test que necesite un caso distinto
+ * (credenciales malas, 500, red caida) sobrescribe SOLO ese endpoint con
+ * `server.use(...)`, y el resto sigue funcionando.
+ *
+ * MSW intercepta a nivel de red, no de modulo: en los tests se ejecutan de
+ * verdad el componente, react-hook-form, TanStack Query y api-client. Lo
+ * unico falso es la respuesta del servidor.
+ */
+
+const BASE_URL = 'http://localhost:3000/api';
+
+export const USUARIO_DE_PRUEBA: PublicUser = {
+  id: 'user_1',
+  name: 'Ada Lovelace',
+  email: 'ada@mira.dev',
+  createdAt: '2026-01-01T00:00:00.000Z',
+};
+
+/** Construye un error con la MISMA forma que produce el errorHandler de Express. */
+export function apiError(
+  status: number,
+  code: string,
+  message: string,
+  fields?: Record<string, string[]>,
+) {
+  return HttpResponse.json<ApiError>(
+    { error: { code, message, ...(fields && { fields }) } },
+    { status },
+  );
+}
+
+export const handlers = [
+  http.post(`${BASE_URL}/auth/login`, () =>
+    HttpResponse.json<AuthResponse>({ user: USUARIO_DE_PRUEBA }, { status: 200 }),
+  ),
+
+  http.post(`${BASE_URL}/auth/register`, () =>
+    HttpResponse.json<AuthResponse>({ user: USUARIO_DE_PRUEBA }, { status: 201 }),
+  ),
+
+  http.post(`${BASE_URL}/auth/logout`, () => new HttpResponse(null, { status: 204 })),
+
+  // Por defecto NO hay sesion: los tests que necesiten un usuario autenticado
+  // lo declaran explicitamente. Es mas seguro que asumir sesion iniciada.
+  http.get(`${BASE_URL}/auth/me`, () => apiError(401, 'UNAUTHORIZED', 'Debes iniciar sesion')),
+];
