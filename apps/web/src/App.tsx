@@ -46,7 +46,7 @@ export function App() {
         path="/proyectos"
         element={
           <RequiereSesion>
-            <Pendiente item="MIR-4" titulo="Mis proyectos" />
+            <Pendiente item="MIR-6" titulo="Mis proyectos" />
           </RequiereSesion>
         }
       />
