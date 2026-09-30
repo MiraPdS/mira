@@ -1,0 +1,202 @@
+﻿Summary,Issue Type,Priority,Story Points,Epic Name,Epic Link,Labels,Description
+Autenticacion y cuenta de usuario,Epic,High,,Autenticacion y cuenta de usuario,,entrega-1,Epica de la Entrega 1.
+Proyectos y equipo,Epic,High,,Proyectos y equipo,,entrega-1,Epica de la Entrega 1.
+Elementos de trabajo,Epic,High,,Elementos de trabajo,,entrega-1,Epica de la Entrega 1.
+Tablero Kanban,Epic,High,,Tablero Kanban,,entrega-1,Epica de la Entrega 1.
+Colaboracion y trazabilidad,Epic,High,,Colaboracion y trazabilidad,,entrega-1,Epica de la Entrega 1.
+"Calidad, infraestructura y entrega",Epic,High,,"Calidad, infraestructura y entrega",,entrega-1,Epica de la Entrega 1.
+MIR-1 Registro de usuario (API),Story,Highest,5,,Autenticacion y cuenta de usuario,"backend,auth,hecho","Como visitante quiero crear una cuenta con mi correo y una contrasena para acceder a la plataforma.
+
+Criterios de aceptacion:
+- Dado nombre, correo no registrado y contrasena valida, cuando hago POST a /api/auth/register, entonces recibo 201 y una cookie de sesion HttpOnly.
+- Dado un correo ya registrado, cuando intento registrarme, entonces recibo 409 EMAIL_TAKEN y no se crea nada.
+- Dada una contrasena de menos de 8 caracteres o sin letra y numero, entonces recibo 422 indicando el campo password.
+- Dado un registro exitoso, cuando consulto la base, entonces la contrasena esta almacenada como hash bcrypt."
+MIR-2 Pantalla de registro (Web),Story,Highest,3,,Autenticacion y cuenta de usuario,"frontend,auth","Como visitante quiero un formulario de registro para crear mi cuenta sin usar herramientas tecnicas.
+
+Criterios de aceptacion:
+- Dado que estoy en /registro, cuando carga, entonces veo nombre, correo y contrasena con etiqueta asociada.
+- Dado un correo invalido, cuando envio, entonces veo el error bajo el campo y no se llama a la API.
+- Dado un registro exitoso, entonces quedo autenticado y soy redirigido a /proyectos.
+- Dado un correo ya existente, cuando el servidor responde 409, entonces veo un mensaje claro y el formulario conserva lo escrito."
+MIR-3 Inicio de sesion,Story,Highest,5,,Autenticacion y cuenta de usuario,"backend,frontend,auth,hecho","Como usuario registrado quiero iniciar sesion para acceder a mis proyectos.
+
+Criterios de aceptacion:
+- Dadas credenciales correctas, entonces recibo 200, cookie HttpOnly y llego a /proyectos.
+- Dada una contrasena incorrecta, entonces recibo 401 y no se entrega cookie.
+- Dado un correo inexistente, entonces el mensaje de error es identico al de contrasena incorrecta.
+- Dado que la API no responde, entonces veo un mensaje de error de conexion."
+MIR-4 Cerrar sesion y sesion persistente,Story,Highest,3,,Autenticacion y cuenta de usuario,"frontend,auth","Como usuario autenticado quiero que mi sesion se mantenga al recargar y poder cerrarla.
+
+Criterios de aceptacion:
+- Dado que tengo sesion, cuando recargo, entonces sigo autenticado via /api/auth/me.
+- Dado que cierro sesion, entonces la cookie se borra y soy redirigido a /login.
+- Dado que cerre sesion, cuando entro a /proyectos, entonces soy redirigido a /login.
+- Dado que cierro sesion, entonces la cache del usuario anterior se descarta."
+MIR-5 Crear proyecto,Story,Highest,5,,Proyectos y equipo,"backend,frontend","Como usuario autenticado quiero crear un proyecto con nombre y clave para organizar el trabajo de mi equipo.
+
+Criterios de aceptacion:
+- Dados nombre y clave validos, entonces recibo 201 y quedo registrado como OWNER.
+- Dada una clave ya existente, entonces recibo 409.
+- Dada una clave con formato invalido (2 a 8 caracteres, inicia con letra, alfanumerica), entonces recibo 422.
+- Dado que no tengo sesion, entonces recibo 401."
+MIR-6 Listar mis proyectos,Story,Highest,3,,Proyectos y equipo,"backend,frontend","Como usuario autenticado quiero ver los proyectos en los que participo.
+
+Criterios de aceptacion:
+- Dado que soy miembro de dos proyectos, entonces veo exactamente esos dos con mi rol en cada uno.
+- Dado un proyecto del que no soy miembro, entonces no aparece en la lista.
+- Dado que no participo en ninguno, entonces veo un estado vacio que invita a crear el primero."
+MIR-7 Ver y editar un proyecto,Story,High,3,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero modificar el nombre y la descripcion del proyecto.
+
+Criterios de aceptacion:
+- Dado que soy OWNER, cuando edito, entonces recibo 200 y los cambios persisten.
+- Dado que soy MEMBER o VIEWER, entonces recibo 403 y la interfaz no muestra el boton de editar.
+- Dado un campo desconocido en el PATCH, entonces recibo 422."
+MIR-8 Eliminar un proyecto,Story,Medium,3,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero eliminar un proyecto que ya no corresponde.
+
+Criterios de aceptacion:
+- Dado que soy OWNER y confirmo, entonces recibo 204 y desaparece de mi lista.
+- Dado un proyecto con items y comentarios, entonces se eliminan en cascada.
+- Dado que no soy OWNER, entonces recibo 403.
+- Dado el dialogo de confirmacion, cuando cancelo, entonces no se elimina nada."
+MIR-9 Invitar a un miembro al proyecto,Story,High,5,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero agregar a otra persona por su correo para que colabore en el proyecto.
+
+Criterios de aceptacion:
+- Dado un correo de usuario registrado, entonces recibo 201 y aparece en la lista del equipo.
+- Dado un correo sin usuario asociado, entonces recibo 404 con un mensaje comprensible.
+- Dado que la persona ya es miembro, entonces recibo 409.
+- Dado que soy MEMBER, entonces recibo 403."
+MIR-10 Cambiar rol y quitar miembros,Story,Medium,5,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero cambiar el rol de un miembro o quitarlo del proyecto.
+
+Criterios de aceptacion:
+- Dado que cambio un MEMBER a VIEWER, entonces pierde inmediatamente la capacidad de crear items.
+- Dado que soy el unico OWNER, cuando intento degradarme o quitarme, entonces recibo 400.
+- Dado que quito a un miembro con items asignados, entonces esos items quedan sin responsable y no se eliminan.
+- Dado que soy VIEWER, entonces recibo 403."
+MIR-11 Crear un elemento de trabajo,Story,Highest,8,,Elementos de trabajo,"backend,frontend","Como miembro quiero crear historias, tareas, bugs y epicas para registrar el trabajo pendiente.
+
+Criterios de aceptacion:
+- Dado un titulo valido, entonces recibo 201 con una referencia legible tipo MIR-1, correlativa dentro del proyecto.
+- Dado que no indico tipo, estado ni prioridad, entonces quedan en TASK, BACKLOG y MEDIUM.
+- Dadas dos creaciones simultaneas, entonces las referencias no se repiten porque el contador se incrementa en la misma transaccion.
+- Dado que soy VIEWER, entonces recibo 403.
+- Dada una creacion exitosa, entonces existe una entrada ITEM_CREATED en el historial."
+MIR-12 Listar el backlog con paginacion,Story,Highest,5,,Elementos de trabajo,"backend,frontend","Como miembro quiero ver el backlog del proyecto.
+
+Criterios de aceptacion:
+- Dados 25 items, cuando pido la primera pagina de 20, entonces recibo 20 items y un total de 25.
+- Dado que no soy miembro del proyecto, entonces recibo 403.
+- Dado un proyecto sin items, entonces veo un estado vacio y no una tabla en blanco.
+- Dado un tamano de pagina mayor a 100, entonces recibo 422."
+MIR-13 Buscar y filtrar el backlog,Story,High,5,,Elementos de trabajo,"backend,frontend","Como miembro quiero buscar por texto y filtrar por tipo, estado, prioridad y responsable.
+
+Criterios de aceptacion:
+- Dada la busqueda de un termino, entonces obtengo coincidencias en titulo o descripcion sin distinguir mayusculas.
+- Dados los filtros type=BUG y priority=HIGH, entonces se combinan con AND.
+- Dado que ningun item coincide, entonces veo un mensaje de sin resultados con opcion de limpiar los filtros.
+- Dado que estoy en la pagina 3 y cambio un filtro, entonces vuelvo a la pagina 1."
+MIR-14 Ver el detalle de un elemento,Story,High,3,,Elementos de trabajo,"frontend,backend","Como miembro quiero abrir un item y ver toda su informacion.
+
+Criterios de aceptacion:
+- Dado un item de mi proyecto, entonces veo referencia, titulo, descripcion, tipo, estado, prioridad, responsable, estimacion y fechas.
+- Dado un item de un proyecto del que no soy miembro, entonces recibo 404 y no 403, para no revelar que existe.
+- Dado un identificador inexistente, entonces veo una pantalla de no encontrado y no un error sin manejar."
+MIR-15 Editar un elemento de trabajo,Story,Highest,5,,Elementos de trabajo,"backend,frontend","Como miembro quiero modificar los campos de un item.
+
+Criterios de aceptacion:
+- Dado un cambio de titulo, entonces recibo 200 y el cambio persiste.
+- Dado un PATCH con un solo campo, entonces los demas no se modifican.
+- Dado que soy VIEWER, entonces recibo 403 y la interfaz muestra el item en modo lectura.
+- Dada cualquier edicion, entonces se registra ITEM_UPDATED con el campo, el valor anterior y el nuevo."
+MIR-16 Eliminar un elemento de trabajo,Story,High,3,,Elementos de trabajo,"backend,frontend","Como miembro quiero eliminar un item que ya no aplica.
+
+Criterios de aceptacion:
+- Dada la confirmacion, entonces recibo 204 y el item desaparece del backlog y del tablero.
+- Dado un item con comentarios, entonces se eliminan en cascada.
+- Dado que soy VIEWER, entonces recibo 403.
+- Dado el dialogo de confirmacion, cuando cancelo, entonces no se elimina nada."
+MIR-17 Asignar un responsable,Story,High,3,,Elementos de trabajo,"backend,frontend","Como miembro quiero asignar un item a alguien del equipo.
+
+Criterios de aceptacion:
+- Dado un miembro del proyecto, entonces aparece como responsable y se registra ITEM_ASSIGNED.
+- Dado un usuario que no es miembro del proyecto, entonces recibo 400.
+- Dado un item asignado, cuando quito el responsable, entonces queda como sin asignar.
+- Dado el backlog, cuando filtro por responsable, entonces veo solo sus items."
+MIR-18 Visualizar el tablero Kanban,Story,Highest,8,,Tablero Kanban,frontend,"Como miembro quiero ver los items en columnas por estado.
+
+Criterios de aceptacion:
+- Dado un proyecto con items, entonces veo las columnas Por hacer, En progreso, En revision y Hecho con sus tarjetas.
+- Dada una tarjeta, entonces muestra referencia, titulo, tipo, prioridad y responsable.
+- Dada una columna sin items, entonces se muestra vacia y sigue siendo destino valido.
+- Dado un ancho de 375 px, entonces las columnas se desplazan horizontalmente sin romper el diseno."
+MIR-19 Cambiar estado desde el menu de la tarjeta,Story,Highest,5,,Tablero Kanban,"frontend,backend,e2e","Como miembro quiero cambiar el estado de una tarjeta desde un menu, sin depender del arrastre.
+
+Criterios de aceptacion:
+- Dado el menu Mover a, cuando elijo otro estado, entonces la tarjeta se mueve y el cambio persiste tras recargar.
+- Dado un fallo de la API, entonces la tarjeta vuelve a su columna original y veo un mensaje de error.
+- Dado que soy VIEWER, entonces el menu de mover no esta disponible.
+- Dado un cambio de estado, entonces se registra ITEM_STATUS_CHANGED con el estado anterior y el nuevo.
+- Nota: es el camino determinista de los E2E de la Entrega 3 y debe existir antes que MIR-20."
+MIR-20 Arrastrar y soltar tarjetas,Story,Medium,8,,Tablero Kanban,frontend,"Como miembro quiero arrastrar una tarjeta a otra columna.
+
+Criterios de aceptacion:
+- Dado el arrastre a otra columna, entonces cambia de estado con actualizacion optimista.
+- Dado un rechazo del servidor, entonces la tarjeta regresa a su posicion original.
+- Dado que uso solo el teclado, entonces puedo mover la tarjeta sin raton.
+- Dado que soy VIEWER, entonces la tarjeta no se mueve."
+MIR-21 Comentar un elemento de trabajo,Story,Medium,5,,Colaboracion y trazabilidad,"backend,frontend","Como miembro quiero comentar en un item para dejar contexto y coordinarme con el equipo.
+
+Criterios de aceptacion:
+- Dado un comentario no vacio, entonces recibo 201 y aparece con mi nombre y la fecha.
+- Dado un comentario en blanco o de solo espacios, entonces recibo 422.
+- Dado que soy VIEWER, entonces recibo 403.
+- Dados varios comentarios, entonces aparecen del mas antiguo al mas reciente."
+MIR-22 Historial de cambios de un elemento,Story,Medium,5,,Colaboracion y trazabilidad,"backend,frontend","Como miembro quiero ver que cambio en un item, cuando y quien lo hizo.
+
+Criterios de aceptacion:
+- Dado un item con cambios, entonces veo las entradas en orden cronologico inverso con actor y fecha.
+- Dado un cambio de estado, entonces se lee en lenguaje natural y no como nombres de columnas de base de datos.
+- Dada una actualizacion que falla a mitad de camino, entonces no queda una entrada de historial huerfana."
+MIR-23 Panel del proyecto,Story,Medium,5,,Colaboracion y trazabilidad,"frontend,backend","Como miembro quiero un panel con el resumen del proyecto.
+
+Criterios de aceptacion:
+- Dado un proyecto con items, entonces veo el conteo por estado, por tipo y por prioridad.
+- Dado un proyecto vacio, entonces veo ceros y un mensaje orientador y no una pantalla rota.
+- Dado el panel, entonces muestra la actividad reciente del proyecto."
+MIR-24 Diseno responsive,Task,High,5,,"Calidad, infraestructura y entrega","frontend,ux","Como usuario quiero usar Mira desde el telefono.
+
+Criterios de aceptacion:
+- Dado un ancho de 375 px, entonces ninguna vista produce desplazamiento horizontal no intencional.
+- Dado el tablero en movil, entonces las columnas se desplazan horizontalmente de forma intencional y legible.
+- Dados los formularios en movil, entonces los campos ocupan el ancho disponible y los botones son alcanzables."
+MIR-25 Proteccion de main y verificacion en Pull Requests,Task,Highest,2,,"Calidad, infraestructura y entrega","ci,infra","Como equipo queremos que main solo reciba codigo revisado y verificado.
+
+Criterios de aceptacion:
+- main protegida: sin push directo, requiere Pull Request y una aprobacion.
+- El workflow de CI es check obligatorio para poder fusionar.
+- develop creada y configurada como rama por defecto."
+MIR-26 Wiki del proyecto,Task,High,5,,"Calidad, infraestructura y entrega",docs,"Como equipo queremos documentacion verificable para la entrega.
+
+Criterios de aceptacion:
+- Home funciona como indice con enlaces a todas las paginas.
+- Existen las paginas Resumen, Tecnologias y Stack, Arquitectura, Estrategia de Pruebas, Supuestos y Dependencias y Evidencias.
+- La pagina Entrega 1 tiene H1 exactamente Entrega 1.
+- El contenido base esta disponible en la carpeta docs del repositorio."
+MIR-27 Despliegue del ambiente de demostracion,Task,High,5,,"Calidad, infraestructura y entrega","infra,deploy","Como equipo queremos una URL publica funcionando para la demostracion y para los E2E.
+
+Criterios de aceptacion:
+- Frontend desplegado en Vercel con VITE_API_URL apuntando a la API.
+- API desplegada en Render o Fly.io y conectada al PostgreSQL de Supabase.
+- Migraciones aplicadas con prisma migrate deploy.
+- CORS configurado con el origen exacto de produccion y cookies cross-site funcionando."
+MIR-28 Release v1.0-entrega1,Task,Highest,2,,"Calidad, infraestructura y entrega",release,"Como equipo queremos cerrar la Entrega 1 desde un commit estable de main.
+
+Criterios de aceptacion:
+- Pull Request de release de develop a main, revisado.
+- Tag v1.0-entrega1 sobre un commit estable de main.
+- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y limitaciones conocidas."
+MIR-29 Capsula de video de la Entrega 1,Task,High,3,,"Calidad, infraestructura y entrega",docs,"Como equipo queremos explicar en video el trabajo realizado.
+
+Criterios de aceptacion:
+- Cubre alcance de la herramienta de testing, trabajo realizado, dependencias, estrategia de pruebas, ejecucion y resultados.
+- El enlace queda publicado en el README y en la Wiki."
