@@ -1,4 +1,4 @@
-import type { CreateWorkItemInput, WorkItemDto } from '@mira/shared';
+import type { CreateWorkItemInput, Paginated, WorkItemDto } from '@mira/shared';
 import { api } from '@/lib/api-client';
 
 type CreateWorkItemResponse = { item: WorkItemDto };
@@ -13,4 +13,15 @@ export async function createWorkItem(
     input,
   );
   return item;
+}
+
+/** Obtiene una pagina del backlog de un proyecto. */
+export function listWorkItems(
+  projectId: string,
+  page: number,
+  pageSize: number,
+): Promise<Paginated<WorkItemDto>> {
+  return api.get<Paginated<WorkItemDto>>(
+    `/projects/${encodeURIComponent(projectId)}/work-items?page=${page}&pageSize=${pageSize}`,
+  );
 }
