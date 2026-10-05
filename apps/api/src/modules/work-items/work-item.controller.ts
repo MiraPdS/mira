@@ -1,0 +1,33 @@
+import type { NextFunction, Request, Response } from 'express';
+import type { CreateWorkItemInput, WorkItemDto } from '@mira/shared';
+import { UnauthorizedError } from '../../lib/errors.js';
+import type { WorkItemService } from './work-item.service.js';
+
+type CreateWorkItemResponse = { item: WorkItemDto };
+
+/**
+ * Capa HTTP: traduce peticion -> caso de uso -> respuesta.
+ *
+ * No contiene autorizacion por rol ni reglas de negocio; ambas pertenecen al
+ * service. La autenticacion ya fue comprobada por requireAuth en el router.
+ */
+export function createWorkItemController(service: WorkItemService) {
+  return {
+    async create(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const item = await service.create(
+          // El router declara :projectId para esta accion; Express lo tipa
+          // opcional porque Request es generico para todas las rutas.
+          req.params.projectId!,
+          req.user.id,
+          req.body as CreateWorkItemInput,
+        );
+        res.status(201).json({ item } satisfies CreateWorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+  };
+}
