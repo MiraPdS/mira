@@ -1,8 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
-import type { CreateWorkItemInput, ProjectRole } from '@mira/shared';
+import type { CreateWorkItemInput, PaginationQuery, ProjectRole } from '@mira/shared';
 import { ForbiddenError } from '../../lib/errors.js';
-import type { CreatedWorkItem, WorkItemRepository, WorkItemUser } from './work-item.repository.js';
+import type {
+  CreatedWorkItem,
+  ListWorkItemsResult,
+  WorkItemRepository,
+  WorkItemUser,
+} from './work-item.repository.js';
 import { createWorkItemService, toWorkItemDto } from './work-item.service.js';
 
 /**
@@ -25,6 +30,11 @@ const INPUT: CreateWorkItemInput = {
   // El service recibe el contrato ya validado; solo el repository decide que
   // MIR-11 no persiste este campo reservado para MIR-30.
   sprintId: 'sprint_reservado',
+};
+
+const PAGINATION: PaginationQuery = {
+  page: 2,
+  pageSize: 20,
 };
 
 function usuarioDePrueba(overrides: Partial<WorkItemUser> = {}): WorkItemUser {
@@ -176,6 +186,114 @@ describe('workItemService', () => {
     repo.createAtomically.mockRejectedValue(error);
 
     await expect(service.create(PROJECT_ID, ACTOR_ID, INPUT)).rejects.toBe(error);
+  });
+
+  describe('list', () => {
+    it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)(
+      '%s puede listar elementos de trabajo',
+      async (role) => {
+        const item = itemDePrueba();
+        repo.findMemberRole.mockResolvedValue(role);
+        repo.listByProject.mockResolvedValue({ items: [item], total: 1 });
+
+        const result = await service.list(PROJECT_ID, ACTOR_ID, PAGINATION);
+
+        expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+        expect(repo.listByProject).toHaveBeenCalledWith({
+          projectId: PROJECT_ID,
+          ...PAGINATION,
+        });
+        expect(result).toEqual({
+          data: [toWorkItemDto(item)],
+          ...PAGINATION,
+          total: 1,
+        });
+      },
+    );
+
+    it('rechaza a un usuario que no pertenece al proyecto sin consultar el listado', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.list(PROJECT_ID, ACTOR_ID, PAGINATION)).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.listByProject).not.toHaveBeenCalled();
+    });
+
+    it('convierte los elementos a DTO y conserva la metadata de paginacion', async () => {
+      const assignee = usuarioDePrueba({ id: 'user_2', name: 'Grace Hopper' });
+      const firstItem = itemDePrueba({
+        id: 'item_2',
+        reference: 'MIR-22',
+        title: 'Primer elemento',
+        description: null,
+        estimate: 8,
+        dueDate: new Date('2026-03-15T00:00:00.000Z'),
+        assignee,
+        sprintId: 'sprint_1',
+        createdAt: new Date('2026-03-12T10:00:00.000Z'),
+        updatedAt: new Date('2026-03-13T11:00:00.000Z'),
+      });
+      const secondItem = itemDePrueba({
+        id: 'item_1',
+        reference: 'MIR-21',
+        title: 'Segundo elemento',
+      });
+      const repositoryResult: ListWorkItemsResult = {
+        items: [firstItem, secondItem],
+        total: 41,
+      };
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.listByProject.mockResolvedValue(repositoryResult);
+
+      const result = await service.list(PROJECT_ID, ACTOR_ID, PAGINATION);
+
+      expect(result).toEqual({
+        data: [
+          {
+            id: 'item_2',
+            reference: 'MIR-22',
+            projectId: PROJECT_ID,
+            title: 'Primer elemento',
+            description: null,
+            type: 'STORY',
+            status: 'TODO',
+            priority: 'HIGH',
+            estimate: 8,
+            dueDate: '2026-03-15T00:00:00.000Z',
+            assignee: {
+              id: 'user_2',
+              name: 'Grace Hopper',
+              email: 'ada@mira.dev',
+              createdAt: '2026-01-01T00:00:00.000Z',
+            },
+            createdBy: {
+              id: 'user_1',
+              name: 'Ada Lovelace',
+              email: 'ada@mira.dev',
+              createdAt: '2026-01-01T00:00:00.000Z',
+            },
+            sprintId: 'sprint_1',
+            createdAt: '2026-03-12T10:00:00.000Z',
+            updatedAt: '2026-03-13T11:00:00.000Z',
+          },
+          toWorkItemDto(secondItem),
+        ],
+        page: 2,
+        pageSize: 20,
+        total: 41,
+      });
+    });
+
+    it('propaga errores inesperados del repository', async () => {
+      const error = new Error('No se pudo obtener el backlog');
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.listByProject.mockRejectedValue(error);
+
+      await expect(service.list(PROJECT_ID, ACTOR_ID, PAGINATION)).rejects.toBe(error);
+    });
   });
 });
 

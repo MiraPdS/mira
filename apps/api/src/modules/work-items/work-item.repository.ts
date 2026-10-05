@@ -41,6 +41,17 @@ export interface CreateWorkItemData {
   input: CreateWorkItemInput;
 }
 
+export interface ListWorkItemsData {
+  projectId: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface ListWorkItemsResult {
+  items: CreatedWorkItem[];
+  total: number;
+}
+
 /**
  * Puerto de persistencia del modulo de elementos de trabajo.
  *
@@ -51,6 +62,7 @@ export interface CreateWorkItemData {
 export interface WorkItemRepository {
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   createAtomically(data: CreateWorkItemData): Promise<CreatedWorkItem>;
+  listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
 }
 
 const usersForDto = {
@@ -130,6 +142,27 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       // que protege contador, item y actividad como una unidad indivisible.
       if (!hasTransaction(db)) return createInTransaction(db, data);
       return db.$transaction((tx) => createInTransaction(tx, data));
+    },
+
+    async listByProject({ projectId, page, pageSize }) {
+      const skip = (page - 1) * pageSize;
+      const where = { projectId };
+
+      const [total, items] = await Promise.all([
+        db.workItem.count({ where }),
+        db.workItem.findMany({
+          where,
+          skip,
+          take: pageSize,
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          include: {
+            createdBy: usersForDto,
+            assignee: usersForDto,
+          },
+        }),
+      ]);
+
+      return { items, total };
     },
   };
 }

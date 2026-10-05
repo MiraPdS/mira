@@ -1,4 +1,11 @@
-import { can, type CreateWorkItemInput, type PublicUser, type WorkItemDto } from '@mira/shared';
+import {
+  can,
+  type CreateWorkItemInput,
+  type Paginated,
+  type PaginationQuery,
+  type PublicUser,
+  type WorkItemDto,
+} from '@mira/shared';
 import { ForbiddenError } from '../../lib/errors.js';
 import type { CreatedWorkItem, WorkItemRepository, WorkItemUser } from './work-item.repository.js';
 
@@ -51,6 +58,23 @@ export function createWorkItemService(repo: WorkItemRepository) {
 
       const workItem = await repo.createAtomically({ projectId, actorId, input });
       return toWorkItemDto(workItem);
+    },
+
+    async list(
+      projectId: string,
+      actorId: string,
+      pagination: PaginationQuery,
+    ): Promise<Paginated<WorkItemDto>> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      if (!can(role, 'work-item:view')) throw new ForbiddenError();
+
+      const { items, total } = await repo.listByProject({ projectId, ...pagination });
+
+      return {
+        data: items.map(toWorkItemDto),
+        ...pagination,
+        total,
+      };
     },
   };
 }

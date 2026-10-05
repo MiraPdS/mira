@@ -1,7 +1,7 @@
 import { Router } from 'express';
-import { createWorkItemSchema } from '@mira/shared';
+import { createWorkItemSchema, paginationQuerySchema } from '@mira/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
-import { validateBody } from '../../middleware/validate.js';
+import { validateBody, validateQuery } from '../../middleware/validate.js';
 import { createWorkItemController } from './work-item.controller.js';
 import { createWorkItemRepository } from './work-item.repository.js';
 import { createWorkItemService } from './work-item.service.js';
@@ -15,6 +15,13 @@ import { createWorkItemService } from './work-item.service.js';
 export function createWorkItemRouter(): Router {
   const controller = createWorkItemController(createWorkItemService(createWorkItemRepository()));
   const router = Router();
+
+  router.get(
+    '/:projectId/work-items',
+    requireAuth,
+    validateQuery(paginationQuerySchema),
+    controller.list,
+  );
 
   router.post(
     '/:projectId/work-items',
