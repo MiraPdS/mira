@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { env, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createAuthRouter } from './modules/auth/auth.router.js';
+import { createWorkItemRouter } from './modules/work-items/work-item.router.js';
 
 /**
  * Construye la aplicacion Express SIN escuchar en un puerto.
@@ -35,6 +36,7 @@ export function createApp(): Express {
   });
 
   app.use('/api/auth', createAuthRouter());
+  app.use('/api/projects', createWorkItemRouter());
 
   // Estos dos van SIEMPRE al final y en este orden.
   app.use(notFoundHandler);
