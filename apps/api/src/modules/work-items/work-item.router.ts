@@ -29,6 +29,7 @@ export function createWorkItemRouter(): Router {
     validateBody(createWorkItemSchema),
     controller.create,
   );
+  router.get('/:projectId/work-items/:workItemId', requireAuth, controller.getById);
 
   return router;
 }

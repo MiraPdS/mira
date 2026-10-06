@@ -81,9 +81,12 @@ export async function createWorkItem(options: {
   project: Project;
   createdBy: User;
   title?: string;
+  description?: string | null;
   status?: WorkItem['status'];
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
+  estimate?: WorkItem['estimate'];
+  dueDate?: WorkItem['dueDate'];
   assigneeId?: string | null;
 }): Promise<WorkItem> {
   const n = siguiente();
@@ -93,9 +96,12 @@ export async function createWorkItem(options: {
       projectId: options.project.id,
       createdById: options.createdBy.id,
       title: options.title ?? `Item ${n}`,
+      description: options.description ?? null,
       status: options.status ?? 'BACKLOG',
       type: options.type ?? 'TASK',
       priority: options.priority ?? 'MEDIUM',
+      estimate: options.estimate ?? null,
+      dueDate: options.dueDate ?? null,
       assigneeId: options.assigneeId ?? null,
     },
   });

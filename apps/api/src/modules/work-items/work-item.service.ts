@@ -6,8 +6,8 @@ import {
   type PublicUser,
   type WorkItemDto,
 } from '@mira/shared';
-import { ForbiddenError } from '../../lib/errors.js';
-import type { CreatedWorkItem, WorkItemRepository, WorkItemUser } from './work-item.repository.js';
+import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import type { WorkItemForDto, WorkItemRepository, WorkItemUser } from './work-item.repository.js';
 
 /** Convierte el subconjunto de usuario retornado por el repositorio al DTO publico. */
 function toPublicUser(user: WorkItemUser): PublicUser {
@@ -20,7 +20,7 @@ function toPublicUser(user: WorkItemUser): PublicUser {
 }
 
 /** Serializa el resultado de persistencia al contrato compartido de la API. */
-export function toWorkItemDto(workItem: CreatedWorkItem): WorkItemDto {
+export function toWorkItemDto(workItem: WorkItemForDto): WorkItemDto {
   return {
     id: workItem.id,
     reference: workItem.reference,
@@ -75,6 +75,17 @@ export function createWorkItemService(repo: WorkItemRepository) {
         ...pagination,
         total,
       };
+    },
+
+    async getById(projectId: string, actorId: string, workItemId: string): Promise<WorkItemDto> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      if (role === null) throw new NotFoundError('Elemento de trabajo');
+      if (!can(role, 'work-item:view')) throw new ForbiddenError();
+
+      const workItem = await repo.findByIdInProject(projectId, workItemId);
+      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+      return toWorkItemDto(workItem);
     },
   };
 }

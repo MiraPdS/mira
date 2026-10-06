@@ -16,8 +16,8 @@ export interface WorkItemUser {
   createdAt: Date;
 }
 
-/** Item recien creado, con las relaciones necesarias para construir su DTO. */
-export interface CreatedWorkItem {
+/** Item con las relaciones necesarias para construir su DTO publico. */
+export interface WorkItemForDto {
   id: string;
   reference: string;
   projectId: string;
@@ -48,7 +48,7 @@ export interface ListWorkItemsData {
 }
 
 export interface ListWorkItemsResult {
-  items: CreatedWorkItem[];
+  items: WorkItemForDto[];
   total: number;
 }
 
@@ -61,7 +61,8 @@ export interface ListWorkItemsResult {
  */
 export interface WorkItemRepository {
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
-  createAtomically(data: CreateWorkItemData): Promise<CreatedWorkItem>;
+  findByIdInProject(projectId: string, workItemId: string): Promise<WorkItemForDto | null>;
+  createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
 }
 
@@ -79,7 +80,7 @@ function hasTransaction(db: Db): db is PrismaClient {
   return '$transaction' in db;
 }
 
-async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<CreatedWorkItem> {
+async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<WorkItemForDto> {
   // update con increment reserva el siguiente numero en la misma sentencia.
   // Postgres bloquea la fila del proyecto hasta terminar la transaccion, por
   // lo que dos creaciones concurrentes nunca reciben el mismo contador.
@@ -134,6 +135,16 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
         select: { role: true },
       });
       return member?.role ?? null;
+    },
+
+    async findByIdInProject(projectId, workItemId) {
+      return db.workItem.findFirst({
+        where: { id: workItemId, projectId },
+        include: {
+          assignee: usersForDto,
+          createdBy: usersForDto,
+        },
+      });
     },
 
     async createAtomically(data) {
