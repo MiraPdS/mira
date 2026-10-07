@@ -1,6 +1,7 @@
 import type { Project, ProjectRole, User, WorkItem } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { hashPassword } from '../lib/password.js';
+import { AUTH_COOKIE, signToken } from '../lib/jwt.js';
 
 /**
  * Factories para los tests de integracion.
@@ -32,6 +33,15 @@ export async function createUser(
       passwordHash: await hashPassword(overrides.password ?? PASSWORD_DE_PRUEBA),
     },
   });
+}
+
+/**
+ * Cabecera Cookie con una sesion valida para `user`, lista para
+ * `.set('Cookie', sessionCookie(user))`. Evita pasar por /login en tests que
+ * no prueban autenticacion.
+ */
+export function sessionCookie(user: Pick<User, 'id' | 'email'>): string {
+  return `${AUTH_COOKIE}=${signToken({ sub: user.id, email: user.email })}`;
 }
 
 export async function createProject(
