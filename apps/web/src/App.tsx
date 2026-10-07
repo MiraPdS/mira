@@ -1,7 +1,8 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { useCurrentUser } from '@/features/auth/useAuth';
+import { KanbanBoard } from '@/features/board/KanbanBoard';
 
 /**
  * Arbol de rutas.
@@ -37,6 +38,17 @@ function RequiereSesion({ children }: { children: React.ReactNode }) {
   return user ? <>{children}</> : <Navigate to="/login" replace />;
 }
 
+/** Pagina del tablero: traduce la URL al proyecto que recibe KanbanBoard. */
+function TableroPage() {
+  const { projectId = '' } = useParams();
+
+  return (
+    <main className="mx-auto w-full max-w-7xl min-w-0 px-4 py-6 sm:px-6">
+      <KanbanBoard projectId={projectId} />
+    </main>
+  );
+}
+
 export function App() {
   return (
     <Routes>
@@ -48,6 +60,14 @@ export function App() {
         element={
           <RequiereSesion>
             <Pendiente item="MIR-6" titulo="Mis proyectos" />
+          </RequiereSesion>
+        }
+      />
+      <Route
+        path="/proyectos/:projectId/tablero"
+        element={
+          <RequiereSesion>
+            <TableroPage />
           </RequiereSesion>
         }
       />
