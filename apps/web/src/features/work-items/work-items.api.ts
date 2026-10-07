@@ -1,4 +1,9 @@
-import type { CreateWorkItemInput, Paginated, WorkItemDto } from '@mira/shared';
+import type {
+  CreateWorkItemInput,
+  Paginated,
+  UpdateWorkItemInput,
+  WorkItemDto,
+} from '@mira/shared';
 import { api } from '@/lib/api-client';
 
 type WorkItemResponse = { item: WorkItemDto };
@@ -30,6 +35,19 @@ export function listWorkItems(
 export async function getWorkItem(projectId: string, workItemId: string): Promise<WorkItemDto> {
   const { item } = await api.get<WorkItemResponse>(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
+  );
+  return item;
+}
+
+/** Actualiza los campos editables de un elemento dentro de su proyecto. */
+export async function updateWorkItem(
+  projectId: string,
+  workItemId: string,
+  input: UpdateWorkItemInput,
+): Promise<WorkItemDto> {
+  const { item } = await api.patch<WorkItemResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
+    input,
   );
   return item;
 }

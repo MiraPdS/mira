@@ -1,10 +1,15 @@
-import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
+import { can, PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS, type ProjectRole } from '@mira/shared';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
 import { ApiRequestError } from '@/lib/api-client';
 import { useWorkItem } from './useWorkItems';
+import { WorkItemEditForm } from './WorkItemEditForm';
 
 export interface WorkItemDetailProps {
   projectId: string;
   workItemId: string;
+  /** Rol dentro de este proyecto. Sin rol el detalle se muestra en solo lectura. */
+  role?: ProjectRole | null;
 }
 
 const dateFormatter = new Intl.DateTimeFormat('es-CL', {
@@ -28,8 +33,9 @@ function ElementoNoEncontrado() {
 }
 
 /** Muestra el detalle de un elemento sin decidir rutas ni navegacion. */
-export function WorkItemDetail({ projectId, workItemId }: WorkItemDetailProps) {
+export function WorkItemDetail({ projectId, workItemId, role }: WorkItemDetailProps) {
   const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
+  const [isEditing, setIsEditing] = useState(false);
 
   // La query se deshabilita con identificadores vacios. En TanStack Query v5
   // eso deja isPending en true, por lo que este caso debe resolverse antes de
@@ -61,11 +67,27 @@ export function WorkItemDetail({ projectId, workItemId }: WorkItemDetailProps) {
     );
   }
 
+  const canEdit = can(role, 'work-item:update');
+
+  if (isEditing && canEdit) {
+    return (
+      <WorkItemEditForm
+        projectId={projectId}
+        item={item}
+        onCancel={() => setIsEditing(false)}
+        onSaved={() => setIsEditing(false)}
+      />
+    );
+  }
+
   return (
     <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
-      <header className="border-b border-slate-200 pb-4">
-        <p className="text-sm font-medium text-slate-500">{item.reference}</p>
-        <h2 className="mt-1 text-xl font-semibold text-slate-900">{item.title}</h2>
+      <header className="flex items-start justify-between gap-4 border-b border-slate-200 pb-4">
+        <div>
+          <p className="text-sm font-medium text-slate-500">{item.reference}</p>
+          <h2 className="mt-1 text-xl font-semibold text-slate-900">{item.title}</h2>
+        </div>
+        {canEdit ? <Button onClick={() => setIsEditing(true)}>Editar</Button> : null}
       </header>
 
       <dl className="mt-6 grid gap-5 sm:grid-cols-2">

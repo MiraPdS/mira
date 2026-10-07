@@ -17,6 +17,7 @@ const BASE_URL = 'http://localhost:3000/api';
 const PROJECT_ID = 'project_123';
 const WORK_ITEM_ID = 'item_456';
 const DETAIL_URL = `${BASE_URL}/projects/${PROJECT_ID}/work-items/${WORK_ITEM_ID}`;
+const UPDATE_URL = DETAIL_URL;
 
 function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
   return {
@@ -134,6 +135,209 @@ describe('WorkItemDetail', () => {
     expect(screen.getByText('Sin asignar')).toBeInTheDocument();
     expect(screen.getByText('Sin estimar')).toBeInTheDocument();
     expect(screen.getByText('Sin fecha límite')).toBeInTheDocument();
+  });
+
+  it.each(['OWNER', 'MEMBER'] as const)('muestra Editar a un %s', async (role) => {
+    responderConItem();
+
+    renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role={role} />,
+    );
+
+    await screen.findByRole('heading', { name: 'Ver el detalle de un elemento' });
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
+  });
+
+  it('mantiene a VIEWER en modo lectura sin exponer el editor', async () => {
+    const item = itemDePrueba();
+    responderConItem(item);
+
+    renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="VIEWER" />,
+    );
+
+    expect(await screen.findByRole('heading', { name: item.title })).toBeInTheDocument();
+    expect(screen.getByText(item.description!)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Editar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Editar elemento' })).not.toBeInTheDocument();
+  });
+
+  it('precarga el formulario con los campos editables actuales', async () => {
+    const item = itemDePrueba();
+    responderConItem(item);
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="MEMBER" />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+
+    expect(screen.getByRole('heading', { name: 'Editar elemento' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Titulo')).toHaveValue(item.title);
+    expect(screen.getByLabelText('Descripcion')).toHaveValue(item.description);
+    expect(screen.getByLabelText('Tipo')).toHaveValue(item.type);
+    expect(screen.getByLabelText('Prioridad')).toHaveValue(item.priority);
+    expect(screen.getByLabelText('Estimacion')).toHaveValue(item.estimate);
+    expect(screen.getByLabelText('Fecha limite')).toHaveValue('2026-03-15');
+    expect(screen.queryByLabelText('Estado')).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Responsable')).not.toBeInTheDocument();
+  });
+
+  it('envia solo los campos modificados y vuelve al detalle actualizado', async () => {
+    const item = itemDePrueba();
+    const updatedItem = itemDePrueba({
+      title: 'Detalle actualizado',
+      updatedAt: '2026-02-03T11:30:00.000Z',
+    });
+    let payload: unknown;
+    responderConItem(item);
+    server.use(
+      http.patch(UPDATE_URL, async ({ request }) => {
+        payload = await request.json();
+        return HttpResponse.json({ item: updatedItem });
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="MEMBER" />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+    await user.clear(screen.getByLabelText('Titulo'));
+    await user.type(screen.getByLabelText('Titulo'), updatedItem.title);
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('heading', { name: updatedItem.title })).toBeInTheDocument();
+    expect(payload).toEqual({ title: updatedItem.title });
+  });
+
+  it('Cancelar vuelve al detalle sin hacer PATCH', async () => {
+    let patches = 0;
+    responderConItem();
+    server.use(
+      http.patch(UPDATE_URL, () => {
+        patches += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="MEMBER" />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+    await user.type(screen.getByLabelText('Descripcion'), ' sin guardar');
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(
+      await screen.findByRole('heading', { name: 'Ver el detalle de un elemento' }),
+    ).toBeInTheDocument();
+    expect(patches).toBe(0);
+  });
+
+  it('no hace PATCH cuando no hay cambios reales', async () => {
+    let patches = 0;
+    responderConItem();
+    server.use(
+      http.patch(UPDATE_URL, () => {
+        patches += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="MEMBER" />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('status')).toHaveTextContent('No hay cambios para guardar.');
+    expect(patches).toBe(0);
+  });
+
+  it('valida localmente antes de llamar a la API', async () => {
+    let patches = 0;
+    responderConItem();
+    server.use(
+      http.patch(UPDATE_URL, () => {
+        patches += 1;
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="MEMBER" />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+    await user.clear(screen.getByLabelText('Titulo'));
+    await user.type(screen.getByLabelText('Titulo'), 'ab');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(
+      await screen.findByText('El titulo debe tener al menos 3 caracteres'),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Titulo')).toHaveAttribute('aria-invalid', 'true');
+    expect(patches).toBe(0);
+  });
+
+  it.each([
+    {
+      name: '403',
+      response: () => apiError(403, 'FORBIDDEN', 'No tienes permisos para editar este elemento'),
+      message: 'No tienes permisos para editar este elemento',
+    },
+    {
+      name: '500',
+      response: () => apiError(500, 'INTERNAL_ERROR', 'No se pudo guardar el elemento'),
+      message: 'No se pudo guardar el elemento',
+    },
+    {
+      name: 'red',
+      response: () => HttpResponse.error(),
+      message: 'No se pudo conectar con el servidor. Revisa tu conexion.',
+    },
+  ])(
+    'conserva el formulario y muestra el error $name al fallar el guardado',
+    async ({ response, message }) => {
+      responderConItem();
+      server.use(http.patch(UPDATE_URL, response));
+      const { user } = renderConProviders(
+        <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="MEMBER" />,
+      );
+
+      await user.click(await screen.findByRole('button', { name: 'Editar' }));
+      await user.clear(screen.getByLabelText('Titulo'));
+      await user.type(screen.getByLabelText('Titulo'), 'Titulo que se conserva');
+      await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+      expect(await screen.findByRole('alert')).toHaveTextContent(message);
+      expect(screen.getByRole('heading', { name: 'Editar elemento' })).toBeInTheDocument();
+      expect(screen.getByLabelText('Titulo')).toHaveValue('Titulo que se conserva');
+    },
+  );
+
+  it('permite limpiar los campos nullable y envia null', async () => {
+    const item = itemDePrueba();
+    const updatedItem = itemDePrueba({ description: null, estimate: null, dueDate: null });
+    let payload: unknown;
+    responderConItem(item);
+    server.use(
+      http.patch(UPDATE_URL, async ({ request }) => {
+        payload = await request.json();
+        return HttpResponse.json({ item: updatedItem });
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} role="OWNER" />,
+    );
+
+    await user.click(await screen.findByRole('button', { name: 'Editar' }));
+    await user.clear(screen.getByLabelText('Descripcion'));
+    await user.clear(screen.getByLabelText('Estimacion'));
+    await user.clear(screen.getByLabelText('Fecha limite'));
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByText('Sin descripción')).toBeInTheDocument();
+    expect(screen.getByText('Sin estimar')).toBeInTheDocument();
+    expect(screen.getByText('Sin fecha límite')).toBeInTheDocument();
+    expect(payload).toEqual({ description: null, estimate: null, dueDate: null });
   });
 
   it('muestra un estado de no encontrado para 404 NOT_FOUND sin alert generico', async () => {
