@@ -15,13 +15,28 @@ export interface WorkItemBacklogProps {
  * componente no necesita conocer rutas ni el flujo de proyectos.
  */
 export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
-  const [page, setPage] = useState(1);
+  const [pagination, setPagination] = useState({ projectId, page: 1 });
+  // Al cambiar de proyecto la pagina anterior no es valida. Derivarla aqui,
+  // antes de consultar, evita pedir por error la pagina N del proyecto nuevo.
+  const page = pagination.projectId === projectId ? pagination.page : 1;
 
-  useEffect(() => {
-    setPage(1);
-  }, [projectId]);
+  const changePage = (update: (currentPage: number) => number) => {
+    setPagination((current) => ({
+      projectId,
+      page: update(current.projectId === projectId ? current.page : 1),
+    }));
+  };
 
   const backlog = useWorkItems(projectId, page, PAGE_SIZE);
+  const totalPages = backlog.data ? Math.max(1, Math.ceil(backlog.data.total / PAGE_SIZE)) : 1;
+
+  // Si mientras se navega se eliminan elementos, la pagina solicitada puede
+  // dejar de existir. Se vuelve a la ultima valida y se consulta de nuevo.
+  useEffect(() => {
+    if (backlog.data && page > totalPages) {
+      setPagination({ projectId, page: totalPages });
+    }
+  }, [backlog.data, page, projectId, totalPages]);
 
   if (backlog.isPending) {
     return <p role="status">Cargando backlog...</p>;
@@ -41,6 +56,10 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
   }
 
   const { data, total } = backlog.data;
+  if (page > totalPages) {
+    return <p role="status">Actualizando backlog...</p>;
+  }
+
   if (data.length === 0 && total === 0) {
     return (
       <section className="w-full rounded-lg border border-slate-200 bg-white p-6">
@@ -49,8 +68,6 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
       </section>
     );
   }
-
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
     <section className="w-full rounded-lg border border-slate-200 bg-white p-6">
@@ -102,7 +119,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
         <Button
           variant="secondary"
           disabled={page === 1}
-          onClick={() => setPage((currentPage) => Math.max(1, currentPage - 1))}
+          onClick={() => changePage((currentPage) => Math.max(1, currentPage - 1))}
         >
           Anterior
         </Button>
@@ -112,7 +129,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
         <Button
           variant="secondary"
           disabled={page >= totalPages}
-          onClick={() => setPage((currentPage) => Math.min(totalPages, currentPage + 1))}
+          onClick={() => changePage((currentPage) => Math.min(totalPages, currentPage + 1))}
         >
           Siguiente
         </Button>

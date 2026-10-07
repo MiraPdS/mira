@@ -283,6 +283,40 @@ describe('WorkItemBacklog', () => {
     await waitFor(() =>
       expect(requests).toContainEqual({ projectId: 'project_b', page: '1', pageSize: '20' }),
     );
+    expect(requests).not.toContainEqual({ projectId: 'project_b', page: '2', pageSize: '20' });
+  });
+
+  it('vuelve a la ultima pagina valida si el total disminuye', async () => {
+    const requestedPages: string[] = [];
+    const initialItem = itemDePrueba({ title: 'Item antes de eliminar elementos' });
+    const lastPageItem = itemDePrueba({
+      id: 'item_1_after_delete',
+      title: 'Item de la pagina valida',
+    });
+    let firstPageRequest = true;
+
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const page = new URL(request.url).searchParams.get('page');
+        requestedPages.push(page ?? '');
+
+        if (page === '2') return HttpResponse.json(pagina([], 2, 15));
+        if (firstPageRequest) {
+          firstPageRequest = false;
+          return HttpResponse.json(pagina([initialItem], 1, 25));
+        }
+        return HttpResponse.json(pagina([lastPageItem], 1, 15));
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByText('Item antes de eliminar elementos');
+    await user.click(screen.getByRole('button', { name: 'Siguiente' }));
+
+    expect(await screen.findByText('Item de la pagina valida')).toBeInTheDocument();
+    expect(screen.getByText('Pagina 1 de 1')).toBeInTheDocument();
+    expect(screen.queryByText('Pagina 2 de 1')).not.toBeInTheDocument();
+    await waitFor(() => expect(requestedPages).toEqual(['1', '2', '1']));
   });
 
   it('no muestra controles de busqueda, filtros ni orden de MIR-13', async () => {
