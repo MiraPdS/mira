@@ -1,5 +1,6 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
+import { RegisterPage } from '@/features/auth/RegisterPage';
 import { useCurrentUser } from '@/features/auth/useAuth';
 
 /**
@@ -41,7 +42,7 @@ export function App() {
     <Routes>
       <Route path="/" element={<Navigate to="/proyectos" replace />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/registro" element={<Pendiente item="MIR-2" titulo="Crear cuenta" />} />
+      <Route path="/registro" element={<RegisterPage />} />
       <Route
         path="/proyectos"
         element={
