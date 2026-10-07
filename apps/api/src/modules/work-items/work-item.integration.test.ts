@@ -2,7 +2,13 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import type { User } from '@prisma/client';
-import { addMember, createProject, createUser, PASSWORD_DE_PRUEBA } from '../../test/factories.js';
+import {
+  addMember,
+  createProject,
+  createUser,
+  createWorkItem,
+  PASSWORD_DE_PRUEBA,
+} from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
 
 /**
@@ -39,6 +45,19 @@ async function iniciarSesion(user: User): Promise<string> {
 
 function rutaDeCreacion(projectId: string): string {
   return `/api/projects/${projectId}/work-items`;
+}
+
+async function crearItems(projectId: string, createdBy: User, cantidad: number): Promise<void> {
+  const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
+  await Promise.all(
+    Array.from({ length: cantidad }, (_, index) =>
+      createWorkItem({
+        project,
+        createdBy,
+        title: `Item de backlog ${index + 1}`,
+      }),
+    ),
+  );
 }
 
 describe('POST /api/projects/:projectId/work-items', () => {
@@ -220,5 +239,198 @@ describe('POST /api/projects/:projectId/work-items', () => {
     expect(new Set(activities.map((activity) => activity.workItemId))).toEqual(
       new Set(items.map((item) => item.id)),
     );
+  });
+});
+
+describe('GET /api/projects/:projectId/work-items', () => {
+  it('devuelve la primera pagina de 20 items y el total de 25', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await crearItems(project.id, owner, 25);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?page=1&pageSize=20`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ page: 1, pageSize: 20, total: 25 });
+    expect(res.body.data).toHaveLength(20);
+    expect(res.body.data).toEqual(
+      expect.arrayContaining([expect.objectContaining({ projectId: project.id })]),
+    );
+    expect(
+      res.body.data.every((item: { projectId: string }) => item.projectId === project.id),
+    ).toBe(true);
+  });
+
+  it('devuelve los cinco items restantes en la segunda pagina', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await crearItems(project.id, owner, 25);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?page=2&pageSize=20`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ page: 2, pageSize: 20, total: 25 });
+    expect(res.body.data).toHaveLength(5);
+  });
+
+  it('aplica page=1 y pageSize=20 cuando no se envia query', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await crearItems(project.id, owner, 21);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ page: 1, pageSize: 20, total: 21 });
+    expect(res.body.data).toHaveLength(20);
+  });
+
+  it('devuelve un backlog vacio para un proyecto miembro sin items', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: [], page: 1, pageSize: 20, total: 0 });
+  });
+
+  it('permite a VIEWER listar el backlog', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await crearItems(project.id, owner, 1);
+    const viewer = await createUser({ email: 'viewer@mira.test' });
+    await addMember(project, viewer, 'VIEWER');
+    const cookie = await iniciarSesion(viewer);
+
+    const res = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ page: 1, pageSize: 20, total: 1 });
+    expect(res.body.data).toHaveLength(1);
+  });
+
+  it('rechaza a un usuario autenticado que no pertenece al proyecto', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await crearItems(project.id, owner, 1);
+    const outsider = await createUser({ email: 'outsider@mira.test' });
+    const cookie = await iniciarSesion(outsider);
+
+    const res = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body).not.toHaveProperty('data');
+  });
+
+  it('requiere una sesion valida para listar', async () => {
+    const { project } = await createProject({ key: 'MIR' });
+
+    const res = await request(app).get(rutaDeCreacion(project.id));
+
+    expect(res.status).toBe(401);
+  });
+
+  it.each(['0', 'abc'])('rechaza page=%s', async (page) => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?page=${page}`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('rechaza pageSize mayor a 100', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?pageSize=101`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('ordena por createdAt DESC y desempata por id DESC', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const [oldest, tiedFirst, tiedSecond, newest] = await Promise.all([
+      createWorkItem({ project, createdBy: owner }),
+      createWorkItem({ project, createdBy: owner }),
+      createWorkItem({ project, createdBy: owner }),
+      createWorkItem({ project, createdBy: owner }),
+    ]);
+    const sharedCreatedAt = new Date('2026-03-02T10:00:00.000Z');
+    await Promise.all([
+      prisma.workItem.update({
+        where: { id: oldest.id },
+        data: { createdAt: new Date('2026-03-01T10:00:00.000Z') },
+      }),
+      prisma.workItem.update({ where: { id: tiedFirst.id }, data: { createdAt: sharedCreatedAt } }),
+      prisma.workItem.update({
+        where: { id: tiedSecond.id },
+        data: { createdAt: sharedCreatedAt },
+      }),
+      prisma.workItem.update({
+        where: { id: newest.id },
+        data: { createdAt: new Date('2026-03-03T10:00:00.000Z') },
+      }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.map((item: { id: string }) => item.id)).toEqual([
+      newest.id,
+      ...[tiedFirst.id, tiedSecond.id].sort().reverse(),
+      oldest.id,
+    ]);
+  });
+
+  it('aísla items y total al proyecto solicitado', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const { project: otherProject } = await createProject({ owner, key: 'OTR' });
+    await crearItems(project.id, owner, 2);
+    await crearItems(otherProject.id, owner, 3);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(2);
+    expect(res.body.data).toHaveLength(2);
+    expect(
+      res.body.data.every((item: { projectId: string }) => item.projectId === project.id),
+    ).toBe(true);
+  });
+
+  it('devuelve una pagina vacia fuera de rango sin convertirla en 404', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await crearItems(project.id, owner, 5);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?page=50&pageSize=20`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ data: [], page: 50, pageSize: 20, total: 5 });
   });
 });

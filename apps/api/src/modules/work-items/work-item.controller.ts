@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateWorkItemInput, WorkItemDto } from '@mira/shared';
+import type { CreateWorkItemInput, PaginationQuery, WorkItemDto } from '@mira/shared';
 import { UnauthorizedError } from '../../lib/errors.js';
+import { validatedQuery } from '../../middleware/validate.js';
 import type { WorkItemService } from './work-item.service.js';
 
 type CreateWorkItemResponse = { item: WorkItemDto };
@@ -25,6 +26,21 @@ export function createWorkItemController(service: WorkItemService) {
           req.body as CreateWorkItemInput,
         );
         res.status(201).json({ item } satisfies CreateWorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async list(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const result = await service.list(
+          req.params.projectId!,
+          req.user.id,
+          validatedQuery<PaginationQuery>(res),
+        );
+        res.status(200).json(result);
       } catch (error) {
         next(error);
       }
