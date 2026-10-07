@@ -577,3 +577,94 @@ describe('GET /api/projects/:projectId/work-items/:workItemId', () => {
     });
   });
 });
+
+describe('GET /api/projects/:projectId/board', () => {
+  const rutaDelTablero = (projectId: string) => `/api/projects/${projectId}/board`;
+
+  it('devuelve los items de las cuatro columnas y excluye el backlog', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    for (const status of ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const) {
+      await createWorkItem({ project, createdBy: owner, title: `Item ${status}`, status });
+    }
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items.map((item: { status: string }) => item.status).sort()).toEqual([
+      'DONE',
+      'IN_PROGRESS',
+      'IN_REVIEW',
+      'TODO',
+    ]);
+  });
+
+  it('incluye el responsable y no mezcla items de otros proyectos', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const assignee = await createUser({ email: 'grace@mira.test', name: 'Grace Hopper' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const { project: otro } = await createProject({ owner, key: 'OTRO' });
+    await addMember(project, assignee);
+    await createWorkItem({ project, createdBy: owner, status: 'TODO', assigneeId: assignee.id });
+    await createWorkItem({ project: otro, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+    expect(res.body.items[0]).toMatchObject({
+      projectId: project.id,
+      assignee: { id: assignee.id, name: 'Grace Hopper' },
+    });
+    expect(res.body.items[0].assignee).not.toHaveProperty('passwordHash');
+  });
+
+  it('devuelve un tablero vacio cuando solo hay items en el backlog', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await createWorkItem({ project, createdBy: owner, status: 'BACKLOG' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ items: [] });
+  });
+
+  it('permite ver el tablero a un VIEWER', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const viewer = await createUser({ email: 'viewer@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await addMember(project, viewer, 'VIEWER');
+    await createWorkItem({ project, createdBy: owner, status: 'DONE' });
+    const cookie = await iniciarSesion(viewer);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(1);
+  });
+
+  it('rechaza con 403 a quien no es miembro del proyecto', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const ajeno = await createUser({ email: 'ajeno@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const cookie = await iniciarSesion(ajeno);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+  });
+
+  it('rechaza con 401 sin sesion', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+
+    const res = await request(app).get(rutaDelTablero(project.id));
+
+    expect(res.status).toBe(401);
+  });
+});

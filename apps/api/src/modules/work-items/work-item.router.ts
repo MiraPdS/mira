@@ -31,5 +31,8 @@ export function createWorkItemRouter(): Router {
   );
   router.get('/:projectId/work-items/:workItemId', requireAuth, controller.getById);
 
+  // Tablero Kanban: GET /api/projects/:projectId/board
+  router.get('/:projectId/board', requireAuth, controller.board);
+
   return router;
 }

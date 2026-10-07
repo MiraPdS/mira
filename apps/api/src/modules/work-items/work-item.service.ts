@@ -87,6 +87,14 @@ export function createWorkItemService(repo: WorkItemRepository) {
 
       return toWorkItemDto(workItem);
     },
+
+    async board(projectId: string, actorId: string): Promise<WorkItemDto[]> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      if (!can(role, 'work-item:view')) throw new ForbiddenError();
+
+      const items = await repo.listBoardByProject(projectId);
+      return items.map(toWorkItemDto);
+    },
   };
 }
 
