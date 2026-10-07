@@ -87,6 +87,7 @@ Cada flecha significa *"esto tiene que existir antes"*. El color indica quién
 es el responsable.
 
 ```mermaid
+%%{init: {"themeVariables": {"fontSize": "12px"}, "flowchart": {"nodeSpacing": 20, "rankSpacing": 30, "padding": 6}}}%%
 flowchart LR
   classDef listo  fill:#e5e7eb,stroke:#9ca3af,color:#374151
   classDef benja  fill:#dbeafe,stroke:#2563eb,color:#1e3a8a
@@ -170,6 +171,14 @@ flowchart LR
   M27 --> M28
   M28 --> M29
 ```
+
+| Color | Responsable |
+| --- | --- |
+| Gris | Ya está Hecho |
+| Azul | Benjamín |
+| Verde | Isaías |
+| Amarillo | Mauro |
+| Morado | Diego |
 
 `MIR-26` (Wiki) y `MIR-27` (despliegue) no tienen predecesores: **se pueden
 empezar hoy**, en paralelo con todo lo demás.
