@@ -1,7 +1,8 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
-import { useCurrentUser } from '@/features/auth/useAuth';
+import { RequiereSesion, SoloInvitados } from '@/features/auth/guards';
+import { AppLayout } from '@/components/layout/AppLayout';
 
 /**
  * Arbol de rutas.
@@ -22,35 +23,37 @@ function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   );
 }
 
-/** Protege una ruta: si no hay sesion, redirige a login. */
-function RequiereSesion({ children }: { children: React.ReactNode }) {
-  const { data: user, isPending } = useCurrentUser();
-
-  if (isPending) {
-    return (
-      <p role="status" className="p-8 text-sm text-slate-500">
-        Cargando...
-      </p>
-    );
-  }
-
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
-}
-
 export function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/proyectos" replace />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/registro" element={<RegisterPage />} />
       <Route
-        path="/proyectos"
+        path="/login"
         element={
-          <RequiereSesion>
-            <Pendiente item="MIR-6" titulo="Mis proyectos" />
-          </RequiereSesion>
+          <SoloInvitados>
+            <LoginPage />
+          </SoloInvitados>
         }
       />
+      <Route
+        path="/registro"
+        element={
+          <SoloInvitados>
+            <RegisterPage />
+          </SoloInvitados>
+        }
+      />
+      {/* Rutas autenticadas: comparten guardia y header. Las pantallas nuevas
+          se anidan aqui. */}
+      <Route
+        element={
+          <RequiereSesion>
+            <AppLayout />
+          </RequiereSesion>
+        }
+      >
+        <Route path="/proyectos" element={<Pendiente item="MIR-6" titulo="Mis proyectos" />} />
+      </Route>
       <Route path="*" element={<Pendiente item="-" titulo="Pagina no encontrada" />} />
     </Routes>
   );
