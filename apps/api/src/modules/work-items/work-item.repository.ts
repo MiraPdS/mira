@@ -2,6 +2,7 @@ import type { PrismaClient } from '@prisma/client';
 import type {
   CreateWorkItemInput,
   ProjectRole,
+  UpdateWorkItemInput,
   WorkItemPriority,
   WorkItemStatus,
   WorkItemType,
@@ -41,6 +42,23 @@ export interface CreateWorkItemData {
   input: CreateWorkItemInput;
 }
 
+export type UpdateableWorkItemField = keyof UpdateWorkItemInput;
+
+/** Representacion persistible de una actividad ITEM_UPDATED. */
+export interface WorkItemUpdateChange {
+  field: UpdateableWorkItemField;
+  fromValue: string | null;
+  toValue: string | null;
+}
+
+export interface UpdateWorkItemData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  input: UpdateWorkItemInput;
+  changes: WorkItemUpdateChange[];
+}
+
 export interface ListWorkItemsData {
   projectId: string;
   page: number;
@@ -63,6 +81,7 @@ export interface WorkItemRepository {
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   findByIdInProject(projectId: string, workItemId: string): Promise<WorkItemForDto | null>;
   createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
+  updateAtomically(data: UpdateWorkItemData): Promise<WorkItemForDto>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
 }
 
@@ -127,6 +146,33 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
   return workItem;
 }
 
+async function updateInTransaction(db: Db, data: UpdateWorkItemData): Promise<WorkItemForDto> {
+  const workItem = await db.workItem.update({
+    where: { id: data.workItemId },
+    data: data.input,
+    include: {
+      assignee: usersForDto,
+      createdBy: usersForDto,
+    },
+  });
+
+  if (data.changes.length > 0) {
+    await db.activityLog.createMany({
+      data: data.changes.map((change) => ({
+        action: 'ITEM_UPDATED',
+        projectId: data.projectId,
+        workItemId: data.workItemId,
+        actorId: data.actorId,
+        field: change.field,
+        fromValue: change.fromValue,
+        toValue: change.toValue,
+      })),
+    });
+  }
+
+  return workItem;
+}
+
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
     async findMemberRole(projectId, userId) {
@@ -153,6 +199,13 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       // que protege contador, item y actividad como una unidad indivisible.
       if (!hasTransaction(db)) return createInTransaction(db, data);
       return db.$transaction((tx) => createInTransaction(tx, data));
+    },
+
+    async updateAtomically(data) {
+      // Item y entradas ITEM_UPDATED son inseparables: si una actividad no se
+      // puede escribir, la actualizacion del item tambien se revierte.
+      if (!hasTransaction(db)) return updateInTransaction(db, data);
+      return db.$transaction((tx) => updateInTransaction(tx, data));
     },
 
     async listByProject({ projectId, page, pageSize }) {
