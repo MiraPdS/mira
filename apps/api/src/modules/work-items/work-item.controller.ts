@@ -4,7 +4,7 @@ import { UnauthorizedError } from '../../lib/errors.js';
 import { validatedQuery } from '../../middleware/validate.js';
 import type { WorkItemService } from './work-item.service.js';
 
-type CreateWorkItemResponse = { item: WorkItemDto };
+type WorkItemResponse = { item: WorkItemDto };
 
 /**
  * Capa HTTP: traduce peticion -> caso de uso -> respuesta.
@@ -25,7 +25,22 @@ export function createWorkItemController(service: WorkItemService) {
           req.user.id,
           req.body as CreateWorkItemInput,
         );
-        res.status(201).json({ item } satisfies CreateWorkItemResponse);
+        res.status(201).json({ item } satisfies WorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async getById(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const item = await service.getById(
+          req.params.projectId!,
+          req.user.id,
+          req.params.workItemId!,
+        );
+        res.status(200).json({ item } satisfies WorkItemResponse);
       } catch (error) {
         next(error);
       }

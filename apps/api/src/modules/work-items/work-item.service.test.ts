@@ -1,10 +1,10 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
 import type { CreateWorkItemInput, PaginationQuery, ProjectRole } from '@mira/shared';
-import { ForbiddenError } from '../../lib/errors.js';
+import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
-  CreatedWorkItem,
   ListWorkItemsResult,
+  WorkItemForDto,
   WorkItemRepository,
   WorkItemUser,
 } from './work-item.repository.js';
@@ -47,7 +47,7 @@ function usuarioDePrueba(overrides: Partial<WorkItemUser> = {}): WorkItemUser {
   };
 }
 
-function itemDePrueba(overrides: Partial<CreatedWorkItem> = {}): CreatedWorkItem {
+function itemDePrueba(overrides: Partial<WorkItemForDto> = {}): WorkItemForDto {
   return {
     id: 'item_1',
     reference: 'MIR-1',
@@ -293,6 +293,99 @@ describe('workItemService', () => {
       repo.listByProject.mockRejectedValue(error);
 
       await expect(service.list(PROJECT_ID, ACTOR_ID, PAGINATION)).rejects.toBe(error);
+    });
+  });
+
+  describe('getById', () => {
+    it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)(
+      '%s puede ver un elemento de trabajo',
+      async (role) => {
+        repo.findMemberRole.mockResolvedValue(role);
+        repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+        await expect(service.getById(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toMatchObject({
+          id: 'item_1',
+          reference: 'MIR-1',
+        });
+      },
+    );
+
+    it('consulta la membresia y busca el item con los identificadores correctos', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+      await service.getById(PROJECT_ID, ACTOR_ID, 'item_1');
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+    });
+
+    it('oculta al no miembro con NotFoundError sin buscar el item', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.getById(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+    });
+
+    it.each(['un identificador inexistente', 'un item que pertenece a otro proyecto'])(
+      'responde NotFoundError para %s',
+      async () => {
+        repo.findMemberRole.mockResolvedValue('VIEWER');
+        repo.findByIdInProject.mockResolvedValue(null);
+
+        await expect(
+          service.getById(PROJECT_ID, ACTOR_ID, 'item_inexistente'),
+        ).rejects.toBeInstanceOf(NotFoundError);
+      },
+    );
+
+    it('serializa completamente el item y sus campos nullable', async () => {
+      const createdBy = usuarioDePrueba({ createdAt: new Date('2026-01-02T03:04:05.000Z') });
+      const assignee = usuarioDePrueba({
+        id: 'user_2',
+        name: 'Grace Hopper',
+        email: 'grace@mira.dev',
+        createdAt: new Date('2026-01-03T04:05:06.000Z'),
+      });
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.findByIdInProject.mockResolvedValue(
+        itemDePrueba({
+          dueDate: new Date('2026-03-15T12:00:00.000Z'),
+          createdBy,
+          assignee,
+        }),
+      );
+
+      await expect(service.getById(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toEqual({
+        id: 'item_1',
+        reference: 'MIR-1',
+        projectId: PROJECT_ID,
+        title: 'Preparar la primera entrega',
+        description: 'Implementar la base del producto.',
+        type: 'STORY',
+        status: 'TODO',
+        priority: 'HIGH',
+        estimate: 5,
+        dueDate: '2026-03-15T12:00:00.000Z',
+        assignee: {
+          id: 'user_2',
+          name: 'Grace Hopper',
+          email: 'grace@mira.dev',
+          createdAt: '2026-01-03T04:05:06.000Z',
+        },
+        createdBy: {
+          id: 'user_1',
+          name: 'Ada Lovelace',
+          email: 'ada@mira.dev',
+          createdAt: '2026-01-02T03:04:05.000Z',
+        },
+        sprintId: null,
+        createdAt: '2026-02-01T10:00:00.000Z',
+        updatedAt: '2026-02-01T10:05:00.000Z',
+      });
     });
   });
 });

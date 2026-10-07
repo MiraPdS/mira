@@ -47,6 +47,10 @@ function rutaDeCreacion(projectId: string): string {
   return `/api/projects/${projectId}/work-items`;
 }
 
+function rutaDeDetalle(projectId: string, workItemId: string): string {
+  return `/api/projects/${projectId}/work-items/${workItemId}`;
+}
+
 async function crearItems(projectId: string, createdBy: User, cantidad: number): Promise<void> {
   const project = await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
   await Promise.all(
@@ -432,5 +436,144 @@ describe('GET /api/projects/:projectId/work-items', () => {
 
     expect(res.status).toBe(200);
     expect(res.body).toEqual({ data: [], page: 50, pageSize: 20, total: 5 });
+  });
+});
+
+describe('GET /api/projects/:projectId/work-items/:workItemId', () => {
+  it('permite a MEMBER obtener el detalle completo', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const member = await createUser({ email: 'member@mira.test' });
+    const assignee = await createUser({ email: 'assignee@mira.test' });
+    await addMember(project, member, 'MEMBER');
+    await addMember(project, assignee, 'MEMBER');
+    const dueDate = new Date('2026-03-15T12:00:00.000Z');
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Preparar la primera entrega',
+      description: 'Implementar el detalle del elemento.',
+      type: 'STORY',
+      status: 'IN_PROGRESS',
+      priority: 'HIGH',
+      estimate: 5,
+      dueDate,
+      assigneeId: assignee.id,
+    });
+    const cookie = await iniciarSesion(member);
+
+    const res = await request(app)
+      .get(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.item).toEqual({
+      id: workItem.id,
+      reference: workItem.reference,
+      projectId: project.id,
+      title: 'Preparar la primera entrega',
+      description: 'Implementar el detalle del elemento.',
+      type: 'STORY',
+      status: 'IN_PROGRESS',
+      priority: 'HIGH',
+      estimate: 5,
+      dueDate: dueDate.toISOString(),
+      assignee: {
+        id: assignee.id,
+        name: assignee.name,
+        email: assignee.email,
+        createdAt: assignee.createdAt.toISOString(),
+      },
+      createdBy: {
+        id: owner.id,
+        name: owner.name,
+        email: owner.email,
+        createdAt: owner.createdAt.toISOString(),
+      },
+      sprintId: null,
+      createdAt: workItem.createdAt.toISOString(),
+      updatedAt: workItem.updatedAt.toISOString(),
+    });
+  });
+
+  it.each(['OWNER', 'VIEWER'] as const)('%s puede obtener el detalle', async (role) => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const actor = role === 'OWNER' ? owner : await createUser({ email: 'viewer@mira.test' });
+    if (role === 'VIEWER') await addMember(project, actor, 'VIEWER');
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(actor);
+
+    const res = await request(app)
+      .get(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.item.id).toBe(workItem.id);
+  });
+
+  it('oculta el item a un usuario autenticado que no es miembro', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const outsider = await createUser({ email: 'outsider@mira.test' });
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(outsider);
+
+    const res = await request(app)
+      .get(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error).toEqual({
+      code: 'NOT_FOUND',
+      message: 'Elemento de trabajo no encontrado',
+    });
+  });
+
+  it('responde 404 para un item inexistente o de otro proyecto', async () => {
+    const actor = await createUser({ email: 'actor@mira.test' });
+    const { project: projectA } = await createProject({ owner: actor, key: 'PA' });
+    const ownerB = await createUser({ email: 'owner-b@mira.test' });
+    const { project: projectB } = await createProject({ owner: ownerB, key: 'PB' });
+    const workItemB = await createWorkItem({ project: projectB, createdBy: ownerB });
+    const cookie = await iniciarSesion(actor);
+
+    for (const workItemId of ['work_item_inexistente', workItemB.id]) {
+      const res = await request(app)
+        .get(rutaDeDetalle(projectA.id, workItemId))
+        .set('Cookie', cookie);
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    }
+  });
+
+  it('requiere una sesion valida y conserva los campos nullable', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      description: null,
+      estimate: null,
+      dueDate: null,
+      assigneeId: null,
+    });
+
+    const withoutSession = await request(app).get(rutaDeDetalle(project.id, workItem.id));
+    expect(withoutSession.status).toBe(401);
+
+    const cookie = await iniciarSesion(owner);
+    const res = await request(app)
+      .get(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.item).toMatchObject({
+      description: null,
+      estimate: null,
+      dueDate: null,
+      assignee: null,
+    });
   });
 });
