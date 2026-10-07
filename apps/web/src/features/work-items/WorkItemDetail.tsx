@@ -16,9 +16,27 @@ function fechaLegible(isoDate: string): string {
   return dateFormatter.format(new Date(isoDate));
 }
 
+function ElementoNoEncontrado() {
+  return (
+    <section className="rounded-lg border border-slate-200 bg-white p-6">
+      <h2 className="text-xl font-semibold text-slate-900">Elemento no encontrado</h2>
+      <p className="mt-1 text-sm text-slate-500">
+        El elemento solicitado no existe o no esta disponible para este proyecto.
+      </p>
+    </section>
+  );
+}
+
 /** Muestra el detalle de un elemento sin decidir rutas ni navegacion. */
 export function WorkItemDetail({ projectId, workItemId }: WorkItemDetailProps) {
   const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
+
+  // La query se deshabilita con identificadores vacios. En TanStack Query v5
+  // eso deja isPending en true, por lo que este caso debe resolverse antes de
+  // mostrar el estado de carga.
+  if (!projectId || !workItemId) {
+    return <ElementoNoEncontrado />;
+  }
 
   if (isPending) {
     return (
@@ -29,14 +47,7 @@ export function WorkItemDetail({ projectId, workItemId }: WorkItemDetailProps) {
   }
 
   if (error instanceof ApiRequestError && error.status === 404 && error.code === 'NOT_FOUND') {
-    return (
-      <section className="rounded-lg border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-semibold text-slate-900">Elemento no encontrado</h2>
-        <p className="mt-1 text-sm text-slate-500">
-          El elemento solicitado no existe o no esta disponible para este proyecto.
-        </p>
-      </section>
-    );
+    return <ElementoNoEncontrado />;
   }
 
   if (error || !item) {

@@ -54,6 +54,13 @@ function responderConItem(item: WorkItemDto = itemDePrueba()) {
 }
 
 describe('WorkItemDetail', () => {
+  it('muestra no encontrado si falta el identificador y no queda cargando', () => {
+    renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId="" />);
+
+    expect(screen.getByRole('heading', { name: 'Elemento no encontrado' })).toBeInTheDocument();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  });
+
   it('muestra un estado de carga accesible antes de recibir el detalle', async () => {
     let releaseResponse!: () => void;
     const responsePending = new Promise<void>((resolve) => {
