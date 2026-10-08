@@ -30,6 +30,7 @@ export function createWorkItemRouter(): Router {
     controller.create,
   );
   router.get('/:projectId/work-items/:workItemId', requireAuth, controller.getById);
+  router.delete('/:projectId/work-items/:workItemId', requireAuth, controller.delete);
 
   return router;
 }

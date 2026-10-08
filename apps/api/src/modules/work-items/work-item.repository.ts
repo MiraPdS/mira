@@ -41,6 +41,13 @@ export interface CreateWorkItemData {
   input: CreateWorkItemInput;
 }
 
+export interface DeleteWorkItemData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  reference: string;
+}
+
 export interface ListWorkItemsData {
   projectId: string;
   page: number;
@@ -63,6 +70,7 @@ export interface WorkItemRepository {
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   findByIdInProject(projectId: string, workItemId: string): Promise<WorkItemForDto | null>;
   createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
+  deleteAtomically(data: DeleteWorkItemData): Promise<void>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
 }
 
@@ -127,6 +135,23 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
   return workItem;
 }
 
+async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<void> {
+  // Se registra mientras el item existe; al borrarlo, la FK SetNull conserva
+  // tanto este evento como el historial previo, con su referencia legible.
+  await db.activityLog.create({
+    data: {
+      action: 'ITEM_DELETED',
+      projectId: data.projectId,
+      actorId: data.actorId,
+      workItemId: data.workItemId,
+      field: 'reference',
+      fromValue: data.reference,
+      toValue: null,
+    },
+  });
+  await db.workItem.delete({ where: { id: data.workItemId, projectId: data.projectId } });
+}
+
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
     async findMemberRole(projectId, userId) {
@@ -153,6 +178,11 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       // que protege contador, item y actividad como una unidad indivisible.
       if (!hasTransaction(db)) return createInTransaction(db, data);
       return db.$transaction((tx) => createInTransaction(tx, data));
+    },
+
+    async deleteAtomically(data) {
+      if (!hasTransaction(db)) return deleteInTransaction(db, data);
+      return db.$transaction((tx) => deleteInTransaction(tx, data));
     },
 
     async listByProject({ projectId, page, pageSize }) {

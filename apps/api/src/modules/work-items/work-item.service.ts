@@ -77,6 +77,23 @@ export function createWorkItemService(repo: WorkItemRepository) {
       };
     },
 
+    async delete(projectId: string, actorId: string, workItemId: string): Promise<void> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      // Misma politica de ocultacion que el detalle: el no miembro ve 404.
+      if (role === null) throw new NotFoundError('Elemento de trabajo');
+      if (!can(role, 'work-item:delete')) throw new ForbiddenError();
+
+      const workItem = await repo.findByIdInProject(projectId, workItemId);
+      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+      await repo.deleteAtomically({
+        projectId,
+        actorId,
+        workItemId,
+        reference: workItem.reference,
+      });
+    },
+
     async getById(projectId: string, actorId: string, workItemId: string): Promise<WorkItemDto> {
       const role = await repo.findMemberRole(projectId, actorId);
       if (role === null) throw new NotFoundError('Elemento de trabajo');
