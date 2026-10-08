@@ -369,6 +369,72 @@ describe('workItemService', () => {
     });
   });
 
+  describe('delete', () => {
+    it.each(['OWNER', 'MEMBER'] as const)('%s puede eliminar el item', async (role) => {
+      repo.findMemberRole.mockResolvedValue(role);
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba({ reference: 'MIR-12' }));
+      repo.deleteAtomically.mockResolvedValue(undefined);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toBeUndefined();
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+      expect(repo.deleteAtomically).toHaveBeenCalledTimes(1);
+      expect(repo.deleteAtomically).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        actorId: ACTOR_ID,
+        workItemId: 'item_1',
+        reference: 'MIR-12',
+      });
+    });
+
+    it('rechaza VIEWER sin buscar ni eliminar el item', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.deleteAtomically).not.toHaveBeenCalled();
+    });
+
+    it('oculta al no miembro con NotFoundError como en el detalle', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.deleteAtomically).not.toHaveBeenCalled();
+    });
+
+    it.each(['item inexistente', 'item de otro proyecto'])(
+      'rechaza %s sin intentar eliminar ni registrar actividad',
+      async () => {
+        repo.findMemberRole.mockResolvedValue('MEMBER');
+        repo.findByIdInProject.mockResolvedValue(null);
+
+        await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+          NotFoundError,
+        );
+
+        expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+        expect(repo.deleteAtomically).not.toHaveBeenCalled();
+      },
+    );
+
+    it('propaga un fallo de persistencia sin informar exito', async () => {
+      const error = new Error('No se pudo eliminar el item');
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.deleteAtomically.mockRejectedValue(error);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBe(error);
+    });
+  });
+
   describe('getById', () => {
     it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)(
       '%s puede ver un elemento de trabajo',

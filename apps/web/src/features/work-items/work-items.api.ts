@@ -24,6 +24,13 @@ export function normalizeWorkItemListFilters(
   };
 }
 
+/** Elimina el elemento; el cliente HTTP acepta 204 sin intentar leer JSON. */
+export function deleteWorkItem(projectId: string, workItemId: string): Promise<void> {
+  return api.delete<void>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
+  );
+}
+
 /** Crea un elemento de trabajo dentro del proyecto indicado. */
 export async function createWorkItem(
   projectId: string,

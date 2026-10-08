@@ -46,6 +46,17 @@ export function createWorkItemController(service: WorkItemService) {
       }
     },
 
+    async delete(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        await service.delete(req.params.projectId!, req.user.id, req.params.workItemId!);
+        res.status(204).end();
+      } catch (error) {
+        next(error);
+      }
+    },
+
     async list(req: Request, res: Response, next: NextFunction) {
       try {
         if (!req.user) throw new UnauthorizedError();

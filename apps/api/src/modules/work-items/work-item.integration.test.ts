@@ -10,6 +10,8 @@ import {
   PASSWORD_DE_PRUEBA,
 } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
+import { createWorkItemRepository } from './work-item.repository.js';
+import { createWorkItemService } from './work-item.service.js';
 
 /**
  * NIVEL 2 de la piramide: integracion.
@@ -63,6 +65,205 @@ async function crearItems(projectId: string, createdBy: User, cantidad: number):
     ),
   );
 }
+
+describe('DELETE /api/projects/:projectId/work-items/:workItemId', () => {
+  it.each(['OWNER', 'MEMBER'] as const)('%s elimina y recibe 204 sin body', async (role) => {
+    const { project, owner } = await createProject();
+    const actor = role === 'OWNER' ? owner : await createUser();
+    if (role === 'MEMBER') await addMember(project, actor, role);
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(actor);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(204);
+    expect(res.text).toBe('');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toBeNull();
+    const detail = await request(app)
+      .get(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+    expect(detail.status).toBe(404);
+    const backlog = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+    expect(backlog.status).toBe(200);
+    expect(backlog.body).toMatchObject({ data: [], total: 0 });
+    expect(await prisma.activityLog.findMany({ where: { action: 'ITEM_DELETED' } })).toEqual([
+      expect.objectContaining({
+        projectId: project.id,
+        actorId: actor.id,
+        workItemId: null,
+        field: 'reference',
+        fromValue: workItem.reference,
+        toValue: null,
+      }),
+    ]);
+  });
+
+  it('elimina comentarios por cascada y conserva el historial previo y de eliminacion', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const otherItem = await createWorkItem({ project, createdBy: owner });
+    await prisma.comment.createMany({
+      data: [
+        { workItemId: workItem.id, authorId: owner.id, body: 'Comentario uno' },
+        { workItemId: workItem.id, authorId: owner.id, body: 'Comentario dos' },
+        { workItemId: otherItem.id, authorId: owner.id, body: 'Comentario de otro item' },
+      ],
+    });
+    const previous = await prisma.activityLog.create({
+      data: {
+        projectId: project.id,
+        workItemId: workItem.id,
+        actorId: owner.id,
+        action: 'ITEM_UPDATED',
+        field: 'title',
+        fromValue: 'Titulo anterior',
+        toValue: workItem.title,
+      },
+    });
+    const cookie = await iniciarSesion(owner);
+
+    await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .expect(204);
+
+    expect(await prisma.comment.count({ where: { workItemId: workItem.id } })).toBe(0);
+    expect(await prisma.comment.count({ where: { workItemId: otherItem.id } })).toBe(1);
+    expect(await prisma.workItem.findUnique({ where: { id: otherItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.findUnique({ where: { id: previous.id } })).toEqual({
+      ...previous,
+      workItemId: null,
+    });
+    const history = await prisma.activityLog.findMany({ where: { projectId: project.id } });
+    expect(history).toHaveLength(2);
+    expect(history).toContainEqual(
+      expect.objectContaining({
+        action: 'ITEM_DELETED',
+        actorId: owner.id,
+        workItemId: null,
+        field: 'reference',
+        fromValue: workItem.reference,
+        toValue: null,
+      }),
+    );
+  });
+
+  it('rechaza VIEWER con 403 sin borrar item, comentarios ni crear historial', async () => {
+    const { project, owner } = await createProject();
+    const viewer = await createUser();
+    await addMember(project, viewer, 'VIEWER');
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const comment = await prisma.comment.create({
+      data: { workItemId: workItem.id, authorId: owner.id, body: 'Conservar comentario' },
+    });
+    const cookie = await iniciarSesion(viewer);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(403);
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.comment.findUnique({ where: { id: comment.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('oculta el item al no miembro con 404 como en el detalle', async () => {
+    const { project, owner } = await createProject();
+    const outsider = await createUser();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(outsider);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('requiere sesion valida y responde 401 sin efectos secundarios', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+
+    const res = await request(app).delete(rutaDeDetalle(project.id, workItem.id));
+
+    expect(res.status).toBe(401);
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('responde 404 para un item inexistente sin crear historial', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, 'item_inexistente'))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('responde 404 para un item de otro proyecto aunque el actor sea OWNER en ambos', async () => {
+    const { project, owner } = await createProject();
+    const { project: otherProject } = await createProject({ owner });
+    const workItem = await createWorkItem({ project: otherProject, createdBy: owner });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('revierte ITEM_DELETED si PostgreSQL falla al borrar el item', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const comment = await prisma.comment.create({
+      data: { workItemId: workItem.id, authorId: owner.id, body: 'No debe perderse' },
+    });
+    const previous = await prisma.activityLog.create({
+      data: {
+        projectId: project.id,
+        workItemId: workItem.id,
+        actorId: owner.id,
+        action: 'ITEM_CREATED',
+      },
+    });
+
+    // El trigger fuerza un fallo real DESPUES de insertar el log. Tanto el
+    // trigger como su funcion son DDL transaccional y desaparecen al revertir.
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          CREATE FUNCTION mir16_reject_delete() RETURNS trigger LANGUAGE plpgsql AS
+          $$ BEGIN RAISE EXCEPTION 'MIR16_DELETE_BLOCKED'; END; $$
+        `;
+        await tx.$executeRaw`
+          CREATE TRIGGER mir16_reject_delete BEFORE DELETE ON work_items
+          FOR EACH ROW EXECUTE FUNCTION mir16_reject_delete()
+        `;
+        const service = createWorkItemService(createWorkItemRepository(tx));
+        await service.delete(project.id, owner.id, workItem.id);
+      }),
+    ).rejects.toThrow('MIR16_DELETE_BLOCKED');
+
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.comment.findUnique({ where: { id: comment.id } })).not.toBeNull();
+    expect(await prisma.activityLog.findUnique({ where: { id: previous.id } })).toEqual(previous);
+    expect(await prisma.activityLog.count({ where: { action: 'ITEM_DELETED' } })).toBe(0);
+  });
+});
 
 describe('POST /api/projects/:projectId/work-items', () => {
   it('crea el primer item con defaults, referencia correlativa y actividad', async () => {

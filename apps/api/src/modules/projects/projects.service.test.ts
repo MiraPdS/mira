@@ -95,6 +95,30 @@ describe('projectsService', () => {
     });
   });
 
+  describe('listForUser', () => {
+    it('devuelve un DTO por membresia, cada uno con el rol del usuario', async () => {
+      repo.listMembershipsOf.mockResolvedValue([
+        { role: 'OWNER', project: proyectoDePrueba({ id: 'p_a', name: 'Alfa', key: 'ALF' }) },
+        { role: 'VIEWER', project: proyectoDePrueba({ id: 'p_b', name: 'Beta', key: 'BET' }) },
+      ]);
+
+      const result = await service.listForUser('user_1');
+
+      expect(repo.listMembershipsOf).toHaveBeenCalledWith('user_1');
+      expect(result.map((p) => [p.id, p.myRole])).toEqual([
+        ['p_a', 'OWNER'],
+        ['p_b', 'VIEWER'],
+      ]);
+      expect(result[0]).not.toHaveProperty('itemCounter');
+    });
+
+    it('devuelve una lista vacia si el usuario no participa en ningun proyecto', async () => {
+      repo.listMembershipsOf.mockResolvedValue([]);
+
+      await expect(service.listForUser('user_1')).resolves.toEqual([]);
+    });
+  });
+
   describe('getMembers - MIR-9', () => {
     it('permite listar miembros a un integrante del proyecto', async () => {
       repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'MEMBER' }));

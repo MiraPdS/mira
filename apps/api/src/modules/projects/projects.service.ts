@@ -40,6 +40,12 @@ export function createProjectsService(repo: ProjectsRepository) {
       return toProjectDto(project, 'OWNER');
     },
 
+    /** Proyectos donde el usuario es miembro, cada uno con SU rol. */
+    async listForUser(userId: string): Promise<ProjectDto[]> {
+      const memberships = await repo.listMembershipsOf(userId);
+      return memberships.map((m) => toProjectDto(m.project, m.role));
+    },
+
     async getMembers(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 
