@@ -2,10 +2,10 @@ import {
   can,
   type CreateWorkItemInput,
   type Paginated,
-  type PaginationQuery,
   type PublicUser,
   type UpdateWorkItemInput,
   type WorkItemDto,
+  type WorkItemFilters,
 } from '@mira/shared';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
@@ -132,18 +132,36 @@ export function createWorkItemService(repo: WorkItemRepository) {
     async list(
       projectId: string,
       actorId: string,
-      pagination: PaginationQuery,
+      filters: WorkItemFilters,
     ): Promise<Paginated<WorkItemDto>> {
       const role = await repo.findMemberRole(projectId, actorId);
       if (!can(role, 'work-item:view')) throw new ForbiddenError();
 
-      const { items, total } = await repo.listByProject({ projectId, ...pagination });
+      const { items, total } = await repo.listByProject({ projectId, ...filters });
 
       return {
         data: items.map(toWorkItemDto),
-        ...pagination,
+        page: filters.page,
+        pageSize: filters.pageSize,
         total,
       };
+    },
+
+    async delete(projectId: string, actorId: string, workItemId: string): Promise<void> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      // Misma politica de ocultacion que el detalle: el no miembro ve 404.
+      if (role === null) throw new NotFoundError('Elemento de trabajo');
+      if (!can(role, 'work-item:delete')) throw new ForbiddenError();
+
+      const workItem = await repo.findByIdInProject(projectId, workItemId);
+      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+      await repo.deleteAtomically({
+        projectId,
+        actorId,
+        workItemId,
+        reference: workItem.reference,
+      });
     },
 
     async getById(projectId: string, actorId: string, workItemId: string): Promise<WorkItemDto> {
@@ -163,24 +181,27 @@ export function createWorkItemService(repo: WorkItemRepository) {
       workItemId: string,
       input: UpdateWorkItemInput,
     ): Promise<PreparedWorkItemUpdate> {
-      const role = await repo.findMemberRole(projectId, actorId);
-      if (!can(role, 'work-item:update')) throw new ForbiddenError();
+      return repo.withTransaction(async (transactionRepo) => {
+        const role = await transactionRepo.findMemberRole(projectId, actorId);
+        if (role === null) throw new NotFoundError('Elemento de trabajo');
+        if (!can(role, 'work-item:update')) throw new ForbiddenError();
 
-      const workItem = await repo.findByIdInProject(projectId, workItemId);
-      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+        const workItem = await transactionRepo.findByIdInProject(projectId, workItemId);
+        if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
-      const preparedUpdate = prepareWorkItemUpdate(workItem, input);
-      if (preparedUpdate.changes.length === 0) return preparedUpdate;
+        const preparedUpdate = prepareWorkItemUpdate(workItem, input);
+        if (preparedUpdate.changes.length === 0) return preparedUpdate;
 
-      const updatedWorkItem = await repo.updateAtomically({
-        projectId,
-        workItemId,
-        actorId,
-        input,
-        changes: preparedUpdate.changes,
+        const updatedWorkItem = await transactionRepo.updateAtomically({
+          projectId,
+          workItemId,
+          actorId,
+          input,
+          changes: preparedUpdate.changes,
+        });
+
+        return { item: toWorkItemDto(updatedWorkItem), changes: preparedUpdate.changes };
       });
-
-      return { item: toWorkItemDto(updatedWorkItem), changes: preparedUpdate.changes };
     },
   };
 }

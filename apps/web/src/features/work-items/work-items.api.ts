@@ -3,10 +3,39 @@ import type {
   Paginated,
   UpdateWorkItemInput,
   WorkItemDto,
+  WorkItemFilters,
 } from '@mira/shared';
 import { api } from '@/lib/api-client';
 
 type WorkItemResponse = { item: WorkItemDto };
+
+/** Filtros opcionales del backlog; la paginacion conserva la firma de MIR-12. */
+export type WorkItemListFilters = Pick<
+  WorkItemFilters,
+  'q' | 'type' | 'status' | 'priority' | 'assigneeId'
+>;
+
+/** Normaliza valores vacios para no enviarlos ni distinguirlos en la cache. */
+export function normalizeWorkItemListFilters(
+  filters: WorkItemListFilters = {},
+): WorkItemListFilters {
+  const q = filters.q?.trim();
+
+  return {
+    ...(q ? { q } : {}),
+    ...(filters.type ? { type: filters.type } : {}),
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.priority ? { priority: filters.priority } : {}),
+    ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+  };
+}
+
+/** Elimina el elemento; el cliente HTTP acepta 204 sin intentar leer JSON. */
+export function deleteWorkItem(projectId: string, workItemId: string): Promise<void> {
+  return api.delete<void>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
+  );
+}
 
 /** Crea un elemento de trabajo dentro del proyecto indicado. */
 export async function createWorkItem(
@@ -25,9 +54,17 @@ export function listWorkItems(
   projectId: string,
   page: number,
   pageSize: number,
+  filters: WorkItemListFilters = {},
 ): Promise<Paginated<WorkItemDto>> {
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const normalizedFilters = normalizeWorkItemListFilters(filters);
+
+  for (const [key, value] of Object.entries(normalizedFilters)) {
+    if (value !== undefined && value !== '') query.set(key, value);
+  }
+
   return api.get<Paginated<WorkItemDto>>(
-    `/projects/${encodeURIComponent(projectId)}/work-items?page=${page}&pageSize=${pageSize}`,
+    `/projects/${encodeURIComponent(projectId)}/work-items?${query.toString()}`,
   );
 }
 

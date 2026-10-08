@@ -1,20 +1,16 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
-import { useCurrentUser } from '@/features/auth/useAuth';
-
-/**
- * Arbol de rutas.
- *
- * Solo esta implementada la rebanada de autenticacion; el resto son marcadores
- * con el ID de Jira del item que los va a reemplazar. Se dejan visibles a
- * proposito: un enlace roto es peor que un "pendiente" explicito.
- */
+import { RequiereSesion, SoloInvitados } from '@/features/auth/guards';
+import { AppLayout } from '@/components/layout/AppLayout';
+import { ProjectMembersPage } from '@/features/projects/ProjectMembersPage';
+import { ProjectsPage } from '@/features/projects/ProjectsPage';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
       <h1 className="text-2xl font-semibold text-slate-900">{titulo}</h1>
+
       <p className="mt-2 text-sm text-slate-500">
         Pantalla pendiente. Item de Jira asociado: <code className="font-mono">{item}</code>
       </p>
@@ -22,35 +18,51 @@ function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   );
 }
 
-/** Protege una ruta: si no hay sesion, redirige a login. */
-function RequiereSesion({ children }: { children: React.ReactNode }) {
-  const { data: user, isPending } = useCurrentUser();
-
-  if (isPending) {
-    return (
-      <p role="status" className="p-8 text-sm text-slate-500">
-        Cargando...
-      </p>
-    );
-  }
-
-  return user ? <>{children}</> : <Navigate to="/login" replace />;
-}
-
 export function App() {
   return (
     <Routes>
       <Route path="/" element={<Navigate to="/proyectos" replace />} />
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/registro" element={<RegisterPage />} />
+
       <Route
-        path="/proyectos"
+        path="/login"
         element={
-          <RequiereSesion>
-            <Pendiente item="MIR-6" titulo="Mis proyectos" />
-          </RequiereSesion>
+          <SoloInvitados>
+            <LoginPage />
+          </SoloInvitados>
         }
       />
+
+      <Route
+        path="/registro"
+        element={
+          <SoloInvitados>
+            <RegisterPage />
+          </SoloInvitados>
+        }
+      />
+
+      {/* Rutas protegidas que comparten el layout */}
+      <Route
+        element={
+          <RequiereSesion>
+            <AppLayout />
+          </RequiereSesion>
+        }
+      >
+        <Route path="/proyectos" element={<ProjectsPage />} />
+        <Route
+          path="/proyectos/nuevo"
+          element={<Pendiente item="MIR-5" titulo="Nuevo proyecto" />}
+        />
+        <Route
+          path="/proyectos/:projectId"
+          element={<Pendiente item="MIR-23" titulo="Proyecto" />}
+        />
+
+        {/* MIR-9: Invitacion y listado de miembros */}
+        <Route path="/proyectos/:projectId/miembros" element={<ProjectMembersPage />} />
+      </Route>
+
       <Route path="*" element={<Pendiente item="-" titulo="Pagina no encontrada" />} />
     </Routes>
   );

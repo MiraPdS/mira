@@ -11,6 +11,7 @@ import {
 } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
 import { createWorkItemRepository } from './work-item.repository.js';
+import { createWorkItemService } from './work-item.service.js';
 
 /**
  * NIVEL 2 de la piramide: integracion.
@@ -64,6 +65,205 @@ async function crearItems(projectId: string, createdBy: User, cantidad: number):
     ),
   );
 }
+
+describe('DELETE /api/projects/:projectId/work-items/:workItemId', () => {
+  it.each(['OWNER', 'MEMBER'] as const)('%s elimina y recibe 204 sin body', async (role) => {
+    const { project, owner } = await createProject();
+    const actor = role === 'OWNER' ? owner : await createUser();
+    if (role === 'MEMBER') await addMember(project, actor, role);
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(actor);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(204);
+    expect(res.text).toBe('');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toBeNull();
+    const detail = await request(app)
+      .get(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+    expect(detail.status).toBe(404);
+    const backlog = await request(app).get(rutaDeCreacion(project.id)).set('Cookie', cookie);
+    expect(backlog.status).toBe(200);
+    expect(backlog.body).toMatchObject({ data: [], total: 0 });
+    expect(await prisma.activityLog.findMany({ where: { action: 'ITEM_DELETED' } })).toEqual([
+      expect.objectContaining({
+        projectId: project.id,
+        actorId: actor.id,
+        workItemId: null,
+        field: 'reference',
+        fromValue: workItem.reference,
+        toValue: null,
+      }),
+    ]);
+  });
+
+  it('elimina comentarios por cascada y conserva el historial previo y de eliminacion', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const otherItem = await createWorkItem({ project, createdBy: owner });
+    await prisma.comment.createMany({
+      data: [
+        { workItemId: workItem.id, authorId: owner.id, body: 'Comentario uno' },
+        { workItemId: workItem.id, authorId: owner.id, body: 'Comentario dos' },
+        { workItemId: otherItem.id, authorId: owner.id, body: 'Comentario de otro item' },
+      ],
+    });
+    const previous = await prisma.activityLog.create({
+      data: {
+        projectId: project.id,
+        workItemId: workItem.id,
+        actorId: owner.id,
+        action: 'ITEM_UPDATED',
+        field: 'title',
+        fromValue: 'Titulo anterior',
+        toValue: workItem.title,
+      },
+    });
+    const cookie = await iniciarSesion(owner);
+
+    await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .expect(204);
+
+    expect(await prisma.comment.count({ where: { workItemId: workItem.id } })).toBe(0);
+    expect(await prisma.comment.count({ where: { workItemId: otherItem.id } })).toBe(1);
+    expect(await prisma.workItem.findUnique({ where: { id: otherItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.findUnique({ where: { id: previous.id } })).toEqual({
+      ...previous,
+      workItemId: null,
+    });
+    const history = await prisma.activityLog.findMany({ where: { projectId: project.id } });
+    expect(history).toHaveLength(2);
+    expect(history).toContainEqual(
+      expect.objectContaining({
+        action: 'ITEM_DELETED',
+        actorId: owner.id,
+        workItemId: null,
+        field: 'reference',
+        fromValue: workItem.reference,
+        toValue: null,
+      }),
+    );
+  });
+
+  it('rechaza VIEWER con 403 sin borrar item, comentarios ni crear historial', async () => {
+    const { project, owner } = await createProject();
+    const viewer = await createUser();
+    await addMember(project, viewer, 'VIEWER');
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const comment = await prisma.comment.create({
+      data: { workItemId: workItem.id, authorId: owner.id, body: 'Conservar comentario' },
+    });
+    const cookie = await iniciarSesion(viewer);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(403);
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.comment.findUnique({ where: { id: comment.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('oculta el item al no miembro con 404 como en el detalle', async () => {
+    const { project, owner } = await createProject();
+    const outsider = await createUser();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(outsider);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('requiere sesion valida y responde 401 sin efectos secundarios', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+
+    const res = await request(app).delete(rutaDeDetalle(project.id, workItem.id));
+
+    expect(res.status).toBe(401);
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('responde 404 para un item inexistente sin crear historial', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, 'item_inexistente'))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('responde 404 para un item de otro proyecto aunque el actor sea OWNER en ambos', async () => {
+    const { project, owner } = await createProject();
+    const { project: otherProject } = await createProject({ owner });
+    const workItem = await createWorkItem({ project: otherProject, createdBy: owner });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .delete(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('revierte ITEM_DELETED si PostgreSQL falla al borrar el item', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const comment = await prisma.comment.create({
+      data: { workItemId: workItem.id, authorId: owner.id, body: 'No debe perderse' },
+    });
+    const previous = await prisma.activityLog.create({
+      data: {
+        projectId: project.id,
+        workItemId: workItem.id,
+        actorId: owner.id,
+        action: 'ITEM_CREATED',
+      },
+    });
+
+    // El trigger fuerza un fallo real DESPUES de insertar el log. Tanto el
+    // trigger como su funcion son DDL transaccional y desaparecen al revertir.
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          CREATE FUNCTION mir16_reject_delete() RETURNS trigger LANGUAGE plpgsql AS
+          $$ BEGIN RAISE EXCEPTION 'MIR16_DELETE_BLOCKED'; END; $$
+        `;
+        await tx.$executeRaw`
+          CREATE TRIGGER mir16_reject_delete BEFORE DELETE ON work_items
+          FOR EACH ROW EXECUTE FUNCTION mir16_reject_delete()
+        `;
+        const service = createWorkItemService(createWorkItemRepository(tx));
+        await service.delete(project.id, owner.id, workItem.id);
+      }),
+    ).rejects.toThrow('MIR16_DELETE_BLOCKED');
+
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).not.toBeNull();
+    expect(await prisma.comment.findUnique({ where: { id: comment.id } })).not.toBeNull();
+    expect(await prisma.activityLog.findUnique({ where: { id: previous.id } })).toEqual(previous);
+    expect(await prisma.activityLog.count({ where: { action: 'ITEM_DELETED' } })).toBe(0);
+  });
+});
 
 describe('POST /api/projects/:projectId/work-items', () => {
   it('crea el primer item con defaults, referencia correlativa y actividad', async () => {
@@ -308,6 +508,179 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(res.body).toEqual({ data: [], page: 1, pageSize: 20, total: 0 });
   });
 
+  it('busca en titulo y descripcion sin distinguir mayusculas', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const [titleMatch, descriptionMatch] = await Promise.all([
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Corregir LOGIN de usuarios',
+        description: 'Sin coincidencias en la descripcion.',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Actualizar documentacion',
+        description: 'Explicar el flujo de login para miembros.',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Preparar retrospectiva',
+        description: 'Sin coincidencias.',
+      }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=LoGiN`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(2);
+    expect(res.body.data.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([titleMatch.id, descriptionMatch.id]),
+    );
+  });
+
+  it('aplica cada filtro de enum y de responsable', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const assignee = await createUser({ email: 'assignee@mira.test' });
+    await addMember(project, assignee);
+    const [bug, inProgress, highPriority, assigned] = await Promise.all([
+      createWorkItem({ project, createdBy: owner, title: 'Error reproducible', type: 'BUG' }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'En ejecucion',
+        status: 'IN_PROGRESS',
+      }),
+      createWorkItem({ project, createdBy: owner, title: 'Urgente', priority: 'HIGH' }),
+      createWorkItem({ project, createdBy: owner, title: 'Asignado', assigneeId: assignee.id }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const [byType, byStatus, byPriority, byAssignee] = await Promise.all([
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?type=BUG`)
+        .set('Cookie', cookie),
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?status=IN_PROGRESS`)
+        .set('Cookie', cookie),
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?priority=HIGH`)
+        .set('Cookie', cookie),
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?assigneeId=${assignee.id}`)
+        .set('Cookie', cookie),
+    ]);
+
+    expect(byType.status).toBe(200);
+    expect(byType.body).toMatchObject({ total: 1 });
+    expect(byType.body.data).toHaveLength(1);
+    expect(byType.body.data[0].id).toBe(bug.id);
+
+    expect(byStatus.status).toBe(200);
+    expect(byStatus.body).toMatchObject({ total: 1 });
+    expect(byStatus.body.data).toHaveLength(1);
+    expect(byStatus.body.data[0].id).toBe(inProgress.id);
+
+    expect(byPriority.status).toBe(200);
+    expect(byPriority.body).toMatchObject({ total: 1 });
+    expect(byPriority.body.data).toHaveLength(1);
+    expect(byPriority.body.data[0].id).toBe(highPriority.id);
+
+    expect(byAssignee.status).toBe(200);
+    expect(byAssignee.body).toMatchObject({ total: 1 });
+    expect(byAssignee.body.data).toHaveLength(1);
+    expect(byAssignee.body.data[0].id).toBe(assigned.id);
+  });
+
+  it('combina busqueda y filtros con AND, y cuenta solo los resultados filtrados', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const matching = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Corregir login',
+      type: 'BUG',
+      priority: 'HIGH',
+    });
+    await Promise.all([
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Corregir login secundario',
+        type: 'BUG',
+        priority: 'LOW',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Mejorar login',
+        type: 'TASK',
+        priority: 'HIGH',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Corregir permisos',
+        type: 'BUG',
+        priority: 'HIGH',
+      }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=login&type=BUG&priority=HIGH`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 1 });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe(matching.id);
+  });
+
+  it('pagina despues de filtrar y devuelve una lista vacia si no hay coincidencias', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await Promise.all([
+      ...Array.from({ length: 5 }, (_, index) =>
+        createWorkItem({
+          project,
+          createdBy: owner,
+          title: `Bug filtrado ${index}`,
+          type: 'BUG',
+        }),
+      ),
+      ...Array.from({ length: 3 }, (_, index) =>
+        createWorkItem({
+          project,
+          createdBy: owner,
+          title: `Tarea fuera del filtro ${index}`,
+          type: 'TASK',
+        }),
+      ),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const paged = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?type=BUG&page=2&pageSize=2`)
+      .set('Cookie', cookie);
+    const empty = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=inexistente`)
+      .set('Cookie', cookie);
+
+    expect(paged.status).toBe(200);
+    expect(paged.body).toMatchObject({ page: 2, pageSize: 2, total: 5 });
+    expect(paged.body.data).toHaveLength(2);
+    expect(paged.body.data.every((item: { type: string }) => item.type === 'BUG')).toBe(true);
+    expect(empty.status).toBe(200);
+    expect(empty.body).toEqual({ data: [], page: 1, pageSize: 20, total: 0 });
+  });
+
   it('permite a VIEWER listar el backlog', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const { project } = await createProject({ owner, key: 'MIR' });
@@ -370,6 +743,22 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  it.each(['type=FEATURE', 'status=UNKNOWN', 'priority=URGENT'])(
+    'rechaza un filtro invalido: %s',
+    async (query) => {
+      const owner = await createUser({ email: 'owner@mira.test' });
+      const { project } = await createProject({ owner, key: 'MIR' });
+      const cookie = await iniciarSesion(owner);
+
+      const res = await request(app)
+        .get(`${rutaDeCreacion(project.id)}?${query}`)
+        .set('Cookie', cookie);
+
+      expect(res.status).toBe(422);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    },
+  );
+
   it('ordena por createdAt DESC y desempata por id DESC', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const { project } = await createProject({ owner, key: 'MIR' });
@@ -423,6 +812,34 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(
       res.body.data.every((item: { projectId: string }) => item.projectId === project.id),
     ).toBe(true);
+  });
+
+  it('no devuelve coincidencias filtradas de otro proyecto', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const { project: otherProject } = await createProject({ owner, key: 'OTR' });
+    const item = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Login del proyecto actual',
+      type: 'BUG',
+    });
+    await createWorkItem({
+      project: otherProject,
+      createdBy: owner,
+      title: 'Login del otro proyecto',
+      type: 'BUG',
+    });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=login&type=BUG`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 1 });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe(item.id);
   });
 
   it('devuelve una pagina vacia fuera de rango sin convertirla en 404', async () => {
@@ -580,6 +997,111 @@ describe('GET /api/projects/:projectId/work-items/:workItemId', () => {
 });
 
 describe('PATCH /api/projects/:projectId/work-items/:workItemId', () => {
+  it('reintenta con datos vigentes cuando dos transacciones ya leyeron el mismo item', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const repository = createWorkItemRepository();
+    let reads = 0;
+    let releaseReads!: () => void;
+    const bothRead = new Promise<void>((resolve) => {
+      releaseReads = resolve;
+    });
+    // Solo sincronizamos las lecturas: persistencia y transacciones son PostgreSQL real.
+    const service = createWorkItemService({
+      ...repository,
+      withTransaction(operation) {
+        return repository.withTransaction((transactionRepo) =>
+          operation({
+            ...transactionRepo,
+            async findByIdInProject(projectId, workItemId) {
+              const item = await transactionRepo.findByIdInProject(projectId, workItemId);
+              const currentRead = ++reads;
+              if (currentRead === 2) releaseReads();
+              if (currentRead <= 2) await bothRead;
+              return item;
+            },
+          }),
+        );
+      },
+    });
+
+    await Promise.all([
+      service.update(project.id, owner.id, workItem.id, { title: 'Primera edicion' }),
+      service.update(project.id, owner.id, workItem.id, { title: 'Segunda edicion' }),
+    ]);
+    expect(reads).toBeGreaterThanOrEqual(3);
+    const activities = await prisma.activityLog.findMany({ where: { workItemId: workItem.id } });
+    expect(activities).toHaveLength(2);
+    const first = activities.find((entry) => entry.fromValue === 'Titulo original')!;
+    expect(first).toBeDefined();
+    const second = activities.find((entry) => entry.id !== first.id)!;
+    expect(second.fromValue).toBe(first.toValue);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      second.toValue,
+    );
+  });
+
+  it('serializa dos ediciones concurrentes sin fromValue obsoleto', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const cookie = await iniciarSesion(owner);
+    const titles = ['Primera edicion', 'Segunda edicion'];
+
+    const responses = await Promise.all(
+      titles.map((title) =>
+        request(app)
+          .patch(rutaDeDetalle(project.id, workItem.id))
+          .set('Cookie', cookie)
+          .send({ title }),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const activities = await prisma.activityLog.findMany({
+      where: { workItemId: workItem.id, action: 'ITEM_UPDATED' },
+    });
+    expect(activities).toHaveLength(2);
+    expect(activities.map((entry) => entry.toValue).sort()).toEqual([...titles].sort());
+    const first = activities.find((entry) => entry.fromValue === 'Titulo original');
+    expect(first).toBeDefined();
+    const second = activities.find((entry) => entry.id !== first!.id)!;
+    expect(second.fromValue).toBe(first!.toValue);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      second.toValue,
+    );
+  });
+
+  it('normaliza descripcion de espacios a null y no registra cambios identicos', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      description: 'Descripcion original',
+    });
+    const cookie = await iniciarSesion(owner);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await request(app)
+        .patch(rutaDeDetalle(project.id, workItem.id))
+        .set('Cookie', cookie)
+        .send({ description: '   ' });
+      expect(response.status).toBe(200);
+      expect(response.body.item.description).toBeNull();
+    }
+    expect(
+      (await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).description,
+    ).toBeNull();
+    expect(await prisma.activityLog.findMany({ where: { workItemId: workItem.id } })).toEqual([
+      expect.objectContaining({
+        field: 'description',
+        fromValue: 'Descripcion original',
+        toValue: null,
+      }),
+    ]);
+  });
+
   it('permite a MEMBER cambiar el titulo, persiste y registra ITEM_UPDATED', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const { project } = await createProject({ owner, key: 'MIR' });
@@ -799,7 +1321,7 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId', () => {
       .set('Cookie', cookie)
       .send({ title: 'No deberia actualizarse' });
 
-    expect(res.status).toBe(403);
+    expect(res.status).toBe(404);
     expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
       'Titulo original',
     );

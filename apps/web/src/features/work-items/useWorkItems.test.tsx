@@ -7,8 +7,12 @@ import type { Paginated, WorkItemDto } from '@mira/shared';
 import { ApiRequestError } from '@/lib/api-client';
 import { apiError } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
-import { useUpdateWorkItem, workItemKeys } from './useWorkItems';
+import { useUpdateWorkItem, workItemKeys, useWorkItems, workItemsQueryKey } from './useWorkItems';
 
+import { renderConProviders, screen } from '@/test/render';
+import type { WorkItemListFilters } from './work-items.api';
+
+const WORK_ITEMS_URL = 'http://localhost:3000/api/projects/:projectId/work-items';
 const BASE_URL = 'http://localhost:3000/api';
 const PROJECT_ID = 'project_123';
 const OTHER_PROJECT_ID = 'project_789';
@@ -65,10 +69,15 @@ describe('useUpdateWorkItem', () => {
     const original = itemDePrueba();
     const updated = itemDePrueba({ title: 'Titulo actualizado', priority: 'CRITICAL' });
     const queryClient = crearQueryClient();
-    const backlogKey = [...workItemKeys.backlog(PROJECT_ID), 1, 20] as const;
-    const otherBacklogKey = [...workItemKeys.backlog(OTHER_PROJECT_ID), 1, 20] as const;
+    const backlogKey = workItemsQueryKey(PROJECT_ID, 1, 20);
+    const filteredBacklogKey = workItemsQueryKey(PROJECT_ID, 2, 20, {
+      type: 'BUG',
+      priority: 'HIGH',
+    });
+    const otherBacklogKey = workItemsQueryKey(OTHER_PROJECT_ID, 1, 20, { type: 'BUG' });
     queryClient.setQueryData(workItemKeys.detail(PROJECT_ID, WORK_ITEM_ID), original);
     queryClient.setQueryData(backlogKey, pagina(original));
+    queryClient.setQueryData(filteredBacklogKey, pagina(original));
     queryClient.setQueryData(otherBacklogKey, pagina(original, OTHER_PROJECT_ID));
     server.use(http.patch(UPDATE_URL, () => HttpResponse.json({ item: updated })));
 
@@ -85,6 +94,7 @@ describe('useUpdateWorkItem', () => {
     );
     await waitFor(() => {
       expect(queryClient.getQueryState(backlogKey)?.isInvalidated).toBe(true);
+      expect(queryClient.getQueryState(filteredBacklogKey)?.isInvalidated).toBe(true);
     });
     expect(queryClient.getQueryState(otherBacklogKey)?.isInvalidated).toBe(false);
   });
@@ -92,7 +102,7 @@ describe('useUpdateWorkItem', () => {
   it('propaga ApiRequestError sin alterar caches cuando el servidor rechaza la actualizacion', async () => {
     const original = itemDePrueba();
     const queryClient = crearQueryClient();
-    const backlogKey = [...workItemKeys.backlog(PROJECT_ID), 1, 20] as const;
+    const backlogKey = workItemsQueryKey(PROJECT_ID, 1, 20, { q: 'Titulo', priority: 'HIGH' });
     queryClient.setQueryData(workItemKeys.detail(PROJECT_ID, WORK_ITEM_ID), original);
     queryClient.setQueryData(backlogKey, pagina(original));
     server.use(
@@ -120,5 +130,96 @@ describe('useUpdateWorkItem', () => {
       original,
     );
     expect(queryClient.getQueryState(backlogKey)?.isInvalidated).toBe(false);
+  });
+});
+
+function queryClientConCache() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: { retry: false, gcTime: Infinity, staleTime: 0 },
+      mutations: { retry: false },
+    },
+  });
+}
+
+function resultado(title: string): Paginated<WorkItemDto> {
+  return {
+    data: [
+      {
+        id: title,
+        reference: 'MIR-1',
+        projectId: PROJECT_ID,
+        title,
+        description: null,
+        type: 'BUG',
+        status: 'BACKLOG',
+        priority: 'HIGH',
+        estimate: null,
+        dueDate: null,
+        assignee: null,
+        createdBy: {
+          id: 'user_1',
+          name: 'Ada Lovelace',
+          email: 'ada@mira.dev',
+          createdAt: '2026-01-01T00:00:00.000Z',
+        },
+        sprintId: null,
+        createdAt: '2026-01-01T00:00:00.000Z',
+        updatedAt: '2026-01-01T00:00:00.000Z',
+      },
+    ],
+    page: 1,
+    pageSize: 20,
+    total: 1,
+  };
+}
+
+function BacklogQuery({ filters }: { filters: WorkItemListFilters }) {
+  const backlog = useWorkItems(PROJECT_ID, 1, 20, filters);
+
+  if (backlog.isPending) return <p>Cargando</p>;
+  if (backlog.isError) return <p>Error</p>;
+  return <p>{backlog.data.data[0]?.title}</p>;
+}
+
+describe('useWorkItems', () => {
+  it('usa caches distintas para combinaciones de filtros diferentes', async () => {
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const filters = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          resultado(filters.get('type') ?? filters.get('priority') ?? 'sin filtro'),
+        );
+      }),
+    );
+
+    const { rerender, queryClient } = renderConProviders(
+      <BacklogQuery filters={{ type: 'BUG' }} />,
+      {
+        queryClient: queryClientConCache(),
+      },
+    );
+    expect(await screen.findByText('BUG')).toBeInTheDocument();
+
+    rerender(<BacklogQuery filters={{ priority: 'HIGH' }} />);
+    expect(await screen.findByText('HIGH')).toBeInTheDocument();
+
+    expect(queryClient.getQueryCache().getAll()).toHaveLength(2);
+  });
+
+  it('genera una key estable para la misma combinacion de filtros', async () => {
+    const firstFilters = { type: 'BUG' as const, priority: 'HIGH' as const };
+    const sameFilters = { priority: 'HIGH' as const, type: 'BUG' as const };
+
+    expect(workItemsQueryKey(PROJECT_ID, 1, 20, firstFilters)).toEqual(
+      workItemsQueryKey(PROJECT_ID, 1, 20, sameFilters),
+    );
+
+    server.use(http.get(WORK_ITEMS_URL, () => HttpResponse.json(resultado('BUG'))));
+    const { rerender, queryClient } = renderConProviders(<BacklogQuery filters={firstFilters} />);
+    await screen.findByText('BUG');
+
+    rerender(<BacklogQuery filters={sameFilters} />);
+    await waitFor(() => expect(queryClient.getQueryCache().getAll()).toHaveLength(1));
   });
 });

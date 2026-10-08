@@ -35,7 +35,13 @@ export const updateWorkItemSchema = z
       .min(3, 'El titulo debe tener al menos 3 caracteres')
       .max(200)
       .optional(),
-    description: z.string().trim().max(10_000).nullable().optional(),
+    description: z
+      .string()
+      .trim()
+      .max(10_000)
+      .nullable()
+      .optional()
+      .transform((value) => (value === '' ? null : value)),
     type: z.enum(WORK_ITEM_TYPES).optional(),
     priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
     /** Estimacion en story points (escala Fibonacci acotada). */
@@ -59,8 +65,6 @@ export const workItemFiltersSchema = paginationQuerySchema.extend({
   status: z.enum(WORK_ITEM_STATUSES).optional(),
   priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
   assigneeId: z.string().optional(),
-  sortBy: z.enum(['createdAt', 'updatedAt', 'priority', 'dueDate']).default('createdAt'),
-  sortDir: z.enum(['asc', 'desc']).default('desc'),
 });
 export type WorkItemFilters = z.infer<typeof workItemFiltersSchema>;
 

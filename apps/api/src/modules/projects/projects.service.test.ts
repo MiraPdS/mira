@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
-import type { Project } from '@prisma/client';
-import { ConflictError } from '../../lib/errors.js';
+import type { Project, ProjectMember, User } from '@prisma/client';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { ProjectsRepository } from './projects.repository.js';
 import { createProjectsService } from './projects.service.js';
 
@@ -23,6 +23,17 @@ function proyectoDePrueba(overrides: Partial<Project> = {}): Project {
     organizationId: null,
     createdAt: new Date('2026-01-01T00:00:00.000Z'),
     updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function miembroDePrueba(overrides: Partial<ProjectMember> = {}): ProjectMember {
+  return {
+    id: 'member_1',
+    projectId: 'project_1',
+    userId: 'owner_1',
+    role: 'OWNER',
+    joinedAt: new Date('2026-01-01T00:00:00.000Z'),
     ...overrides,
   };
 }
@@ -81,6 +92,116 @@ describe('projectsService', () => {
       repo.findByKey.mockResolvedValue(proyectoDePrueba());
 
       await expect(service.create({ name: 'Otro', key: 'MIR' }, 'user_1')).rejects.toThrow(/MIR/);
+    });
+  });
+
+  describe('listForUser', () => {
+    it('devuelve un DTO por membresia, cada uno con el rol del usuario', async () => {
+      repo.listMembershipsOf.mockResolvedValue([
+        { role: 'OWNER', project: proyectoDePrueba({ id: 'p_a', name: 'Alfa', key: 'ALF' }) },
+        { role: 'VIEWER', project: proyectoDePrueba({ id: 'p_b', name: 'Beta', key: 'BET' }) },
+      ]);
+
+      const result = await service.listForUser('user_1');
+
+      expect(repo.listMembershipsOf).toHaveBeenCalledWith('user_1');
+      expect(result.map((p) => [p.id, p.myRole])).toEqual([
+        ['p_a', 'OWNER'],
+        ['p_b', 'VIEWER'],
+      ]);
+      expect(result[0]).not.toHaveProperty('itemCounter');
+    });
+
+    it('devuelve una lista vacia si el usuario no participa en ningun proyecto', async () => {
+      repo.listMembershipsOf.mockResolvedValue([]);
+
+      await expect(service.listForUser('user_1')).resolves.toEqual([]);
+    });
+  });
+
+  describe('getMembers - MIR-9', () => {
+    it('permite listar miembros a un integrante del proyecto', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'MEMBER' }));
+      repo.findMembersByProject.mockResolvedValue([]);
+
+      const result = await service.getMembers('project_1', 'member_1');
+
+      expect(result).toEqual([]);
+      expect(repo.findMembersByProject).toHaveBeenCalledWith('project_1');
+    });
+
+    it('rechaza a un usuario que no pertenece al proyecto', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.getMembers('project_1', 'outsider_1')).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+
+      expect(repo.findMembersByProject).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('addMember - MIR-9', () => {
+    it('permite invitar cuando el actor tiene permisos', async () => {
+      const nuevoMiembro = miembroDePrueba({
+        userId: 'user_2',
+        role: 'MEMBER',
+      });
+
+      repo.findMember
+        .mockResolvedValueOnce(miembroDePrueba({ role: 'OWNER' }))
+        .mockResolvedValueOnce(null);
+
+      repo.findUserByEmail.mockResolvedValue({
+        id: 'user_2',
+        email: 'nuevo@mira.dev',
+      } as User);
+
+      repo.addMemberWithActivity.mockResolvedValue(nuevoMiembro);
+
+      const result = await service.addMember('project_1', 'owner_1', 'nuevo@mira.dev');
+
+      expect(result).toEqual(nuevoMiembro);
+      expect(repo.addMemberWithActivity).toHaveBeenCalledWith('project_1', 'user_2', 'owner_1');
+    });
+
+    it('rechaza a un MEMBER sin permisos de invitacion', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'MEMBER' }));
+
+      await expect(
+        service.addMember('project_1', 'member_1', 'nuevo@mira.dev'),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+
+      expect(repo.findUserByEmail).not.toHaveBeenCalled();
+      expect(repo.addMemberWithActivity).not.toHaveBeenCalled();
+    });
+
+    it('rechaza cuando el usuario no existe', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
+      repo.findUserByEmail.mockResolvedValue(null);
+
+      await expect(
+        service.addMember('project_1', 'owner_1', 'noexiste@mira.dev'),
+      ).rejects.toBeInstanceOf(NotFoundError);
+
+      expect(repo.addMemberWithActivity).not.toHaveBeenCalled();
+    });
+
+    it('rechaza cuando el usuario ya pertenece al proyecto', async () => {
+      repo.findMember
+        .mockResolvedValueOnce(miembroDePrueba({ role: 'OWNER' }))
+        .mockResolvedValueOnce(miembroDePrueba({ userId: 'user_2', role: 'MEMBER' }));
+
+      repo.findUserByEmail.mockResolvedValue({
+        id: 'user_2',
+        email: 'existente@mira.dev',
+      } as User);
+
+      await expect(
+        service.addMember('project_1', 'owner_1', 'existente@mira.dev'),
+      ).rejects.toBeInstanceOf(ConflictError);
+
+      expect(repo.addMemberWithActivity).not.toHaveBeenCalled();
     });
   });
 });

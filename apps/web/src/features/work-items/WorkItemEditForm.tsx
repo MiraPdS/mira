@@ -68,7 +68,7 @@ function formValuesFromItem(item: WorkItemDto): EditWorkItemFormValues {
 function normalizeFormValues(values: EditWorkItemFormValues): NormalizedEditWorkItemValues {
   return {
     title: values.title,
-    description: values.description === '' ? null : values.description,
+    description: values.description.trim() || null,
     type: values.type,
     priority: values.priority,
     estimate: values.estimate === '' ? null : Number(values.estimate),
@@ -92,14 +92,15 @@ function changedValues(
   const input: UpdateWorkItemInput = {};
 
   if (normalized.title.trim() !== item.title) input.title = normalized.title.trim();
-  if (normalized.description?.trim() !== item.description) {
-    input.description = normalized.description?.trim() ?? null;
+  if (normalized.description !== (item.description?.trim() || null)) {
+    input.description = normalized.description;
   }
   if (normalized.type !== item.type) input.type = normalized.type;
   if (normalized.priority !== item.priority) input.priority = normalized.priority;
   if (normalized.estimate !== item.estimate) input.estimate = normalized.estimate;
   if (values.dueDate !== dateInputValue(item.dueDate)) {
-    input.dueDate = normalized.dueDate === null ? null : new Date(normalized.dueDate);
+    input.dueDate =
+      normalized.dueDate === null ? null : new Date(`${normalized.dueDate}T00:00:00.000Z`);
   }
 
   return input;
