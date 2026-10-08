@@ -1,15 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { createProject, createUser, sessionCookie } from '../../test/factories.js';
+import { addMember, createProject, createUser, sessionCookie } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
 
 /**
  * NIVEL 2 de la piramide: integracion.
  *
  * Supertest contra la app real y Postgres de pruebas. Cubre los criterios de
- * aceptacion de MIR-5: 201 + OWNER, 409 por clave repetida, 422 por formato y
- * 401 sin sesion.
+ * aceptacion de MIR-5 (201 + OWNER, 409 por clave repetida, 422 por formato y
+ * 401 sin sesion) y de MIR-6 (solo los proyectos propios, con su rol).
  *
  * Requiere:  npm run db:up
  */
@@ -104,5 +104,67 @@ describe('POST /api/projects', () => {
 
     expect(res.status).toBe(401);
     expect(await prisma.project.count()).toBe(0);
+  });
+});
+
+describe('GET /api/projects', () => {
+  it('devuelve exactamente los proyectos del usuario, con su rol en cada uno', async () => {
+    const user = await createUser();
+    const { project: propio } = await createProject({ owner: user, name: 'Alfa' });
+    const { project: ajenoInvitado } = await createProject({ name: 'Beta' });
+    await addMember(ajenoInvitado, user, 'VIEWER');
+
+    const res = await request(app).get('/api/projects').set('Cookie', sessionCookie(user));
+
+    expect(res.status).toBe(200);
+    expect(res.body.projects).toHaveLength(2);
+    expect(res.body.projects.map((p: { id: string; myRole: string }) => [p.id, p.myRole])).toEqual([
+      [propio.id, 'OWNER'],
+      [ajenoInvitado.id, 'VIEWER'],
+    ]);
+  });
+
+  it('no incluye proyectos de los que el usuario no es miembro', async () => {
+    const user = await createUser();
+    await createProject({ owner: user, name: 'Alfa' });
+    const { project: ajeno } = await createProject({ name: 'Beta' });
+
+    const res = await request(app).get('/api/projects').set('Cookie', sessionCookie(user));
+
+    expect(res.status).toBe(200);
+    expect(res.body.projects.map((p: { id: string }) => p.id)).not.toContain(ajeno.id);
+    expect(res.body.projects).toHaveLength(1);
+  });
+
+  it('devuelve una lista vacia si el usuario no participa en ningun proyecto', async () => {
+    const user = await createUser();
+    await createProject({ name: 'Ajeno' });
+
+    const res = await request(app).get('/api/projects').set('Cookie', sessionCookie(user));
+
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ projects: [] });
+  });
+
+  it('ordena los proyectos por nombre', async () => {
+    const user = await createUser();
+    // Misma capitalizacion para no depender del collation de Postgres.
+    for (const name of ['Gamma', 'Alfa', 'Beta']) {
+      await createProject({ owner: user, name });
+    }
+
+    const res = await request(app).get('/api/projects').set('Cookie', sessionCookie(user));
+
+    expect(res.body.projects.map((p: { name: string }) => p.name)).toEqual([
+      'Alfa',
+      'Beta',
+      'Gamma',
+    ]);
+  });
+
+  it('responde 401 sin sesion', async () => {
+    const res = await request(app).get('/api/projects');
+
+    expect(res.status).toBe(401);
   });
 });
