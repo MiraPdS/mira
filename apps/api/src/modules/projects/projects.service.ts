@@ -1,16 +1,9 @@
 import type { Project } from '@prisma/client';
-import type { CreateProjectInput, ProjectDto, ProjectRole } from '@mira/shared';
-import { ConflictError } from '../../lib/errors.js';
+import { can, type CreateProjectInput, type ProjectDto, type ProjectRole } from '@mira/shared';
+import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { ProjectsRepository } from './projects.repository.js';
 
-/**
- * Reglas de negocio de proyectos.
- *
- * No conoce Express ni Prisma: recibe el repositorio por parametro y lanza
- * errores de dominio.
- */
-
-/** Serializa fechas y adjunta el rol del usuario en ESTE proyecto. */
+/** Serializa fechas y adjunta el rol del usuario en el proyecto. */
 export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto {
   return {
     id: project.id,
@@ -27,9 +20,8 @@ export function createProjectsService(repo: ProjectsRepository) {
   return {
     async create(input: CreateProjectInput, userId: string): Promise<ProjectDto> {
       const existente = await repo.findByKey(input.key);
+
       if (existente) {
-        // Si dos peticiones pasan este chequeo a la vez, la restriccion unica
-        // de la base las frena igual y el errorHandler traduce P2002 a 409.
         throw new ConflictError(
           `Ya existe un proyecto con la clave ${input.key}`,
           'PROJECT_KEY_TAKEN',
@@ -37,12 +29,50 @@ export function createProjectsService(repo: ProjectsRepository) {
       }
 
       const project = await repo.createWithOwner(
-        { name: input.name, key: input.key, description: input.description ?? null },
+        {
+          name: input.name,
+          key: input.key,
+          description: input.description ?? null,
+        },
         userId,
       );
 
-      // Quien crea el proyecto queda como OWNER: lo garantiza createWithOwner.
       return toProjectDto(project, 'OWNER');
+    },
+
+    async getMembers(projectId: string, actorId: string) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!actorMembership) {
+        throw new ForbiddenError('No perteneces a este proyecto', 'PROJECT_ACCESS_DENIED');
+      }
+
+      return repo.findMembersByProject(projectId);
+    },
+
+    async addMember(projectId: string, actorId: string, email: string) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:invite')) {
+        throw new ForbiddenError(
+          'No tienes permisos para agregar miembros al proyecto',
+          'OWNER_REQUIRED',
+        );
+      }
+
+      const user = await repo.findUserByEmail(email);
+
+      if (!user) {
+        throw new NotFoundError('Usuario', 'USER_NOT_FOUND');
+      }
+
+      const existingMembership = await repo.findMember(projectId, user.id);
+
+      if (existingMembership) {
+        throw new ConflictError('El usuario ya es miembro del proyecto', 'MEMBER_ALREADY_EXISTS');
+      }
+
+      return repo.addMemberWithActivity(projectId, user.id, actorId);
     },
   };
 }
