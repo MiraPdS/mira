@@ -9,6 +9,7 @@ import { createAuthRouter } from './modules/auth/auth.router.js';
 
 import { createProjectsRouter } from './modules/projects/projects.router.js';
 import { createWorkItemRouter } from './modules/work-items/work-item.router.js';
+import { createCommentRouter } from './modules/comments/comment.router.js';
 
 /**
  * Construye la aplicacion Express SIN escuchar en un puerto.
@@ -50,6 +51,9 @@ export function createApp(): Express {
 
   // Rutas de elementos de trabajo.
   app.use('/api/projects', createWorkItemRouter());
+
+  // Rutas de comentarios de elementos de trabajo (MIR-21).
+  app.use('/api/projects', createCommentRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

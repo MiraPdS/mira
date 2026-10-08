@@ -1,10 +1,10 @@
-import { useEffect, useId, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { can, PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
-import { useDeleteWorkItem, useWorkItem } from './useWorkItems';
+import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
 
 export interface WorkItemDetailProps {
   projectId: string;
@@ -32,9 +32,7 @@ function ElementoNoEncontrado() {
   );
 }
 
-/** Muestra el detalle de un elemento sin decidir rutas ni navegacion. */
 export function WorkItemDetail(props: WorkItemDetailProps) {
-  // Una nueva identidad no debe heredar confirmación ni resultado de eliminación.
   return (
     <WorkItemDetailContent key={JSON.stringify([props.projectId, props.workItemId])} {...props} />
   );
@@ -42,26 +40,64 @@ export function WorkItemDetail(props: WorkItemDetailProps) {
 
 function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDetailProps) {
   const deletion = useDeleteWorkItem(projectId, workItemId);
+
   const { data: currentUser, isError: userError } = useCurrentUser();
   const { data: members, isError: membersError } = useProjectMembers(projectId);
+
   const role = members?.members.find((member) => member.user.id === currentUser?.id)?.role;
+
   const canDelete = !userError && !membersError && can(role, 'work-item:delete');
+
+  const canComment = !userError && !membersError && can(role, 'comment:create');
+
   const [confirming, setConfirming] = useState(false);
+  const [commentBody, setCommentBody] = useState('');
+
   const dialogRef = useRef<HTMLDialogElement>(null);
   const dialogTitleId = useId();
   const dialogDescriptionId = useId();
-  useEffect(() => {
-    if (confirming) dialogRef.current?.showModal();
-  }, [confirming]);
+  const commentInputId = useId();
+
   const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
+
+  const {
+    data: comments,
+    isPending: commentsPending,
+    error: commentsError,
+    refetch: refetchComments,
+  } = useComments(projectId, workItemId);
+
+  const commentCreation = useCreateComment(projectId, workItemId);
+
+  useEffect(() => {
+    if (confirming) {
+      dialogRef.current?.showModal();
+    }
+  }, [confirming]);
+
+  function publicarComentario(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    const body = commentBody.trim();
+
+    if (!body || body.length > 5000 || !canComment || commentCreation.isPending) {
+      return;
+    }
+
+    commentCreation.mutate(
+      { body },
+      {
+        onSuccess: () => {
+          setCommentBody('');
+        },
+      },
+    );
+  }
 
   if (deletion.isSuccess) {
     return <p role="status">Elemento eliminado.</p>;
   }
 
-  // La query se deshabilita con identificadores vacios. En TanStack Query v5
-  // eso deja isPending en true, por lo que este caso debe resolverse antes de
-  // mostrar el estado de carga.
   if (!projectId || !workItemId) {
     return <ElementoNoEncontrado />;
   }
@@ -93,7 +129,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
       <header className="border-b border-slate-200 pb-4">
         <p className="text-sm font-medium text-slate-500">{item.reference}</p>
+
         <h2 className="mt-1 text-xl font-semibold text-slate-900">{item.title}</h2>
+
         {canDelete && (
           <Button
             variant="destructive"
@@ -116,16 +154,22 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           className="max-w-lg rounded-lg p-6 backdrop:bg-black/40"
           onCancel={(event) => {
             event.preventDefault();
-            if (!deletion.isPending) setConfirming(false);
+
+            if (!deletion.isPending) {
+              setConfirming(false);
+            }
           }}
         >
           <h3 id={dialogTitleId} className="text-lg font-semibold">
             Eliminar elemento
           </h3>
+
           <p id={dialogDescriptionId} className="my-4">
             ¿Eliminar {item.reference}: {item.title}? Esta acción no se puede deshacer.
           </p>
+
           {deletion.error && <p role="alert">{deletion.error.message}</p>}
+
           <div className="mt-4 flex gap-3">
             <Button
               variant="secondary"
@@ -135,11 +179,13 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             >
               Cancelar
             </Button>
+
             <Button
               variant="destructive"
               disabled={deletion.isPending || !canDelete}
               onClick={() => {
                 if (deletion.isPending) return;
+
                 deletion.mutate(undefined, {
                   onSuccess: () => {
                     setConfirming(false);
@@ -161,22 +207,27 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             {item.description ?? 'Sin descripción'}
           </dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Tipo</dt>
           <dd className="mt-1 text-sm text-slate-900">{TYPE_LABELS[item.type]}</dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Estado</dt>
           <dd className="mt-1 text-sm text-slate-900">{STATUS_LABELS[item.status]}</dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Prioridad</dt>
           <dd className="mt-1 text-sm text-slate-900">{PRIORITY_LABELS[item.priority]}</dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Responsable</dt>
           <dd className="mt-1 text-sm text-slate-900">{item.assignee?.name ?? 'Sin asignar'}</dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Estimación</dt>
           <dd className="mt-1 text-sm text-slate-900">
@@ -185,6 +236,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
               : `${item.estimate} ${item.estimate === 1 ? 'punto' : 'puntos'}`}
           </dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Fecha límite</dt>
           <dd className="mt-1 text-sm text-slate-900">
@@ -195,12 +247,14 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             )}
           </dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Fecha de creación</dt>
           <dd className="mt-1 text-sm text-slate-900">
             <time dateTime={item.createdAt}>{fechaLegible(item.createdAt)}</time>
           </dd>
         </div>
+
         <div>
           <dt className="text-sm font-medium text-slate-500">Última actualización</dt>
           <dd className="mt-1 text-sm text-slate-900">
@@ -208,6 +262,92 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           </dd>
         </div>
       </dl>
+
+      <section aria-labelledby="comments-title" className="mt-8 border-t border-slate-200 pt-6">
+        <h3 id="comments-title" className="text-lg font-semibold text-slate-900">
+          Comentarios
+        </h3>
+
+        {commentsPending ? (
+          <p role="status" className="mt-4 text-sm text-slate-500">
+            Cargando comentarios...
+          </p>
+        ) : commentsError ? (
+          <div className="mt-4">
+            <p role="alert" className="text-sm text-red-700">
+              No se pudieron cargar los comentarios.
+            </p>
+            <Button variant="secondary" className="mt-2" onClick={() => void refetchComments()}>
+              Reintentar
+            </Button>
+          </div>
+        ) : comments?.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">Todavía no hay comentarios.</p>
+        ) : (
+          <ol className="mt-4 space-y-4">
+            {comments?.map((comment) => (
+              <li key={comment.id} className="rounded-lg border border-slate-200 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {comment.author.name}
+                  </span>
+
+                  <time dateTime={comment.createdAt} className="text-xs text-slate-500">
+                    {fechaLegible(comment.createdAt)}
+                  </time>
+                </div>
+
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                  {comment.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {canComment && (
+          <form onSubmit={publicarComentario} className="mt-6 border-t border-slate-200 pt-5">
+            <label htmlFor={commentInputId} className="block text-sm font-medium text-slate-900">
+              Escribir comentario
+            </label>
+
+            <textarea
+              id={commentInputId}
+              value={commentBody}
+              onChange={(event) => {
+                setCommentBody(event.target.value);
+
+                if (commentCreation.isError) {
+                  commentCreation.reset();
+                }
+              }}
+              rows={4}
+              maxLength={5000}
+              placeholder="Escribe un comentario..."
+              disabled={commentCreation.isPending}
+              className="mt-2 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
+            />
+
+            <p className="mt-1 text-xs text-slate-500">{commentBody.length}/5000 caracteres</p>
+
+            {commentCreation.error && (
+              <p role="alert" className="mt-2 text-sm text-red-700">
+                {commentCreation.error.message}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              className="mt-3"
+              disabled={
+                !commentBody.trim() || commentBody.length > 5000 || commentCreation.isPending
+              }
+            >
+              {commentCreation.isPending ? 'Publicando...' : 'Publicar comentario'}
+            </Button>
+          </form>
+        )}
+      </section>
     </article>
   );
 }

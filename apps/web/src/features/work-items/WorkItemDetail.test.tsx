@@ -362,9 +362,11 @@ describe('eliminación desde WorkItemDetail', () => {
       );
       await user.click(await screen.findByRole('button', { name: 'Eliminar elemento' }));
       await user.click(screen.getByRole('button', { name: 'Eliminar' }));
-      expect(await screen.findByRole('alert')).toHaveTextContent(
-        status === 'red' ? 'No se pudo conectar' : 'No se pudo eliminar',
-      );
+      expect(
+        await screen.findByText(
+          status === 'red' ? /No se pudo conectar con el servidor/ : 'No se pudo eliminar',
+        ),
+      ).toBeInTheDocument();
       expect(screen.getByRole('dialog')).toBeInTheDocument();
       expect(screen.getByRole('heading', { name: itemDePrueba().title })).toBeInTheDocument();
       expect(onDeleted).not.toHaveBeenCalled();

@@ -1,7 +1,16 @@
-import type { CreateWorkItemInput, Paginated, WorkItemDto, WorkItemFilters } from '@mira/shared';
+import type {
+  CommentDto,
+  CreateCommentInput,
+  CreateWorkItemInput,
+  Paginated,
+  WorkItemDto,
+  WorkItemFilters,
+} from '@mira/shared';
 import { api } from '@/lib/api-client';
 
 type WorkItemResponse = { item: WorkItemDto };
+type CommentResponse = { comment: CommentDto };
+type CommentsResponse = { comments: CommentDto[] };
 
 /** Filtros opcionales del backlog; la paginacion conserva la firma de MIR-12. */
 export type WorkItemListFilters = Pick<
@@ -50,11 +59,17 @@ export function listWorkItems(
   pageSize: number,
   filters: WorkItemListFilters = {},
 ): Promise<Paginated<WorkItemDto>> {
-  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
+  const query = new URLSearchParams({
+    page: String(page),
+    pageSize: String(pageSize),
+  });
+
   const normalizedFilters = normalizeWorkItemListFilters(filters);
 
   for (const [key, value] of Object.entries(normalizedFilters)) {
-    if (value !== undefined && value !== '') query.set(key, value);
+    if (value !== undefined && value !== '') {
+      query.set(key, value);
+    }
   }
 
   return api.get<Paginated<WorkItemDto>>(
@@ -67,5 +82,29 @@ export async function getWorkItem(projectId: string, workItemId: string): Promis
   const { item } = await api.get<WorkItemResponse>(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
   );
+
   return item;
+}
+
+/** Obtiene los comentarios de un elemento de trabajo. */
+export async function getComments(projectId: string, workItemId: string): Promise<CommentDto[]> {
+  const { comments } = await api.get<CommentsResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/comments`,
+  );
+
+  return comments;
+}
+
+/** Publica un comentario en un elemento de trabajo. */
+export async function createComment(
+  projectId: string,
+  workItemId: string,
+  input: CreateCommentInput,
+): Promise<CommentDto> {
+  const { comment } = await api.post<CommentResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/comments`,
+    input,
+  );
+
+  return comment;
 }
