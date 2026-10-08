@@ -40,8 +40,6 @@ export const workItemFiltersSchema = paginationQuerySchema.extend({
   status: z.enum(WORK_ITEM_STATUSES).optional(),
   priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
   assigneeId: z.string().optional(),
-  sortBy: z.enum(['createdAt', 'updatedAt', 'priority', 'dueDate']).default('createdAt'),
-  sortDir: z.enum(['asc', 'desc']).default('desc'),
 });
 export type WorkItemFilters = z.infer<typeof workItemFiltersSchema>;
 

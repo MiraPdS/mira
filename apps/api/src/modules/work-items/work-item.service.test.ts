@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
-import type { CreateWorkItemInput, PaginationQuery, ProjectRole } from '@mira/shared';
+import type {
+  CreateWorkItemInput,
+  PaginationQuery,
+  ProjectRole,
+  WorkItemFilters,
+} from '@mira/shared';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   ListWorkItemsResult,
@@ -35,6 +40,16 @@ const INPUT: CreateWorkItemInput = {
 const PAGINATION: PaginationQuery = {
   page: 2,
   pageSize: 20,
+};
+
+const FILTERS: WorkItemFilters = {
+  page: 3,
+  pageSize: 10,
+  q: 'login',
+  type: 'BUG',
+  status: 'TODO',
+  priority: 'HIGH',
+  assigneeId: 'user_2',
 };
 
 function usuarioDePrueba(overrides: Partial<WorkItemUser> = {}): WorkItemUser {
@@ -210,6 +225,64 @@ describe('workItemService', () => {
         });
       },
     );
+
+    it('delega la busqueda de texto junto con la paginacion existente', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 1 });
+
+      const result = await service.list(PROJECT_ID, ACTOR_ID, {
+        page: FILTERS.page,
+        pageSize: FILTERS.pageSize,
+        q: FILTERS.q,
+      });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 3,
+        pageSize: 10,
+        q: 'login',
+      });
+      expect(result).toEqual({ data: [], page: 3, pageSize: 10, total: 1 });
+    });
+
+    it.each([
+      ['type', { type: 'BUG' }],
+      ['status', { status: 'IN_REVIEW' }],
+      ['priority', { priority: 'CRITICAL' }],
+      ['assigneeId', { assigneeId: 'user_2' }],
+    ] as const)('delega el filtro individual %s', async (_name, filter) => {
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list(PROJECT_ID, ACTOR_ID, { page: 1, pageSize: 20, ...filter });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 1,
+        pageSize: 20,
+        ...filter,
+      });
+    });
+
+    it('delega filtros combinados con AND', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list(PROJECT_ID, ACTOR_ID, {
+        page: 1,
+        pageSize: 20,
+        type: 'BUG',
+        priority: 'HIGH',
+      });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 1,
+        pageSize: 20,
+        type: 'BUG',
+        priority: 'HIGH',
+      });
+    });
 
     it('rechaza a un usuario que no pertenece al proyecto sin consultar el listado', async () => {
       repo.findMemberRole.mockResolvedValue(null);

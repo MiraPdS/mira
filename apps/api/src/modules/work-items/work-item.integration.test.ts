@@ -307,6 +307,179 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(res.body).toEqual({ data: [], page: 1, pageSize: 20, total: 0 });
   });
 
+  it('busca en titulo y descripcion sin distinguir mayusculas', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const [titleMatch, descriptionMatch] = await Promise.all([
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Corregir LOGIN de usuarios',
+        description: 'Sin coincidencias en la descripcion.',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Actualizar documentacion',
+        description: 'Explicar el flujo de login para miembros.',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Preparar retrospectiva',
+        description: 'Sin coincidencias.',
+      }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=LoGiN`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.total).toBe(2);
+    expect(res.body.data.map((item: { id: string }) => item.id)).toEqual(
+      expect.arrayContaining([titleMatch.id, descriptionMatch.id]),
+    );
+  });
+
+  it('aplica cada filtro de enum y de responsable', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const assignee = await createUser({ email: 'assignee@mira.test' });
+    await addMember(project, assignee);
+    const [bug, inProgress, highPriority, assigned] = await Promise.all([
+      createWorkItem({ project, createdBy: owner, title: 'Error reproducible', type: 'BUG' }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'En ejecucion',
+        status: 'IN_PROGRESS',
+      }),
+      createWorkItem({ project, createdBy: owner, title: 'Urgente', priority: 'HIGH' }),
+      createWorkItem({ project, createdBy: owner, title: 'Asignado', assigneeId: assignee.id }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const [byType, byStatus, byPriority, byAssignee] = await Promise.all([
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?type=BUG`)
+        .set('Cookie', cookie),
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?status=IN_PROGRESS`)
+        .set('Cookie', cookie),
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?priority=HIGH`)
+        .set('Cookie', cookie),
+      request(app)
+        .get(`${rutaDeCreacion(project.id)}?assigneeId=${assignee.id}`)
+        .set('Cookie', cookie),
+    ]);
+
+    expect(byType.status).toBe(200);
+    expect(byType.body).toMatchObject({ total: 1 });
+    expect(byType.body.data).toHaveLength(1);
+    expect(byType.body.data[0].id).toBe(bug.id);
+
+    expect(byStatus.status).toBe(200);
+    expect(byStatus.body).toMatchObject({ total: 1 });
+    expect(byStatus.body.data).toHaveLength(1);
+    expect(byStatus.body.data[0].id).toBe(inProgress.id);
+
+    expect(byPriority.status).toBe(200);
+    expect(byPriority.body).toMatchObject({ total: 1 });
+    expect(byPriority.body.data).toHaveLength(1);
+    expect(byPriority.body.data[0].id).toBe(highPriority.id);
+
+    expect(byAssignee.status).toBe(200);
+    expect(byAssignee.body).toMatchObject({ total: 1 });
+    expect(byAssignee.body.data).toHaveLength(1);
+    expect(byAssignee.body.data[0].id).toBe(assigned.id);
+  });
+
+  it('combina busqueda y filtros con AND, y cuenta solo los resultados filtrados', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const matching = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Corregir login',
+      type: 'BUG',
+      priority: 'HIGH',
+    });
+    await Promise.all([
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Corregir login secundario',
+        type: 'BUG',
+        priority: 'LOW',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Mejorar login',
+        type: 'TASK',
+        priority: 'HIGH',
+      }),
+      createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Corregir permisos',
+        type: 'BUG',
+        priority: 'HIGH',
+      }),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=login&type=BUG&priority=HIGH`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 1 });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe(matching.id);
+  });
+
+  it('pagina despues de filtrar y devuelve una lista vacia si no hay coincidencias', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    await Promise.all([
+      ...Array.from({ length: 5 }, (_, index) =>
+        createWorkItem({
+          project,
+          createdBy: owner,
+          title: `Bug filtrado ${index}`,
+          type: 'BUG',
+        }),
+      ),
+      ...Array.from({ length: 3 }, (_, index) =>
+        createWorkItem({
+          project,
+          createdBy: owner,
+          title: `Tarea fuera del filtro ${index}`,
+          type: 'TASK',
+        }),
+      ),
+    ]);
+    const cookie = await iniciarSesion(owner);
+
+    const paged = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?type=BUG&page=2&pageSize=2`)
+      .set('Cookie', cookie);
+    const empty = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=inexistente`)
+      .set('Cookie', cookie);
+
+    expect(paged.status).toBe(200);
+    expect(paged.body).toMatchObject({ page: 2, pageSize: 2, total: 5 });
+    expect(paged.body.data).toHaveLength(2);
+    expect(paged.body.data.every((item: { type: string }) => item.type === 'BUG')).toBe(true);
+    expect(empty.status).toBe(200);
+    expect(empty.body).toEqual({ data: [], page: 1, pageSize: 20, total: 0 });
+  });
+
   it('permite a VIEWER listar el backlog', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const { project } = await createProject({ owner, key: 'MIR' });
@@ -369,6 +542,22 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
+  it.each(['type=FEATURE', 'status=UNKNOWN', 'priority=URGENT'])(
+    'rechaza un filtro invalido: %s',
+    async (query) => {
+      const owner = await createUser({ email: 'owner@mira.test' });
+      const { project } = await createProject({ owner, key: 'MIR' });
+      const cookie = await iniciarSesion(owner);
+
+      const res = await request(app)
+        .get(`${rutaDeCreacion(project.id)}?${query}`)
+        .set('Cookie', cookie);
+
+      expect(res.status).toBe(422);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    },
+  );
+
   it('ordena por createdAt DESC y desempata por id DESC', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const { project } = await createProject({ owner, key: 'MIR' });
@@ -422,6 +611,34 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(
       res.body.data.every((item: { projectId: string }) => item.projectId === project.id),
     ).toBe(true);
+  });
+
+  it('no devuelve coincidencias filtradas de otro proyecto', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const { project: otherProject } = await createProject({ owner, key: 'OTR' });
+    const item = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Login del proyecto actual',
+      type: 'BUG',
+    });
+    await createWorkItem({
+      project: otherProject,
+      createdBy: owner,
+      title: 'Login del otro proyecto',
+      type: 'BUG',
+    });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .get(`${rutaDeCreacion(project.id)}?q=login&type=BUG`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ total: 1 });
+    expect(res.body.data).toHaveLength(1);
+    expect(res.body.data[0].id).toBe(item.id);
   });
 
   it('devuelve una pagina vacia fuera de rango sin convertirla en 404', async () => {

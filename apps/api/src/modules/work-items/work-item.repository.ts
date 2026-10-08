@@ -1,7 +1,8 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import type {
   CreateWorkItemInput,
   ProjectRole,
+  WorkItemFilters,
   WorkItemPriority,
   WorkItemStatus,
   WorkItemType,
@@ -41,7 +42,10 @@ export interface CreateWorkItemData {
   input: CreateWorkItemInput;
 }
 
-export interface ListWorkItemsData {
+export interface ListWorkItemsData extends Pick<
+  WorkItemFilters,
+  'q' | 'type' | 'status' | 'priority' | 'assigneeId'
+> {
   projectId: string;
   page: number;
   pageSize: number;
@@ -74,6 +78,32 @@ const usersForDto = {
     createdAt: true,
   },
 } as const;
+
+/** Construye filtros Prisma que se aplican identicamente al count y al listado. */
+export function workItemWhereForList({
+  projectId,
+  q,
+  type,
+  status,
+  priority,
+  assigneeId,
+}: ListWorkItemsData): Prisma.WorkItemWhereInput {
+  return {
+    projectId,
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+    ...(type ? { type } : {}),
+    ...(status ? { status } : {}),
+    ...(priority ? { priority } : {}),
+    ...(assigneeId ? { assigneeId } : {}),
+  };
+}
 
 /** `Db` tambien puede representar una transaccion que ya fue abierta. */
 function hasTransaction(db: Db): db is PrismaClient {
@@ -155,9 +185,10 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       return db.$transaction((tx) => createInTransaction(tx, data));
     },
 
-    async listByProject({ projectId, page, pageSize }) {
+    async listByProject(data) {
+      const { page, pageSize } = data;
       const skip = (page - 1) * pageSize;
-      const where = { projectId };
+      const where = workItemWhereForList(data);
 
       const [total, items] = await Promise.all([
         db.workItem.count({ where }),
