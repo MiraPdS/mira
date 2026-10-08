@@ -1,5 +1,11 @@
 import { http, HttpResponse } from 'msw';
-import type { ApiError, AuthResponse, PublicUser } from '@mira/shared';
+import type {
+  ApiError,
+  AuthResponse,
+  ListProjectsResponse,
+  ProjectDto,
+  PublicUser,
+} from '@mira/shared';
 
 /**
  * Handlers por defecto de MSW.
@@ -21,6 +27,20 @@ export const USUARIO_DE_PRUEBA: PublicUser = {
   email: 'ada@mira.dev',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
+
+/** ProjectDto valido para los tests; se ajusta con `overrides`. */
+export function proyectoDePrueba(overrides: Partial<ProjectDto> = {}): ProjectDto {
+  return {
+    id: 'project_1',
+    name: 'Mira',
+    key: 'MIR',
+    description: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    myRole: 'OWNER',
+    ...overrides,
+  };
+}
 
 /** Construye un error con la MISMA forma que produce el errorHandler de Express. */
 export function apiError(
@@ -49,4 +69,8 @@ export const handlers = [
   // Por defecto NO hay sesion: los tests que necesiten un usuario autenticado
   // lo declaran explicitamente. Es mas seguro que asumir sesion iniciada.
   http.get(`${BASE_URL}/auth/me`, () => apiError(401, 'UNAUTHORIZED', 'Debes iniciar sesion')),
+
+  // Usuario sin proyectos: el caso mas simple. Quien necesite una lista la
+  // declara con server.use(...).
+  http.get(`${BASE_URL}/projects`, () => HttpResponse.json<ListProjectsResponse>({ projects: [] })),
 ];

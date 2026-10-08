@@ -1,6 +1,11 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
-import type { CreateWorkItemInput, PaginationQuery, ProjectRole } from '@mira/shared';
+import type {
+  CreateWorkItemInput,
+  PaginationQuery,
+  ProjectRole,
+  WorkItemFilters,
+} from '@mira/shared';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   ListWorkItemsResult,
@@ -35,6 +40,16 @@ const INPUT: CreateWorkItemInput = {
 const PAGINATION: PaginationQuery = {
   page: 2,
   pageSize: 20,
+};
+
+const FILTERS: WorkItemFilters = {
+  page: 3,
+  pageSize: 10,
+  q: 'login',
+  type: 'BUG',
+  status: 'TODO',
+  priority: 'HIGH',
+  assigneeId: 'user_2',
 };
 
 function usuarioDePrueba(overrides: Partial<WorkItemUser> = {}): WorkItemUser {
@@ -211,6 +226,64 @@ describe('workItemService', () => {
       },
     );
 
+    it('delega la busqueda de texto junto con la paginacion existente', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 1 });
+
+      const result = await service.list(PROJECT_ID, ACTOR_ID, {
+        page: FILTERS.page,
+        pageSize: FILTERS.pageSize,
+        q: FILTERS.q,
+      });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 3,
+        pageSize: 10,
+        q: 'login',
+      });
+      expect(result).toEqual({ data: [], page: 3, pageSize: 10, total: 1 });
+    });
+
+    it.each([
+      ['type', { type: 'BUG' }],
+      ['status', { status: 'IN_REVIEW' }],
+      ['priority', { priority: 'CRITICAL' }],
+      ['assigneeId', { assigneeId: 'user_2' }],
+    ] as const)('delega el filtro individual %s', async (_name, filter) => {
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list(PROJECT_ID, ACTOR_ID, { page: 1, pageSize: 20, ...filter });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 1,
+        pageSize: 20,
+        ...filter,
+      });
+    });
+
+    it('delega filtros combinados con AND', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list(PROJECT_ID, ACTOR_ID, {
+        page: 1,
+        pageSize: 20,
+        type: 'BUG',
+        priority: 'HIGH',
+      });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 1,
+        pageSize: 20,
+        type: 'BUG',
+        priority: 'HIGH',
+      });
+    });
+
     it('rechaza a un usuario que no pertenece al proyecto sin consultar el listado', async () => {
       repo.findMemberRole.mockResolvedValue(null);
 
@@ -344,6 +417,72 @@ describe('workItemService', () => {
       repo.listBoardByProject.mockResolvedValue([]);
 
       await expect(service.board(PROJECT_ID, ACTOR_ID)).resolves.toEqual([]);
+    });
+  });
+
+  describe('delete', () => {
+    it.each(['OWNER', 'MEMBER'] as const)('%s puede eliminar el item', async (role) => {
+      repo.findMemberRole.mockResolvedValue(role);
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba({ reference: 'MIR-12' }));
+      repo.deleteAtomically.mockResolvedValue(undefined);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toBeUndefined();
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+      expect(repo.deleteAtomically).toHaveBeenCalledTimes(1);
+      expect(repo.deleteAtomically).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        actorId: ACTOR_ID,
+        workItemId: 'item_1',
+        reference: 'MIR-12',
+      });
+    });
+
+    it('rechaza VIEWER sin buscar ni eliminar el item', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.deleteAtomically).not.toHaveBeenCalled();
+    });
+
+    it('oculta al no miembro con NotFoundError como en el detalle', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.deleteAtomically).not.toHaveBeenCalled();
+    });
+
+    it.each(['item inexistente', 'item de otro proyecto'])(
+      'rechaza %s sin intentar eliminar ni registrar actividad',
+      async () => {
+        repo.findMemberRole.mockResolvedValue('MEMBER');
+        repo.findByIdInProject.mockResolvedValue(null);
+
+        await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+          NotFoundError,
+        );
+
+        expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+        expect(repo.deleteAtomically).not.toHaveBeenCalled();
+      },
+    );
+
+    it('propaga un fallo de persistencia sin informar exito', async () => {
+      const error = new Error('No se pudo eliminar el item');
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.deleteAtomically.mockRejectedValue(error);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBe(error);
     });
   });
 

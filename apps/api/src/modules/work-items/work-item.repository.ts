@@ -1,8 +1,9 @@
-import type { PrismaClient } from '@prisma/client';
+import type { Prisma, PrismaClient } from '@prisma/client';
 import {
   BOARD_STATUSES,
   type CreateWorkItemInput,
   type ProjectRole,
+  type WorkItemFilters,
   type WorkItemPriority,
   type WorkItemStatus,
   type WorkItemType,
@@ -42,7 +43,17 @@ export interface CreateWorkItemData {
   input: CreateWorkItemInput;
 }
 
-export interface ListWorkItemsData {
+export interface DeleteWorkItemData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  reference: string;
+}
+
+export interface ListWorkItemsData extends Pick<
+  WorkItemFilters,
+  'q' | 'type' | 'status' | 'priority' | 'assigneeId'
+> {
   projectId: string;
   page: number;
   pageSize: number;
@@ -64,6 +75,7 @@ export interface WorkItemRepository {
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   findByIdInProject(projectId: string, workItemId: string): Promise<WorkItemForDto | null>;
   createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
+  deleteAtomically(data: DeleteWorkItemData): Promise<void>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
   /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
   listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
@@ -77,6 +89,32 @@ const usersForDto = {
     createdAt: true,
   },
 } as const;
+
+/** Construye filtros Prisma que se aplican identicamente al count y al listado. */
+export function workItemWhereForList({
+  projectId,
+  q,
+  type,
+  status,
+  priority,
+  assigneeId,
+}: ListWorkItemsData): Prisma.WorkItemWhereInput {
+  return {
+    projectId,
+    ...(q
+      ? {
+          OR: [
+            { title: { contains: q, mode: 'insensitive' } },
+            { description: { contains: q, mode: 'insensitive' } },
+          ],
+        }
+      : {}),
+    ...(type ? { type } : {}),
+    ...(status ? { status } : {}),
+    ...(priority ? { priority } : {}),
+    ...(assigneeId ? { assigneeId } : {}),
+  };
+}
 
 /** `Db` tambien puede representar una transaccion que ya fue abierta. */
 function hasTransaction(db: Db): db is PrismaClient {
@@ -130,6 +168,23 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
   return workItem;
 }
 
+async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<void> {
+  // Se registra mientras el item existe; al borrarlo, la FK SetNull conserva
+  // tanto este evento como el historial previo, con su referencia legible.
+  await db.activityLog.create({
+    data: {
+      action: 'ITEM_DELETED',
+      projectId: data.projectId,
+      actorId: data.actorId,
+      workItemId: data.workItemId,
+      field: 'reference',
+      fromValue: data.reference,
+      toValue: null,
+    },
+  });
+  await db.workItem.delete({ where: { id: data.workItemId, projectId: data.projectId } });
+}
+
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
     async findMemberRole(projectId, userId) {
@@ -158,9 +213,15 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       return db.$transaction((tx) => createInTransaction(tx, data));
     },
 
-    async listByProject({ projectId, page, pageSize }) {
+    async deleteAtomically(data) {
+      if (!hasTransaction(db)) return deleteInTransaction(db, data);
+      return db.$transaction((tx) => deleteInTransaction(tx, data));
+    },
+
+    async listByProject(data) {
+      const { page, pageSize } = data;
       const skip = (page - 1) * pageSize;
-      const where = { projectId };
+      const where = workItemWhereForList(data);
 
       const [total, items] = await Promise.all([
         db.workItem.count({ where }),
