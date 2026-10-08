@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createWorkItemSchema, paginationQuerySchema } from '@mira/shared';
+import { createWorkItemSchema, workItemFiltersSchema } from '@mira/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { validateBody, validateQuery } from '../../middleware/validate.js';
 import { createWorkItemController } from './work-item.controller.js';
@@ -19,7 +19,7 @@ export function createWorkItemRouter(): Router {
   router.get(
     '/:projectId/work-items',
     requireAuth,
-    validateQuery(paginationQuerySchema),
+    validateQuery(workItemFiltersSchema),
     controller.list,
   );
 

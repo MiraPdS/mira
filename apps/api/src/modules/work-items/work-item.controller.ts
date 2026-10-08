@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateWorkItemInput, PaginationQuery, WorkItemDto } from '@mira/shared';
+import type { CreateWorkItemInput, WorkItemDto, WorkItemFilters } from '@mira/shared';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { validatedQuery } from '../../middleware/validate.js';
 import type { WorkItemService } from './work-item.service.js';
@@ -64,7 +64,7 @@ export function createWorkItemController(service: WorkItemService) {
         const result = await service.list(
           req.params.projectId!,
           req.user.id,
-          validatedQuery<PaginationQuery>(res),
+          validatedQuery<WorkItemFilters>(res),
         );
         res.status(200).json(result);
       } catch (error) {
