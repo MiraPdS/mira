@@ -1,5 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateWorkItemInput, WorkItemDto, WorkItemFilters } from '@mira/shared';
+import type {
+  CreateWorkItemInput,
+  UpdateWorkItemInput,
+  WorkItemDto,
+  WorkItemFilters,
+} from '@mira/shared';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { validatedQuery } from '../../middleware/validate.js';
 import type { WorkItemService } from './work-item.service.js';
@@ -39,6 +44,22 @@ export function createWorkItemController(service: WorkItemService) {
           req.params.projectId!,
           req.user.id,
           req.params.workItemId!,
+        );
+        res.status(200).json({ item } satisfies WorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async update(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const { item } = await service.update(
+          req.params.projectId!,
+          req.user.id,
+          req.params.workItemId!,
+          req.body as UpdateWorkItemInput,
         );
         res.status(200).json({ item } satisfies WorkItemResponse);
       } catch (error) {
