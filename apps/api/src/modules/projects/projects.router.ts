@@ -15,13 +15,16 @@ export function createProjectsRouter(): Router {
   // Todas las rutas de proyectos exigen sesion.
   router.use(requireAuth);
 
-  // MIR-5: crear proyecto. MIR-6: listar los proyectos del usuario.
+  // MIR-5: Crear proyecto. MIR-6: Listar proyectos del usuario.
   router.get('/', controller.list);
   router.post('/', validateBody(createProjectSchema), controller.create);
 
   // MIR-9: Listar miembros e invitar usuarios.
   router.get('/:projectId/members', controller.listMembers);
   router.post('/:projectId/members', validateBody(addMemberSchema), controller.addMember);
+
+  // MIR-23: Panel de resumen del proyecto.
+  router.get('/:projectId/summary', controller.getSummary);
 
   return router;
 }

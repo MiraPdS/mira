@@ -20,7 +20,9 @@ export function createProjectsController(service: ProjectsService) {
     async list(req: Request, res: Response, next: NextFunction) {
       try {
         if (!req.user) throw new UnauthorizedError();
+
         const projects = await service.listForUser(req.user.id);
+
         res.json({ projects } satisfies ListProjectsResponse);
       } catch (error) {
         next(error);
@@ -58,6 +60,25 @@ export function createProjectsController(service: ProjectsService) {
         const member = await service.addMember(projectId, req.user.id, req.body.email);
 
         res.status(201).json({ member });
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    // MIR-23: Obtener el resumen estadistico y actividad reciente.
+    async getSummary(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const projectId = req.params.projectId;
+
+        if (!projectId) {
+          throw new BadRequestError('Falta el identificador del proyecto', 'PROJECT_ID_REQUIRED');
+        }
+
+        const summary = await service.getProjectSummary(projectId, req.user.id);
+
+        res.status(200).json({ summary });
       } catch (error) {
         next(error);
       }

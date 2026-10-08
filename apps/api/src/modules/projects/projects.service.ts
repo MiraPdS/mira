@@ -80,6 +80,34 @@ export function createProjectsService(repo: ProjectsRepository) {
 
       return repo.addMemberWithActivity(projectId, user.id, actorId);
     },
+
+    /** MIR-23: Resumen estadistico y actividad reciente del proyecto. */
+    async getProjectSummary(projectId: string, actorId: string) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!actorMembership) {
+        throw new ForbiddenError('No perteneces a este proyecto', 'PROJECT_ACCESS_DENIED');
+      }
+
+      const summary = await repo.getProjectSummary(projectId);
+
+      return {
+        total: summary.total,
+        byStatus: summary.byStatus,
+        byType: summary.byType,
+        byPriority: summary.byPriority,
+        recentActivity: summary.recentActivity.map((activity) => ({
+          id: activity.id,
+          action: activity.action,
+          workItemId: activity.workItemId,
+          actor: activity.actor,
+          field: activity.field,
+          fromValue: activity.fromValue,
+          toValue: activity.toValue,
+          createdAt: activity.createdAt.toISOString(),
+        })),
+      };
+    },
   };
 }
 
