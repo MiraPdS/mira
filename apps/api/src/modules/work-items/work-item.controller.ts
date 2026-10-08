@@ -1,6 +1,7 @@
 import type { NextFunction, Request, Response } from 'express';
 import type {
   BoardResponse,
+  ChangeStatusInput,
   CreateWorkItemInput,
   WorkItemDto,
   WorkItemFilters,
@@ -57,6 +58,22 @@ export function createWorkItemController(service: WorkItemService) {
 
         await service.delete(req.params.projectId!, req.user.id, req.params.workItemId!);
         res.status(204).end();
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async changeStatus(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const item = await service.changeStatus(
+          req.params.projectId!,
+          req.user.id,
+          req.params.workItemId!,
+          req.body as ChangeStatusInput,
+        );
+        res.status(200).json({ item } satisfies WorkItemResponse);
       } catch (error) {
         next(error);
       }

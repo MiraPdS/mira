@@ -1086,3 +1086,210 @@ describe('GET /api/projects/:projectId/board', () => {
     expect(res.status).toBe(401);
   });
 });
+
+describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
+  const rutaDeEstado = (projectId: string, workItemId: string) =>
+    `${rutaDeDetalle(projectId, workItemId)}/status`;
+
+  it.each(['OWNER', 'MEMBER'] as const)(
+    '%s mueve la tarjeta, el cambio persiste y queda ITEM_STATUS_CHANGED',
+    async (role) => {
+      const { project, owner } = await createProject();
+      const actor = role === 'OWNER' ? owner : await createUser();
+      if (role === 'MEMBER') await addMember(project, actor, role);
+      const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+      const cookie = await iniciarSesion(actor);
+
+      const res = await request(app)
+        .patch(rutaDeEstado(project.id, workItem.id))
+        .set('Cookie', cookie)
+        .send({ status: 'IN_PROGRESS' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.item).toMatchObject({
+        id: workItem.id,
+        reference: workItem.reference,
+        status: 'IN_PROGRESS',
+      });
+
+      // "Tras recargar": el tablero vuelve a leer desde PostgreSQL.
+      const board = await request(app)
+        .get(`/api/projects/${project.id}/board`)
+        .set('Cookie', cookie);
+      expect(board.body.items).toEqual([
+        expect.objectContaining({ id: workItem.id, status: 'IN_PROGRESS' }),
+      ]);
+
+      const activity = await prisma.activityLog.findMany({ where: { workItemId: workItem.id } });
+      expect(activity).toEqual([
+        expect.objectContaining({
+          action: 'ITEM_STATUS_CHANGED',
+          projectId: project.id,
+          actorId: actor.id,
+          field: 'status',
+          fromValue: 'TODO',
+          toValue: 'IN_PROGRESS',
+        }),
+      ]);
+    },
+  );
+
+  it('registra un evento por cada movimiento con su estado anterior y nuevo', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(owner);
+
+    for (const status of ['IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const) {
+      const res = await request(app)
+        .patch(rutaDeEstado(project.id, workItem.id))
+        .set('Cookie', cookie)
+        .send({ status });
+      expect(res.status).toBe(200);
+    }
+
+    const activity = await prisma.activityLog.findMany({
+      where: { workItemId: workItem.id, action: 'ITEM_STATUS_CHANGED' },
+      orderBy: { createdAt: 'asc' },
+    });
+    expect(activity.map(({ fromValue, toValue }) => [fromValue, toValue])).toEqual([
+      ['TODO', 'IN_PROGRESS'],
+      ['IN_PROGRESS', 'IN_REVIEW'],
+      ['IN_REVIEW', 'DONE'],
+    ]);
+  });
+
+  it('responde 200 sin registrar historial cuando el estado no cambia', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'DONE' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeEstado(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ status: 'DONE' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.item.status).toBe('DONE');
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('rechaza VIEWER con 403 sin mover el item ni registrar historial', async () => {
+    const { project, owner } = await createProject();
+    const viewer = await createUser();
+    await addMember(project, viewer, 'VIEWER');
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(viewer);
+
+    const res = await request(app)
+      .patch(rutaDeEstado(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ status: 'DONE' });
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('FORBIDDEN');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
+      status: 'TODO',
+    });
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('oculta el item al no miembro con 404', async () => {
+    const { project, owner } = await createProject();
+    const ajeno = await createUser();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(ajeno);
+
+    const res = await request(app)
+      .patch(rutaDeEstado(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ status: 'DONE' });
+
+    expect(res.status).toBe(404);
+    expect(res.body.error.code).toBe('NOT_FOUND');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
+      status: 'TODO',
+    });
+  });
+
+  it('responde 404 para un item de otro proyecto aunque el actor sea OWNER en ambos', async () => {
+    const { project, owner } = await createProject();
+    const { project: otro } = await createProject({ owner });
+    const ajeno = await createWorkItem({ project: otro, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeEstado(project.id, ajeno.id))
+      .set('Cookie', cookie)
+      .send({ status: 'DONE' });
+
+    expect(res.status).toBe(404);
+    expect(await prisma.workItem.findUnique({ where: { id: ajeno.id } })).toMatchObject({
+      status: 'TODO',
+    });
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('requiere una sesion valida y responde 401 sin efectos secundarios', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+
+    const res = await request(app)
+      .patch(rutaDeEstado(project.id, workItem.id))
+      .send({ status: 'DONE' });
+
+    expect(res.status).toBe(401);
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
+      status: 'TODO',
+    });
+  });
+
+  it.each([
+    ['un estado desconocido', { status: 'ARCHIVED' }],
+    ['un cuerpo sin estado', {}],
+    ['campos ajenos al movimiento', { status: 'DONE', title: 'Otro titulo' }],
+  ])('rechaza %s con 422 sin modificar el item', async (_caso, body) => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeEstado(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send(body);
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
+      status: 'TODO',
+      title: workItem.title,
+    });
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('revierte el cambio de estado si PostgreSQL falla al registrar el historial', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+
+    // El trigger hace fallar el INSERT del historial DESPUES de actualizar el
+    // estado; trigger y funcion son DDL transaccional y desaparecen al revertir.
+    await expect(
+      prisma.$transaction(async (tx) => {
+        await tx.$executeRaw`
+          CREATE FUNCTION mir19_reject_activity() RETURNS trigger LANGUAGE plpgsql AS
+          $$ BEGIN RAISE EXCEPTION 'MIR19_ACTIVITY_BLOCKED'; END; $$
+        `;
+        await tx.$executeRaw`
+          CREATE TRIGGER mir19_reject_activity BEFORE INSERT ON activity_log
+          FOR EACH ROW EXECUTE FUNCTION mir19_reject_activity()
+        `;
+        const service = createWorkItemService(createWorkItemRepository(tx));
+        await service.changeStatus(project.id, owner.id, workItem.id, { status: 'DONE' });
+      }),
+    ).rejects.toThrow('MIR19_ACTIVITY_BLOCKED');
+
+    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
+      status: 'TODO',
+    });
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+});

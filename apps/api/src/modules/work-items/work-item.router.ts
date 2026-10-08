@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createWorkItemSchema, workItemFiltersSchema } from '@mira/shared';
+import { changeStatusSchema, createWorkItemSchema, workItemFiltersSchema } from '@mira/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { validateBody, validateQuery } from '../../middleware/validate.js';
 import { createWorkItemController } from './work-item.controller.js';
@@ -31,6 +31,14 @@ export function createWorkItemRouter(): Router {
   );
   router.get('/:projectId/work-items/:workItemId', requireAuth, controller.getById);
   router.delete('/:projectId/work-items/:workItemId', requireAuth, controller.delete);
+
+  // Mover una tarjeta (MIR-19): PATCH /api/projects/:projectId/work-items/:workItemId/status
+  router.patch(
+    '/:projectId/work-items/:workItemId/status',
+    requireAuth,
+    validateBody(changeStatusSchema),
+    controller.changeStatus,
+  );
 
   // Tablero Kanban: GET /api/projects/:projectId/board
   router.get('/:projectId/board', requireAuth, controller.board);

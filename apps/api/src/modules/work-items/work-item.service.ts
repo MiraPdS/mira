@@ -1,5 +1,6 @@
 import {
   can,
+  type ChangeStatusInput,
   type CreateWorkItemInput,
   type Paginated,
   type PublicUser,
@@ -93,6 +94,34 @@ export function createWorkItemService(repo: WorkItemRepository) {
         workItemId,
         reference: workItem.reference,
       });
+    },
+
+    async changeStatus(
+      projectId: string,
+      actorId: string,
+      workItemId: string,
+      input: ChangeStatusInput,
+    ): Promise<WorkItemDto> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      // Misma politica de ocultacion que el detalle: el no miembro ve 404.
+      if (role === null) throw new NotFoundError('Elemento de trabajo');
+      if (!can(role, 'work-item:change-status')) throw new ForbiddenError();
+
+      const workItem = await repo.findByIdInProject(projectId, workItemId);
+      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+      // Mover al mismo estado no es un cambio: no se escribe ni se registra
+      // historial, asi un doble envio no ensucia la trazabilidad.
+      if (workItem.status === input.status) return toWorkItemDto(workItem);
+
+      const updated = await repo.changeStatusAtomically({
+        projectId,
+        workItemId,
+        actorId,
+        fromStatus: workItem.status,
+        toStatus: input.status,
+      });
+      return toWorkItemDto(updated);
     },
 
     async getById(projectId: string, actorId: string, workItemId: string): Promise<WorkItemDto> {
