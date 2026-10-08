@@ -1,29 +1,131 @@
-import type { Project } from '@prisma/client';
+import type { Prisma, Project, ProjectMember, User } from '@prisma/client';
 import { prisma, type Db } from '../../lib/prisma.js';
 
-/**
- * Puerto de persistencia del modulo projects.
- *
- * Igual que en auth: el service depende de esta interfaz y no de Prisma, para
- * poder testearlo con un doble en memoria.
- */
+export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
+  include: {
+    user: {
+      select: {
+        id: true;
+        name: true;
+        email: true;
+        createdAt: true;
+      };
+    };
+  };
+}>;
+
 export interface ProjectsRepository {
   findByKey(key: string): Promise<Project | null>;
-  /** Crea el proyecto y su membresia OWNER en una sola escritura. */
+
   createWithOwner(
     data: { name: string; key: string; description: string | null },
     ownerId: string,
   ): Promise<Project>;
+
+  findMember(projectId: string, userId: string): Promise<ProjectMember | null>;
+
+  findUserByEmail(email: string): Promise<User | null>;
+
+  findMembersByProject(projectId: string): Promise<ProjectMemberWithUser[]>;
+
+  addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
 }
 
 export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
   return {
-    findByKey: (key) => db.project.findUnique({ where: { key } }),
-    // Escritura anidada: Prisma inserta proyecto y membresia en la misma
-    // transaccion, asi que nunca queda un proyecto sin duenio.
+    findByKey: (key) =>
+      db.project.findUnique({
+        where: { key },
+      }),
+
     createWithOwner: (data, ownerId) =>
       db.project.create({
-        data: { ...data, members: { create: { userId: ownerId, role: 'OWNER' } } },
+        data: {
+          ...data,
+          members: {
+            create: {
+              userId: ownerId,
+              role: 'OWNER',
+            },
+          },
+        },
       }),
+
+    findMember: (projectId, userId) =>
+      db.projectMember.findUnique({
+        where: {
+          userId_projectId: {
+            userId,
+            projectId,
+          },
+        },
+      }),
+
+    findUserByEmail: (email) =>
+      db.user.findUnique({
+        where: { email },
+      }),
+
+    findMembersByProject: (projectId) =>
+      db.projectMember.findMany({
+        where: { projectId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { joinedAt: 'asc' },
+      }),
+
+    async addMemberWithActivity(projectId, userId, actorId) {
+      if (!('$transaction' in db)) {
+        const member = await db.projectMember.create({
+          data: {
+            projectId,
+            userId,
+            role: 'MEMBER',
+          },
+        });
+
+        await db.activityLog.create({
+          data: {
+            action: 'MEMBER_ADDED',
+            projectId,
+            actorId,
+            field: 'member',
+            toValue: userId,
+          },
+        });
+
+        return member;
+      }
+
+      return db.$transaction(async (tx) => {
+        const member = await tx.projectMember.create({
+          data: {
+            projectId,
+            userId,
+            role: 'MEMBER',
+          },
+        });
+
+        await tx.activityLog.create({
+          data: {
+            action: 'MEMBER_ADDED',
+            projectId,
+            actorId,
+            field: 'member',
+            toValue: userId,
+          },
+        });
+
+        return member;
+      });
+    },
   };
 }

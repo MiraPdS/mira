@@ -6,7 +6,7 @@ import cookieParser from 'cookie-parser';
 import { env, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createAuthRouter } from './modules/auth/auth.router.js';
-import { createProjectRouter } from './modules/projects/project.router.js';
+
 import { createProjectsRouter } from './modules/projects/projects.router.js';
 import { createWorkItemRouter } from './modules/work-items/work-item.router.js';
 
@@ -47,7 +47,6 @@ export function createApp(): Express {
   app.use('/api/projects', createProjectsRouter());
 
   // Rutas de invitacion y listado de miembros (MIR-9).
-  app.use('/api/projects', createProjectRouter());
 
   // Rutas de elementos de trabajo.
   app.use('/api/projects', createWorkItemRouter());
