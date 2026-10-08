@@ -12,6 +12,10 @@ export function createProjectRouter(): Router {
 
   const router = Router();
 
+  // Obtener miembros del proyecto
+  router.get('/:projectId/members', requireAuth, controller.getMembers);
+
+  // MIR-9: Invitar un miembro al proyecto
   router.post(
     '/:projectId/members',
     requireAuth,

@@ -1,6 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { useCurrentUser } from '@/features/auth/useAuth';
+import { ProjectMembersPage } from '@/features/projects/ProjectMembersPage';
 
 /**
  * Arbol de rutas.
@@ -51,6 +52,15 @@ export function App() {
         }
       />
       <Route path="*" element={<Pendiente item="-" titulo="Pagina no encontrada" />} />
+
+      <Route
+        path="/proyectos/:projectId/miembros"
+        element={
+          <RequiereSesion>
+            <ProjectMembersPage />
+          </RequiereSesion>
+        }
+      />
     </Routes>
   );
 }

@@ -1,9 +1,24 @@
-import type { ProjectMember, User } from '@prisma/client';
+import type { Prisma, ProjectMember, User } from '@prisma/client';
 import { prisma, type Db } from '../../lib/prisma.js';
+
+export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
+  include: {
+    user: {
+      select: {
+        id: true;
+        name: true;
+        email: true;
+        createdAt: true;
+      };
+    };
+  };
+}>;
 
 export interface ProjectRepository {
   findMember(projectId: string, userId: string): Promise<ProjectMember | null>;
   findUserByEmail(email: string): Promise<User | null>;
+
+  findMembersByProject(projectId: string): Promise<ProjectMemberWithUser[]>;
 
   addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
 }
@@ -23,6 +38,22 @@ export function createProjectRepository(db: Db = prisma): ProjectRepository {
     findUserByEmail: (email) =>
       db.user.findUnique({
         where: { email },
+      }),
+
+    findMembersByProject: (projectId) =>
+      db.projectMember.findMany({
+        where: { projectId },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              createdAt: true,
+            },
+          },
+        },
+        orderBy: { joinedAt: 'asc' },
       }),
 
     async addMemberWithActivity(projectId, userId, actorId) {

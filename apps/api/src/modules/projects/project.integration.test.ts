@@ -180,3 +180,92 @@ describe('POST /api/projects/:projectId/members', () => {
     expect(res.body.error.fields).toHaveProperty('email');
   });
 });
+
+describe('GET /api/projects/:projectId/members', () => {
+  it('responde 200 y devuelve los miembros del proyecto', async () => {
+    const { project, owner } = await createProject();
+
+    const miembro = await createUser({
+      email: 'listado@mira.dev',
+    });
+
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookie = await iniciarSesion(owner.email);
+
+    const res = await request(app).get(`/api/projects/${project.id}/members`).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.members).toHaveLength(2);
+
+    expect(res.body.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: owner.id,
+          role: 'OWNER',
+        }),
+        expect.objectContaining({
+          userId: miembro.id,
+          role: 'MEMBER',
+          user: expect.objectContaining({
+            id: miembro.id,
+            email: miembro.email,
+          }),
+        }),
+      ]),
+    );
+
+    // Nunca se deben exponer contraseñas.
+    expect(res.body.members[1].user).not.toHaveProperty('passwordHash');
+  });
+
+  it('responde 403 si el usuario no pertenece al proyecto', async () => {
+    const { project } = await createProject();
+
+    const externo = await createUser({
+      email: 'externo@mira.dev',
+    });
+
+    const cookie = await iniciarSesion(externo.email);
+
+    const res = await request(app).get(`/api/projects/${project.id}/members`).set('Cookie', cookie);
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PROJECT_ACCESS_DENIED');
+  });
+
+  it('muestra al nuevo integrante despues de invitarlo', async () => {
+    const { project, owner } = await createProject();
+
+    const invitado = await createUser({
+      email: 'listanuevo@mira.dev',
+    });
+
+    const cookie = await iniciarSesion(owner.email);
+
+    // Primero invitamos al usuario.
+    await request(app)
+      .post(`/api/projects/${project.id}/members`)
+      .set('Cookie', cookie)
+      .send({ email: invitado.email })
+      .expect(201);
+
+    // Luego consultamos la lista actualizada.
+    const res = await request(app)
+      .get(`/api/projects/${project.id}/members`)
+      .set('Cookie', cookie)
+      .expect(200);
+
+    expect(res.body.members).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          userId: invitado.id,
+          role: 'MEMBER',
+          user: expect.objectContaining({
+            email: invitado.email,
+          }),
+        }),
+      ]),
+    );
+  });
+});
