@@ -3,8 +3,10 @@ import {
   TYPE_LABELS,
   type WorkItemDto,
   type WorkItemPriority,
+  type WorkItemStatus,
 } from '@mira/shared';
 import { cn } from '@/lib/utils';
+import { MoveToMenu } from './MoveToMenu';
 
 const PRIORITY_STYLES: Record<WorkItemPriority, string> = {
   LOW: 'bg-slate-100 text-slate-700',
@@ -15,10 +17,15 @@ const PRIORITY_STYLES: Record<WorkItemPriority, string> = {
 
 export interface WorkItemCardProps {
   item: WorkItemDto;
+  /**
+   * Presente solo si el usuario puede cambiar estados: sin el, la tarjeta no
+   * ofrece el menu "Mover a..." (VIEWER, o rol aun desconocido).
+   */
+  onMove?: (status: WorkItemStatus) => void;
 }
 
 /** Tarjeta del tablero: referencia, titulo, tipo, prioridad y responsable. */
-export function WorkItemCard({ item }: WorkItemCardProps) {
+export function WorkItemCard({ item, onMove }: WorkItemCardProps) {
   const titleId = `tarjeta-${item.id}-titulo`;
 
   return (
@@ -27,7 +34,12 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
         aria-labelledby={titleId}
         className="rounded-md border border-slate-200 bg-white p-3 shadow-sm"
       >
-        <p className="font-mono text-xs text-slate-500">{item.reference}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-mono text-xs text-slate-500">{item.reference}</p>
+          {onMove ? (
+            <MoveToMenu reference={item.reference} currentStatus={item.status} onMove={onMove} />
+          ) : null}
+        </div>
         <h4 id={titleId} className="mt-1 text-sm font-medium break-words text-slate-900">
           {item.title}
         </h4>

@@ -52,6 +52,7 @@ describe('App', () => {
         proyectoSolicitado = params.projectId as string;
         return HttpResponse.json<BoardResponse>({ items: [] });
       }),
+      http.get(`${BASE_URL}/projects/:projectId/members`, () => HttpResponse.json({ members: [] })),
     );
 
     renderConProviders(<App />, { route: '/proyectos/project_123/tablero' });

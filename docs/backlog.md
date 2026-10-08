@@ -367,7 +367,7 @@ los items, por eso una columna vacía siempre existe.
 
 ---
 
-### MIR-19 · Cambiar el estado desde el menú de la tarjeta
+### MIR-19 · Cambiar el estado desde el menú de la tarjeta — ✅ implementado
 
 > Como miembro
 > quiero cambiar el estado de una tarjeta desde un menú
@@ -384,6 +384,16 @@ los items, por eso una columna vacía siempre existe.
 
 **Notas.** Este es el camino determinista que usarán las pruebas E2E de la
 Entrega 3. Debe existir **antes** que MIR-20.
+
+`PATCH /api/projects/:projectId/work-items/:workItemId/status` recibe
+`{ status }` (estricto: otro campo responde 422) y devuelve `{ item }`. El
+cambio de estado y su `ITEM_STATUS_CHANGED` (`field: "status"`, `fromValue`,
+`toValue`) se escriben en la misma transacción; mover al mismo estado responde
+200 sin registrar historial. VIEWER recibe 403 y el no miembro 404, igual que
+en el detalle. En el tablero, cada tarjeta tiene el botón **Mover a…** (menú
+accesible con teclado) solo si `can(rol, 'work-item:change-status')`; la
+mutación `useMoveWorkItem` es optimista y, si la API falla, devuelve la
+tarjeta a su columna y muestra el error. MIR-20 debe reutilizarla.
 
 ---
 
