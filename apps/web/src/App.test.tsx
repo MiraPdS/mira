@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import type { ApiError, AuthResponse } from '@mira/shared';
+import type { ApiError, AuthResponse, ListProjectsResponse, ProjectDto } from '@mira/shared';
 import { renderConProviders, screen } from '@/test/render';
 import { server } from '@/test/msw/server';
-import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
+import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { App } from './App';
 
 /**
@@ -74,5 +74,38 @@ describe('App', () => {
     renderConProviders(<App />, { route: '/login' });
 
     expect(await screen.findByRole('heading', { name: /mis proyectos/i })).toBeInTheDocument();
+  });
+
+  it('MIR-5: crear un proyecto desde la lista lo deja visible con rol Propietario', async () => {
+    conCookieDeSesion();
+    // Servidor en memoria: GET devuelve lo que se haya creado con POST.
+    const proyectos: ProjectDto[] = [];
+    server.use(
+      http.get(`${BASE_URL}/projects`, () =>
+        HttpResponse.json<ListProjectsResponse>({ projects: proyectos }),
+      ),
+      http.post(`${BASE_URL}/projects`, async ({ request }) => {
+        const { name, key } = (await request.json()) as { name: string; key: string };
+        const project = proyectoDePrueba({ id: 'p_nuevo', name, key, myRole: 'OWNER' });
+        proyectos.push(project);
+        return HttpResponse.json({ project }, { status: 201 });
+      }),
+    );
+    const { user } = renderConProviders(<App />, { route: '/proyectos' });
+
+    expect(await screen.findByText(/aun no participas en ningun proyecto/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Nuevo proyecto' }));
+
+    await user.type(await screen.findByLabelText(/nombre/i), 'Plataforma Mira');
+    await user.type(screen.getByLabelText(/clave/i), 'mir');
+    await user.click(screen.getByRole('button', { name: /crear proyecto/i }));
+
+    expect(await screen.findByRole('link', { name: 'Plataforma Mira' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_nuevo',
+    );
+    expect(screen.getByRole('heading', { name: /mis proyectos/i })).toBeInTheDocument();
+    expect(screen.getByText('MIR')).toBeInTheDocument();
+    expect(screen.getByText('Propietario')).toBeInTheDocument();
   });
 });

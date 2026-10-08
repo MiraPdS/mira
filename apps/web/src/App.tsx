@@ -5,6 +5,7 @@ import { RequiereSesion, SoloInvitados } from '@/features/auth/guards';
 import { AppLayout } from '@/components/layout/AppLayout';
 import { ProjectMembersPage } from '@/features/projects/ProjectMembersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
+import { CreateProjectPage } from '@/features/projects/CreateProjectPage';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   return (
@@ -50,10 +51,7 @@ export function App() {
         }
       >
         <Route path="/proyectos" element={<ProjectsPage />} />
-        <Route
-          path="/proyectos/nuevo"
-          element={<Pendiente item="MIR-5" titulo="Nuevo proyecto" />}
-        />
+        <Route path="/proyectos/nuevo" element={<CreateProjectPage />} />
         <Route
           path="/proyectos/:projectId"
           element={<Pendiente item="MIR-23" titulo="Proyecto" />}

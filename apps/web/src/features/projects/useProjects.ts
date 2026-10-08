@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AddMemberInput, ProjectDto } from '@mira/shared';
+import type { AddMemberInput, CreateProjectInput, ProjectDto } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 
@@ -17,6 +17,18 @@ export function useProjects() {
   return useQuery<ProjectDto[], ApiRequestError>({
     queryKey: projectKeys.all,
     queryFn: projectApi.list,
+  });
+}
+
+/** Crea un proyecto y refresca la lista para que aparezca con su rol. */
+export function useCreateProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ProjectDto, Error, CreateProjectInput>({
+    mutationFn: projectApi.create,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
   });
 }
 
