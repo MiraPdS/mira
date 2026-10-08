@@ -4,7 +4,7 @@ Reparto de los 26 items pendientes entre los cuatro integrantes, y el orden en
 que conviene abordarlos según sus dependencias reales.
 
 **Estado de partida:** `MIR-1`, `MIR-3` y `MIR-25` ya están Hechos (12 pts).
-Quedan **26 items · 118 story points**.
+Quedan **26 items · 121 story points**.
 
 Los items `MIR-30` a `MIR-33` **no se trabajan en esta entrega**: están
 reservados como los dos requerimientos nuevos que exige la Entrega 2.
@@ -19,13 +19,13 @@ un **módulo completo**. Como el backend está organizado por feature
 cada integrante trabaja casi siempre en sus propios archivos: menos conflictos
 de merge y responsabilidad clara sobre cada parte.
 
-### Benjamín — Cuenta, Proyectos y Entrega · 29 pts
+### Benjamín — Cuenta, Proyectos y Entrega · 32 pts
 
 | Item | Pts | Prioridad | Descripción |
 | --- | --- | --- | --- |
 | `MIR-2` | 3 | Highest | Pantalla de registro (Web) |
 | `MIR-4` | 3 | Highest | Cerrar sesión y sesión persistente |
-| `MIR-5` | 5 | Highest | Crear proyecto |
+| `MIR-5` | 8 | Highest | Crear proyecto (API + pantalla web) |
 | `MIR-6` | 3 | Highest | Listar mis proyectos |
 | `MIR-7` | 3 | High | Ver y editar un proyecto |
 | `MIR-27` | 5 | High | Despliegue del ambiente de demostración |
@@ -100,7 +100,7 @@ flowchart LR
 
   M2["MIR-2 Pantalla registro · 3"]:::benja
   M4["MIR-4 Cerrar sesion · 3"]:::benja
-  M5["MIR-5 Crear proyecto · 5"]:::benja
+  M5["MIR-5 Crear proyecto · 8"]:::benja
   M6["MIR-6 Listar proyectos · 3"]:::benja
   M7["MIR-7 Ver y editar proyecto · 3"]:::benja
   M26["MIR-26 Wiki · 5"]:::benja
