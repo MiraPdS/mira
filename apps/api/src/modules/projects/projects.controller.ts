@@ -1,5 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateProjectInput, ProjectDto, ProjectRole } from '@mira/shared';
+import type {
+  CreateProjectInput,
+  ListProjectsResponse,
+  ProjectDto,
+  ProjectRole,
+} from '@mira/shared';
 import { BadRequestError, UnauthorizedError } from '../../lib/errors.js';
 import type { ProjectsService } from './projects.service.js';
 
@@ -12,6 +17,16 @@ export function createProjectsController(service: ProjectsService) {
         const project = await service.create(req.body as CreateProjectInput, req.user.id);
 
         res.status(201).json({ project } satisfies { project: ProjectDto });
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async list(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+        const projects = await service.listForUser(req.user.id);
+        res.json({ projects } satisfies ListProjectsResponse);
       } catch (error) {
         next(error);
       }

@@ -18,6 +18,7 @@ export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto 
 
 export function createProjectsService(repo: ProjectsRepository) {
   return {
+    // MIR-5: Crear proyecto.
     async create(input: CreateProjectInput, userId: string): Promise<ProjectDto> {
       const existente = await repo.findByKey(input.key);
 
@@ -40,31 +41,14 @@ export function createProjectsService(repo: ProjectsRepository) {
       return toProjectDto(project, 'OWNER');
     },
 
-    async changeMemberRole(
-      projectId: string,
-      actorId: string,
-      userId: string,
-      newRole: ProjectRole,
-    ) {
-      const actorMembership = await repo.findMember(projectId, actorId);
+    // MIR-6: Listar proyectos del usuario.
+    async listForUser(userId: string): Promise<ProjectDto[]> {
+      const memberships = await repo.listMembershipsOf(userId);
 
-      if (!can(actorMembership?.role, 'member:change-role')) {
-        throw new ForbiddenError('No tienes permisos para cambiar roles', 'PERMISSION_DENIED');
-      }
-
-      return repo.changeMemberRoleWithActivity(projectId, userId, actorId, newRole);
+      return memberships.map((membership) => toProjectDto(membership.project, membership.role));
     },
 
-    async removeMember(projectId: string, actorId: string, userId: string) {
-      const actorMembership = await repo.findMember(projectId, actorId);
-
-      if (!can(actorMembership?.role, 'member:remove')) {
-        throw new ForbiddenError('No tienes permisos para quitar miembros', 'PERMISSION_DENIED');
-      }
-
-      await repo.removeMemberWithActivity(projectId, userId, actorId);
-    },
-
+    // MIR-9: Listar miembros del proyecto.
     async getMembers(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 
@@ -75,6 +59,7 @@ export function createProjectsService(repo: ProjectsRepository) {
       return repo.findMembersByProject(projectId);
     },
 
+    // MIR-9: Invitar miembros.
     async addMember(projectId: string, actorId: string, email: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 
@@ -98,6 +83,33 @@ export function createProjectsService(repo: ProjectsRepository) {
       }
 
       return repo.addMemberWithActivity(projectId, user.id, actorId);
+    },
+
+    // MIR-10: Cambiar rol de un miembro.
+    async changeMemberRole(
+      projectId: string,
+      actorId: string,
+      userId: string,
+      newRole: ProjectRole,
+    ) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:change-role')) {
+        throw new ForbiddenError('No tienes permisos para cambiar roles', 'PERMISSION_DENIED');
+      }
+
+      return repo.changeMemberRoleWithActivity(projectId, userId, actorId, newRole);
+    },
+
+    // MIR-10: Quitar miembro del proyecto.
+    async removeMember(projectId: string, actorId: string, userId: string) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:remove')) {
+        throw new ForbiddenError('No tienes permisos para quitar miembros', 'PERMISSION_DENIED');
+      }
+
+      await repo.removeMemberWithActivity(projectId, userId, actorId);
     },
   };
 }

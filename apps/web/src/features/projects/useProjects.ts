@@ -1,11 +1,25 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AddMemberInput } from '@mira/shared';
+import type { AddMemberInput, ProjectDto } from '@mira/shared';
+import type { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 import type { ProjectMemberRole } from './project.api';
 
+/**
+ * Claves de cache de proyectos. `all` es prefijo de las demas: crear o editar
+ * un proyecto invalida `all` y con ella todo lo que cuelga de proyectos.
+ */
 export const projectKeys = {
+  all: ['projects'] as const,
   members: (projectId: string) => ['projects', projectId, 'members'] as const,
 };
+
+/** Lista de proyectos del usuario. Un 401 lo resuelve el manejador global. */
+export function useProjects() {
+  return useQuery<ProjectDto[], ApiRequestError>({
+    queryKey: projectKeys.all,
+    queryFn: projectApi.list,
+  });
+}
 
 /**
  * Obtiene los integrantes de un proyecto.

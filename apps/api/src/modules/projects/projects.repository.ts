@@ -3,7 +3,6 @@ import type { Prisma, Project, ProjectMember, ProjectRole, User } from '@prisma/
 
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { prisma, type Db } from '../../lib/prisma.js';
-
 export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   include: {
     user: {
@@ -24,6 +23,8 @@ export interface ProjectsRepository {
     data: { name: string; key: string; description: string | null },
     ownerId: string,
   ): Promise<Project>;
+  /** Membresias del usuario con su proyecto, ordenadas por nombre del proyecto. */
+  listMembershipsOf(userId: string): Promise<Array<{ role: ProjectRole; project: Project }>>;
 
   findMember(projectId: string, userId: string): Promise<ProjectMember | null>;
 
@@ -86,6 +87,14 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             },
           },
         },
+      }),
+    // Se parte de la membresia, no del proyecto: un proyecto ajeno no puede
+    // colarse en la lista porque nunca entra en la consulta.
+    listMembershipsOf: (userId) =>
+      db.projectMember.findMany({
+        where: { userId },
+        include: { project: true },
+        orderBy: { project: { name: 'asc' } },
       }),
 
     // Buscar membresia de un usuario

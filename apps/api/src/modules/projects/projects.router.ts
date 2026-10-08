@@ -20,9 +20,10 @@ export function createProjectsRouter(): Router {
   // Todas las rutas de proyectos exigen sesion.
   router.use(requireAuth);
 
-  // Crear proyecto.
+  // MIR-5: Crear proyecto.
+  // MIR-6: Listar los proyectos del usuario.
+  router.get('/', controller.list);
   router.post('/', validateBody(createProjectSchema), controller.create);
-
   // MIR-9: Listar miembros e invitar usuarios.
   router.get('/:projectId/members', controller.listMembers);
   router.post('/:projectId/members', validateBody(addMemberSchema), controller.addMember);
