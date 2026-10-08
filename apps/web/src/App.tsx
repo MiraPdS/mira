@@ -3,6 +3,7 @@ import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { RequiereSesion, SoloInvitados } from '@/features/auth/guards';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { ProjectsPage } from '@/features/projects/ProjectsPage';
 
 /**
  * Arbol de rutas.
@@ -52,7 +53,15 @@ export function App() {
           </RequiereSesion>
         }
       >
-        <Route path="/proyectos" element={<Pendiente item="MIR-6" titulo="Mis proyectos" />} />
+        <Route path="/proyectos" element={<ProjectsPage />} />
+        <Route
+          path="/proyectos/nuevo"
+          element={<Pendiente item="MIR-5" titulo="Nuevo proyecto" />}
+        />
+        <Route
+          path="/proyectos/:projectId"
+          element={<Pendiente item="MIR-23" titulo="Proyecto" />}
+        />
       </Route>
       <Route path="*" element={<Pendiente item="-" titulo="Pagina no encontrada" />} />
     </Routes>
