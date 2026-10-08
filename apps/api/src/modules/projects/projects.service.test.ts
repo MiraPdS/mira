@@ -58,6 +58,7 @@ describe('projectsService', () => {
         { name: 'Mira', key: 'MIR', description: null },
         'user_1',
       );
+
       expect(result).toEqual({
         id: 'project_1',
         name: 'Mira',
@@ -85,6 +86,7 @@ describe('projectsService', () => {
       await expect(service.create({ name: 'Otro', key: 'MIR' }, 'user_1')).rejects.toBeInstanceOf(
         ConflictError,
       );
+
       expect(repo.createWithOwner).not.toHaveBeenCalled();
     });
 
@@ -101,7 +103,10 @@ describe('projectsService', () => {
           role: 'VIEWER',
         });
 
-        repo.findMember.mockResolvedValue(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }));
+        repo.findMember
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }))
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'user_2', role: 'MEMBER' }));
+
         repo.changeMemberRoleWithActivity.mockResolvedValue(miembroActualizado);
 
         const result = await service.changeMemberRole('project_1', 'owner_1', 'user_2', 'VIEWER');
@@ -137,11 +142,40 @@ describe('projectsService', () => {
 
         expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
       });
+
+      // MIR-10: Proteger a los propietarios existentes.
+      it('rechaza cambiar el rol de un OWNER', async () => {
+        repo.findMember
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }))
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_2', role: 'OWNER' }));
+
+        await expect(
+          service.changeMemberRole('project_1', 'owner_1', 'owner_2', 'VIEWER'),
+        ).rejects.toBeInstanceOf(ConflictError);
+
+        expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
+      });
+
+      // MIR-10: Impedir asignar el rol OWNER mediante este endpoint.
+      it('rechaza ascender un MEMBER a OWNER', async () => {
+        repo.findMember.mockResolvedValueOnce(
+          miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }),
+        );
+
+        await expect(
+          service.changeMemberRole('project_1', 'owner_1', 'user_2', 'OWNER'),
+        ).rejects.toBeInstanceOf(ForbiddenError);
+
+        expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
+      });
     });
 
     describe('removeMember - MIR-10', () => {
       it('permite a un OWNER quitar un miembro', async () => {
-        repo.findMember.mockResolvedValue(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }));
+        repo.findMember
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }))
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'user_2', role: 'MEMBER' }));
+
         repo.removeMemberWithActivity.mockResolvedValue(undefined);
 
         await service.removeMember('project_1', 'owner_1', 'user_2');
@@ -172,6 +206,19 @@ describe('projectsService', () => {
         await expect(
           service.removeMember('project_1', 'outsider_1', 'user_2'),
         ).rejects.toBeInstanceOf(ForbiddenError);
+
+        expect(repo.removeMemberWithActivity).not.toHaveBeenCalled();
+      });
+
+      // MIR-10: No permitir eliminar propietarios.
+      it('rechaza eliminar a un OWNER', async () => {
+        repo.findMember
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }))
+          .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_2', role: 'OWNER' }));
+
+        await expect(
+          service.removeMember('project_1', 'owner_1', 'owner_2'),
+        ).rejects.toBeInstanceOf(ConflictError);
 
         expect(repo.removeMemberWithActivity).not.toHaveBeenCalled();
       });

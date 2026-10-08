@@ -29,7 +29,7 @@ export const addMemberSchema = z.object({
 export type AddMemberInput = z.infer<typeof addMemberSchema>;
 
 export const changeMemberRoleSchema = z.object({
-  role: z.enum(PROJECT_ROLES),
+  role: z.enum(['MEMBER', 'VIEWER']),
 });
 export type ChangeMemberRoleInput = z.infer<typeof changeMemberRoleSchema>;
 

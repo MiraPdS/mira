@@ -1,15 +1,10 @@
 import { Router } from 'express';
-import { z } from 'zod';
-import { createProjectSchema, addMemberSchema } from '@mira/shared';
+import { createProjectSchema, addMemberSchema, changeMemberRoleSchema } from '@mira/shared';
 import { validateBody } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { createProjectsRepository } from './projects.repository.js';
 import { createProjectsService } from './projects.service.js';
 import { createProjectsController } from './projects.controller.js';
-
-const changeMemberRoleSchema = z.object({
-  role: z.enum(['OWNER', 'MEMBER', 'VIEWER']),
-});
 
 /** Cableado del modulo: repositorio -> service -> controlador -> rutas. */
 export function createProjectsRouter(): Router {

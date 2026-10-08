@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { can } from '@mira/shared';
 import { ApiRequestError } from '@/lib/api-client';
 import { useChangeMemberRole, useProjectMembers, useRemoveMember } from './useProjects';
@@ -15,11 +15,29 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
   const changeRole = useChangeMemberRole(projectId);
   const removeMember = useRemoveMember(projectId);
 
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
   const [actionError, setActionError] = useState<string | null>(null);
   const [memberToRemove, setMemberToRemove] = useState<{
     userId: string;
     name: string;
   } | null>(null);
+
+  const isUpdating = changeRole.isPending || removeMember.isPending;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+
+    if (!dialog) return;
+
+    if (memberToRemove) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else if (dialog.open) {
+      dialog.close();
+    }
+  }, [memberToRemove]);
 
   if (isPending) {
     return (
@@ -73,7 +91,11 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
     }
   }
 
-  const isUpdating = changeRole.isPending || removeMember.isPending;
+  function handleCancelRemove() {
+    if (isUpdating) return;
+
+    setMemberToRemove(null);
+  }
 
   return (
     <section className="space-y-4">
@@ -128,12 +150,13 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                     <button
                       type="button"
                       disabled={isUpdating}
-                      onClick={() =>
+                      onClick={() => {
+                        setActionError(null);
                         setMemberToRemove({
                           userId: member.user.id,
                           name: member.user.name,
-                        })
-                      }
+                        });
+                      }}
                       className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
                     >
                       Quitar
@@ -146,43 +169,58 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
         </ul>
       )}
 
-      {memberToRemove && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          aria-labelledby="remove-member-title"
-          className="rounded-lg border border-red-200 bg-red-50 p-4"
-        >
-          <h3 id="remove-member-title" className="font-semibold text-slate-900">
-            Confirmar eliminación
-          </h3>
+      <dialog
+        ref={dialogRef}
+        aria-labelledby="remove-member-title"
+        aria-describedby="remove-member-description"
+        onCancel={(event) => {
+          if (isUpdating) {
+            event.preventDefault();
+            return;
+          }
 
-          <p className="mt-2 text-sm text-slate-700">
-            ¿Quieres quitar a {memberToRemove.name} del proyecto? Sus tareas asignadas quedarán sin
-            responsable, pero no se eliminarán.
-          </p>
+          setMemberToRemove(null);
+        }}
+        onClose={() => {
+          if (!isUpdating) {
+            setMemberToRemove(null);
+          }
+        }}
+        className="m-auto w-full max-w-md rounded-lg border border-red-200 bg-white p-6 shadow-xl backdrop:bg-black/50"
+      >
+        {memberToRemove && (
+          <>
+            <h3 id="remove-member-title" className="text-lg font-semibold text-slate-900">
+              Confirmar eliminación
+            </h3>
 
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={() => setMemberToRemove(null)}
-              className="rounded-md border border-slate-300 px-4 py-2 text-sm"
-            >
-              Cancelar
-            </button>
+            <p id="remove-member-description" className="mt-3 text-sm text-slate-700">
+              ¿Quieres quitar a {memberToRemove.name} del proyecto? Sus tareas asignadas quedarán
+              sin responsable, pero no se eliminarán.
+            </p>
 
-            <button
-              type="button"
-              disabled={isUpdating}
-              onClick={() => void handleRemoveMember()}
-              className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-            >
-              {removeMember.isPending ? 'Quitando...' : 'Confirmar eliminación'}
-            </button>
-          </div>
-        </div>
-      )}
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={handleCancelRemove}
+                className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+
+              <button
+                type="button"
+                disabled={isUpdating}
+                onClick={() => void handleRemoveMember()}
+                className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
+              >
+                {removeMember.isPending ? 'Quitando...' : 'Confirmar eliminación'}
+              </button>
+            </div>
+          </>
+        )}
+      </dialog>
     </section>
   );
 }

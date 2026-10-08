@@ -1,7 +1,7 @@
 import { Prisma as PrismaRuntime } from '@prisma/client';
 import type { Prisma, Project, ProjectMember, ProjectRole, User } from '@prisma/client';
 
-import { BadRequestError, NotFoundError } from '../../lib/errors.js';
+import { ConflictError, NotFoundError } from '../../lib/errors.js';
 import { prisma, type Db } from '../../lib/prisma.js';
 export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   include: {
@@ -201,7 +201,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
 
           // Ningun OWNER puede ser degradado
           if (member.role === 'OWNER' && newRole !== 'OWNER') {
-            throw new BadRequestError(
+            throw new ConflictError(
               'No puedes cambiar el rol de un propietario',
               'OWNER_PROTECTED',
             );
@@ -264,7 +264,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
 
           // Ningun OWNER puede ser eliminado
           if (member.role === 'OWNER') {
-            throw new BadRequestError('No puedes eliminar a un propietario', 'OWNER_PROTECTED');
+            throw new ConflictError('No puedes eliminar a un propietario', 'OWNER_PROTECTED');
           }
 
           // Desasignar las tareas del usuario
