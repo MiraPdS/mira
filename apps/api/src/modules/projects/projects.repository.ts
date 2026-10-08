@@ -1,8 +1,9 @@
 import { Prisma as PrismaRuntime } from '@prisma/client';
 import type { Prisma, Project, ProjectMember, ProjectRole, User } from '@prisma/client';
 
-import { ConflictError, NotFoundError } from '../../lib/errors.js';
+import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { prisma, type Db } from '../../lib/prisma.js';
+
 export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   include: {
     user: {
@@ -23,6 +24,7 @@ export interface ProjectsRepository {
     data: { name: string; key: string; description: string | null },
     ownerId: string,
   ): Promise<Project>;
+
   /** Membresias del usuario con su proyecto, ordenadas por nombre del proyecto. */
   listMembershipsOf(userId: string): Promise<Array<{ role: ProjectRole; project: Project }>>;
 
@@ -35,7 +37,6 @@ export interface ProjectsRepository {
   addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
 
   // MIR-10: Cambiar rol y quitar miembros
-
   changeMemberRoleWithActivity(
     projectId: string,
     userId: string,
@@ -88,6 +89,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
           },
         },
       }),
+
     // Se parte de la membresia, no del proyecto: un proyecto ajeno no puede
     // colarse en la lista porque nunca entra en la consulta.
     listMembershipsOf: (userId) =>
@@ -199,15 +201,24 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
           }
 
-          // Ningun OWNER puede ser degradado
+          // Solo se protege al ultimo OWNER del proyecto.
           if (member.role === 'OWNER' && newRole !== 'OWNER') {
-            throw new ConflictError(
-              'No puedes cambiar el rol de un propietario',
-              'OWNER_PROTECTED',
-            );
+            const ownerCount = await tx.projectMember.count({
+              where: {
+                projectId,
+                role: 'OWNER',
+              },
+            });
+
+            if (ownerCount <= 1) {
+              throw new BadRequestError(
+                'No puedes cambiar el rol del ultimo propietario',
+                'OWNER_PROTECTED',
+              );
+            }
           }
 
-          // Si el rol es igual, no se modifica nada
+          // Si el rol es igual, no se modifica nada.
           if (member.role === newRole) {
             return member;
           }
@@ -224,7 +235,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             },
           });
 
-          // Registrar cambio de rol
+          // Registrar cambio de rol.
           await tx.activityLog.create({
             data: {
               action: 'MEMBER_ROLE_CHANGED',
@@ -262,13 +273,24 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
           }
 
-          // Ningun OWNER puede ser eliminado
+          // Solo se protege al ultimo OWNER del proyecto.
           if (member.role === 'OWNER') {
-            throw new ConflictError('No puedes eliminar a un propietario', 'OWNER_PROTECTED');
+            const ownerCount = await tx.projectMember.count({
+              where: {
+                projectId,
+                role: 'OWNER',
+              },
+            });
+
+            if (ownerCount <= 1) {
+              throw new BadRequestError(
+                'No puedes eliminar al ultimo propietario',
+                'OWNER_PROTECTED',
+              );
+            }
           }
 
-          // Desasignar las tareas del usuario
-          // sin eliminarlas
+          // Desasignar las tareas del usuario sin eliminarlas.
           await tx.workItem.updateMany({
             where: {
               projectId,
@@ -279,7 +301,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             },
           });
 
-          // Eliminar membresia
+          // Eliminar membresia.
           await tx.projectMember.delete({
             where: {
               userId_projectId: {
@@ -289,7 +311,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             },
           });
 
-          // Registrar eliminacion en historial
+          // Registrar eliminacion en historial.
           await tx.activityLog.create({
             data: {
               action: 'MEMBER_REMOVED',

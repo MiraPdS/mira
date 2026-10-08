@@ -18,6 +18,8 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
   const dialogRef = useRef<HTMLDialogElement>(null);
 
   const [actionError, setActionError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
   const [memberToRemove, setMemberToRemove] = useState<{
     userId: string;
     name: string;
@@ -59,10 +61,14 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
   }
 
   const members = data.members;
+
   const currentMember = members.find((member) => member.user.id === currentUserId);
 
   const canChangeRole = can(currentMember?.role, 'member:change-role');
   const canRemoveMember = can(currentMember?.role, 'member:remove');
+
+  // Solo el ultimo OWNER debe quedar protegido.
+  const ownerCount = members.filter((member) => member.role === 'OWNER').length;
 
   async function handleRoleChange(userId: string, role: ProjectMemberRole) {
     setActionError(null);
@@ -79,13 +85,16 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
   async function handleRemoveMember() {
     if (!memberToRemove) return;
 
-    setActionError(null);
+    setRemoveError(null);
 
     try {
       await removeMember.mutateAsync(memberToRemove.userId);
+
+      // Cerrar el dialogo solamente cuando la eliminacion sea exitosa.
       setMemberToRemove(null);
     } catch (error) {
-      setActionError(
+      // Mostrar el error dentro del dialogo y permitir reintentar.
+      setRemoveError(
         error instanceof ApiRequestError ? error.message : 'No se pudo quitar al miembro.',
       );
     }
@@ -94,6 +103,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
   function handleCancelRemove() {
     if (isUpdating) return;
 
+    setRemoveError(null);
     setMemberToRemove(null);
   }
 
@@ -101,6 +111,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
     <section className="space-y-4">
       <h2 className="text-xl font-semibold text-slate-900">Miembros del proyecto</h2>
 
+      {/* Errores relacionados con cambios de rol. */}
       {actionError && (
         <p role="alert" className="text-sm text-red-700">
           {actionError}
@@ -113,13 +124,18 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
         <ul className="divide-y divide-slate-200 rounded-lg border border-slate-200">
           {members.map((member) => {
             const isOwner = member.role === 'OWNER';
-            const canManageRole = canChangeRole && !isOwner;
-            const canDelete = canRemoveMember && !isOwner;
+
+            // Un OWNER solo esta protegido si es el ultimo.
+            const isLastOwner = isOwner && ownerCount <= 1;
+
+            const canManageRole = canChangeRole && !isLastOwner;
+            const canDelete = canRemoveMember && !isLastOwner;
 
             return (
               <li key={member.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
                 <div>
                   <p className="font-medium text-slate-900">{member.user.name}</p>
+
                   <p className="text-sm text-slate-500">{member.user.email}</p>
                 </div>
 
@@ -137,6 +153,15 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                       }}
                       className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
                     >
+                      {/* OWNER no es un rol asignable desde la interfaz.
+                          Si el miembro ya es OWNER, conservamos su opcion
+                          para representar correctamente su estado actual. */}
+                      {isOwner && (
+                        <option value="OWNER" disabled>
+                          OWNER
+                        </option>
+                      )}
+
                       <option value="MEMBER">MEMBER</option>
                       <option value="VIEWER">VIEWER</option>
                     </select>
@@ -152,6 +177,8 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                       disabled={isUpdating}
                       onClick={() => {
                         setActionError(null);
+                        setRemoveError(null);
+
                         setMemberToRemove({
                           userId: member.user.id,
                           name: member.user.name,
@@ -179,10 +206,11 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
             return;
           }
 
-          setMemberToRemove(null);
+          handleCancelRemove();
         }}
         onClose={() => {
           if (!isUpdating) {
+            setRemoveError(null);
             setMemberToRemove(null);
           }
         }}
@@ -198,6 +226,16 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
               ¿Quieres quitar a {memberToRemove.name} del proyecto? Sus tareas asignadas quedarán
               sin responsable, pero no se eliminarán.
             </p>
+
+            {/* El error queda visible dentro del dialogo. */}
+            {removeError && (
+              <p
+                role="alert"
+                className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+              >
+                {removeError}
+              </p>
+            )}
 
             <div className="mt-6 flex justify-end gap-3">
               <button

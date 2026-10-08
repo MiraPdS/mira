@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
 import type { Project, ProjectMember, User } from '@prisma/client';
+
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { ProjectsRepository } from './projects.repository.js';
 import { createProjectsService } from './projects.service.js';
@@ -112,6 +113,7 @@ describe('projectsService', () => {
         const result = await service.changeMemberRole('project_1', 'owner_1', 'user_2', 'VIEWER');
 
         expect(result).toEqual(miembroActualizado);
+
         expect(repo.changeMemberRoleWithActivity).toHaveBeenCalledWith(
           'project_1',
           'user_2',
@@ -143,17 +145,29 @@ describe('projectsService', () => {
         expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
       });
 
-      // MIR-10: Proteger a los propietarios existentes.
-      it('rechaza cambiar el rol de un OWNER', async () => {
+      // MIR-10: La protección del último OWNER se realiza en el repositorio.
+      it('permite cambiar el rol de un OWNER y delega la protección al repositorio', async () => {
+        const miembroActualizado = miembroDePrueba({
+          userId: 'owner_2',
+          role: 'VIEWER',
+        });
+
         repo.findMember
           .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }))
           .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_2', role: 'OWNER' }));
 
-        await expect(
-          service.changeMemberRole('project_1', 'owner_1', 'owner_2', 'VIEWER'),
-        ).rejects.toBeInstanceOf(ConflictError);
+        repo.changeMemberRoleWithActivity.mockResolvedValue(miembroActualizado);
 
-        expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
+        const result = await service.changeMemberRole('project_1', 'owner_1', 'owner_2', 'VIEWER');
+
+        expect(result).toEqual(miembroActualizado);
+
+        expect(repo.changeMemberRoleWithActivity).toHaveBeenCalledWith(
+          'project_1',
+          'owner_2',
+          'owner_1',
+          'VIEWER',
+        );
       });
 
       // MIR-10: Impedir asignar el rol OWNER mediante este endpoint.
@@ -210,17 +224,21 @@ describe('projectsService', () => {
         expect(repo.removeMemberWithActivity).not.toHaveBeenCalled();
       });
 
-      // MIR-10: No permitir eliminar propietarios.
-      it('rechaza eliminar a un OWNER', async () => {
+      // MIR-10: El repositorio protege al último OWNER dentro de la transacción.
+      it('permite solicitar eliminar a un OWNER y delega la protección al repositorio', async () => {
         repo.findMember
           .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }))
           .mockResolvedValueOnce(miembroDePrueba({ userId: 'owner_2', role: 'OWNER' }));
 
-        await expect(
-          service.removeMember('project_1', 'owner_1', 'owner_2'),
-        ).rejects.toBeInstanceOf(ConflictError);
+        repo.removeMemberWithActivity.mockResolvedValue(undefined);
 
-        expect(repo.removeMemberWithActivity).not.toHaveBeenCalled();
+        await service.removeMember('project_1', 'owner_1', 'owner_2');
+
+        expect(repo.removeMemberWithActivity).toHaveBeenCalledWith(
+          'project_1',
+          'owner_2',
+          'owner_1',
+        );
       });
     });
   });
@@ -235,10 +253,12 @@ describe('projectsService', () => {
       const result = await service.listForUser('user_1');
 
       expect(repo.listMembershipsOf).toHaveBeenCalledWith('user_1');
+
       expect(result.map((p) => [p.id, p.myRole])).toEqual([
         ['p_a', 'OWNER'],
         ['p_b', 'VIEWER'],
       ]);
+
       expect(result[0]).not.toHaveProperty('itemCounter');
     });
 

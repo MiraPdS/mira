@@ -86,8 +86,6 @@ export function createProjectsService(repo: ProjectsRepository) {
     },
 
     // MIR-10: Cambiar rol de un miembro.
-
-    // MIR-10: Cambiar rol de un miembro.
     async changeMemberRole(
       projectId: string,
       actorId: string,
@@ -100,6 +98,7 @@ export function createProjectsService(repo: ProjectsRepository) {
         throw new ForbiddenError('No tienes permisos para cambiar roles', 'PERMISSION_DENIED');
       }
 
+      // No se permite ascender miembros a OWNER.
       if (newRole === 'OWNER') {
         throw new ForbiddenError('No puedes asignar el rol de propietario', 'OWNER_PROTECTED');
       }
@@ -110,14 +109,10 @@ export function createProjectsService(repo: ProjectsRepository) {
         throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
       }
 
-      if (targetMembership.role === 'OWNER') {
-        throw new ConflictError('No puedes cambiar el rol de un propietario', 'OWNER_PROTECTED');
-      }
-
+      // El repositorio verifica dentro de la transaccion
+      // que no se degrade al ultimo OWNER.
       return repo.changeMemberRoleWithActivity(projectId, userId, actorId, newRole);
     },
-
-    // MIR-10: Quitar miembro del proyecto.
 
     // MIR-10: Quitar miembro del proyecto.
     async removeMember(projectId: string, actorId: string, userId: string) {
@@ -133,10 +128,8 @@ export function createProjectsService(repo: ProjectsRepository) {
         throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
       }
 
-      if (targetMembership.role === 'OWNER') {
-        throw new ConflictError('No puedes eliminar a un propietario', 'OWNER_PROTECTED');
-      }
-
+      // El repositorio verifica dentro de la transaccion
+      // que no se elimine al ultimo OWNER.
       await repo.removeMemberWithActivity(projectId, userId, actorId);
     },
   };

@@ -70,15 +70,30 @@ export function useChangeMemberRole(projectId: string) {
 /**
  * Quita un miembro del proyecto.
  */
+
+/**
+ * Quita un miembro del proyecto.
+ */
 export function useRemoveMember(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (userId: string) => projectApi.removeMember(projectId, userId),
 
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // Actualizar la lista de miembros.
+      await queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
+      });
+
+      // Invalidar las paginas del backlog de este proyecto.
+      await queryClient.invalidateQueries({
+        queryKey: ['work-items', 'backlog', projectId],
+      });
+
+      // Invalidar los detalles de tareas de este proyecto.
+      await queryClient.invalidateQueries({
+        queryKey: ['work-item', projectId],
       });
     },
   });
