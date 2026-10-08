@@ -16,17 +16,21 @@ Santa María, segundo semestre 2026.
 | --- | --- |
 | Wiki del proyecto | _(pendiente)_ |
 | Cápsula de video — Entrega 1 | _(pendiente)_ |
-| Tablero Jira | _(pendiente)_ |
+| Tablero Jira | https://bolgunn.atlassian.net/jira/software/projects/MIR/boards |
 | Release `v1.0-entrega1` | _(pendiente)_ |
 | Aplicación desplegada | _(pendiente)_ |
 
 ## Equipo
 
-| Integrante | Rol | GitHub |
+| Integrante | Área a cargo | GitHub |
 | --- | --- | --- |
-| _(completar)_ | Líder de equipo | _(completar)_ |
-| _(completar)_ | _(completar)_ | _(completar)_ |
-| _(completar)_ | _(completar)_ | _(completar)_ |
+| Benjamín Olguín | Cuenta, proyectos, infraestructura y entrega | [@nonmeeeeeeeeeeeeeee](https://github.com/nonmeeeeeeeeeeeeeee) |
+| Isaías | Elementos de trabajo (CRUD y backlog) | _(completar)_ |
+| Mauro | Tablero Kanban y experiencia de usuario | _(completar)_ |
+| Diego | Equipo, permisos y colaboración | _(completar)_ |
+
+El reparto detallado de items, el DAG de dependencias y el orden sugerido
+están en [`docs/plan-trabajo.md`](./docs/plan-trabajo.md).
 
 ## Stack
 
@@ -153,7 +157,8 @@ notificaciones a Slack) y este workflow queda como verificación rápida de PR.
 ## Contribuir
 
 Convenciones de ramas, commits y Pull Requests en
-[`CONTRIBUTING.md`](./CONTRIBUTING.md). Las decisiones técnicas y su
+[`CONTRIBUTING.md`](./CONTRIBUTING.md). El reparto del trabajo y su orden, en
+[`docs/plan-trabajo.md`](./docs/plan-trabajo.md). Las decisiones técnicas y su
 justificación están en [`docs/decisiones-tecnicas.md`](./docs/decisiones-tecnicas.md).
 
 ## Licencia

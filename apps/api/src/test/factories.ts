@@ -1,6 +1,7 @@
 import type { Project, ProjectRole, User, WorkItem } from '@prisma/client';
 import { prisma } from '../lib/prisma.js';
 import { hashPassword } from '../lib/password.js';
+import { AUTH_COOKIE, signToken } from '../lib/jwt.js';
 
 /**
  * Factories para los tests de integracion.
@@ -32,6 +33,15 @@ export async function createUser(
       passwordHash: await hashPassword(overrides.password ?? PASSWORD_DE_PRUEBA),
     },
   });
+}
+
+/**
+ * Cabecera Cookie con una sesion valida para `user`, lista para
+ * `.set('Cookie', sessionCookie(user))`. Evita pasar por /login en tests que
+ * no prueban autenticacion.
+ */
+export function sessionCookie(user: Pick<User, 'id' | 'email'>): string {
+  return `${AUTH_COOKIE}=${signToken({ sub: user.id, email: user.email })}`;
 }
 
 export async function createProject(
@@ -71,9 +81,12 @@ export async function createWorkItem(options: {
   project: Project;
   createdBy: User;
   title?: string;
+  description?: string | null;
   status?: WorkItem['status'];
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
+  estimate?: WorkItem['estimate'];
+  dueDate?: WorkItem['dueDate'];
   assigneeId?: string | null;
 }): Promise<WorkItem> {
   const n = siguiente();
@@ -83,9 +96,12 @@ export async function createWorkItem(options: {
       projectId: options.project.id,
       createdById: options.createdBy.id,
       title: options.title ?? `Item ${n}`,
+      description: options.description ?? null,
       status: options.status ?? 'BACKLOG',
       type: options.type ?? 'TASK',
       priority: options.priority ?? 'MEDIUM',
+      estimate: options.estimate ?? null,
+      dueDate: options.dueDate ?? null,
       assigneeId: options.assigneeId ?? null,
     },
   });
