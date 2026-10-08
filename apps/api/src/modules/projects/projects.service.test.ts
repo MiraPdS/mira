@@ -93,6 +93,89 @@ describe('projectsService', () => {
 
       await expect(service.create({ name: 'Otro', key: 'MIR' }, 'user_1')).rejects.toThrow(/MIR/);
     });
+
+    describe('changeMemberRole - MIR-10', () => {
+      it('permite a un OWNER cambiar un MEMBER a VIEWER', async () => {
+        const miembroActualizado = miembroDePrueba({
+          userId: 'user_2',
+          role: 'VIEWER',
+        });
+
+        repo.findMember.mockResolvedValue(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }));
+        repo.changeMemberRoleWithActivity.mockResolvedValue(miembroActualizado);
+
+        const result = await service.changeMemberRole('project_1', 'owner_1', 'user_2', 'VIEWER');
+
+        expect(result).toEqual(miembroActualizado);
+        expect(repo.changeMemberRoleWithActivity).toHaveBeenCalledWith(
+          'project_1',
+          'user_2',
+          'owner_1',
+          'VIEWER',
+        );
+      });
+
+      it.each(['MEMBER', 'VIEWER'] as const)(
+        'rechaza a un %s que intenta cambiar roles',
+        async (role) => {
+          repo.findMember.mockResolvedValue(miembroDePrueba({ role }));
+
+          await expect(
+            service.changeMemberRole('project_1', 'actor_1', 'user_2', 'VIEWER'),
+          ).rejects.toBeInstanceOf(ForbiddenError);
+
+          expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
+        },
+      );
+
+      it('rechaza a un usuario que no pertenece al proyecto', async () => {
+        repo.findMember.mockResolvedValue(null);
+
+        await expect(
+          service.changeMemberRole('project_1', 'outsider_1', 'user_2', 'VIEWER'),
+        ).rejects.toBeInstanceOf(ForbiddenError);
+
+        expect(repo.changeMemberRoleWithActivity).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('removeMember - MIR-10', () => {
+      it('permite a un OWNER quitar un miembro', async () => {
+        repo.findMember.mockResolvedValue(miembroDePrueba({ userId: 'owner_1', role: 'OWNER' }));
+        repo.removeMemberWithActivity.mockResolvedValue(undefined);
+
+        await service.removeMember('project_1', 'owner_1', 'user_2');
+
+        expect(repo.removeMemberWithActivity).toHaveBeenCalledWith(
+          'project_1',
+          'user_2',
+          'owner_1',
+        );
+      });
+
+      it.each(['MEMBER', 'VIEWER'] as const)(
+        'rechaza a un %s que intenta quitar miembros',
+        async (role) => {
+          repo.findMember.mockResolvedValue(miembroDePrueba({ role }));
+
+          await expect(
+            service.removeMember('project_1', 'actor_1', 'user_2'),
+          ).rejects.toBeInstanceOf(ForbiddenError);
+
+          expect(repo.removeMemberWithActivity).not.toHaveBeenCalled();
+        },
+      );
+
+      it('rechaza a un usuario que no pertenece al proyecto', async () => {
+        repo.findMember.mockResolvedValue(null);
+
+        await expect(
+          service.removeMember('project_1', 'outsider_1', 'user_2'),
+        ).rejects.toBeInstanceOf(ForbiddenError);
+
+        expect(repo.removeMemberWithActivity).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('getMembers - MIR-9', () => {

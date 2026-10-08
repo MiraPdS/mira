@@ -150,3 +150,165 @@ describe('ProjectMembersPage - MIR-9', () => {
     },
   );
 });
+
+describe('ProjectMembersPage - MIR-10', () => {
+  it('OWNER puede ver los controles para gestionar miembros', async () => {
+    server.use(
+      http.get(`${BASE_URL}/auth/me`, () => HttpResponse.json({ user: owner.user })),
+      http.get(ENDPOINT, () => HttpResponse.json({ members: [owner, nuevoMiembro] })),
+    );
+
+    renderPagina();
+
+    expect(await screen.findByText('Nuevo Usuario')).toBeInTheDocument();
+
+    expect(screen.getByRole('combobox', { name: /rol de nuevo usuario/i })).toHaveValue('MEMBER');
+
+    expect(screen.getByRole('button', { name: 'Quitar' })).toBeInTheDocument();
+  });
+
+  it('no permite modificar ni quitar a un OWNER', async () => {
+    server.use(
+      http.get(`${BASE_URL}/auth/me`, () => HttpResponse.json({ user: owner.user })),
+      http.get(ENDPOINT, () => HttpResponse.json({ members: [owner, nuevoMiembro] })),
+    );
+
+    renderPagina();
+
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+    expect(await screen.findByText('Nuevo Usuario')).toBeInTheDocument();
+
+    expect(
+      screen.queryByRole('combobox', { name: /rol de ada lovelace/i }),
+    ).not.toBeInTheDocument();
+
+    // Solo el MEMBER tiene un boton Quitar.
+    expect(screen.getAllByRole('button', { name: 'Quitar' })).toHaveLength(1);
+  });
+
+  it.each(['MEMBER', 'VIEWER'] as const)(
+    '%s no puede ver controles administrativos',
+    async (role) => {
+      const integrante = {
+        ...nuevoMiembro,
+        role,
+      };
+
+      server.use(
+        http.get(`${BASE_URL}/auth/me`, () => HttpResponse.json({ user: integrante.user })),
+        http.get(ENDPOINT, () => HttpResponse.json({ members: [owner, integrante] })),
+      );
+
+      renderPagina();
+
+      expect(await screen.findByText('Nuevo Usuario')).toBeInTheDocument();
+
+      expect(screen.queryByRole('button', { name: 'Quitar' })).not.toBeInTheDocument();
+
+      expect(
+        screen.queryByRole('combobox', { name: /rol de nuevo usuario/i }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it('OWNER cambia MEMBER a VIEWER y actualiza la lista', async () => {
+    let miembros = [owner, nuevoMiembro];
+    let rolRecibido: string | undefined;
+
+    server.use(
+      http.get(`${BASE_URL}/auth/me`, () => HttpResponse.json({ user: owner.user })),
+
+      http.get(ENDPOINT, () => HttpResponse.json({ members: miembros })),
+
+      http.patch(`${ENDPOINT}/${nuevoMiembro.user.id}/role`, async ({ request }) => {
+        const body = (await request.json()) as { role: string };
+        rolRecibido = body.role;
+
+        miembros = miembros.map((member) =>
+          member.user.id === nuevoMiembro.user.id ? { ...member, role: 'VIEWER' } : member,
+        );
+
+        return HttpResponse.json({
+          member: miembros[1],
+        });
+      }),
+    );
+
+    const { user } = renderPagina();
+
+    const selector = await screen.findByRole('combobox', {
+      name: /rol de nuevo usuario/i,
+    });
+
+    await user.selectOptions(selector, 'VIEWER');
+
+    await waitFor(() => {
+      expect(rolRecibido).toBe('VIEWER');
+      expect(selector).toHaveValue('VIEWER');
+    });
+  });
+
+  it('permite cancelar la eliminacion de un miembro', async () => {
+    let eliminaciones = 0;
+
+    server.use(
+      http.get(`${BASE_URL}/auth/me`, () => HttpResponse.json({ user: owner.user })),
+
+      http.get(ENDPOINT, () => HttpResponse.json({ members: [owner, nuevoMiembro] })),
+
+      http.delete(`${ENDPOINT}/${nuevoMiembro.user.id}`, () => {
+        eliminaciones++;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { user } = renderPagina();
+
+    expect(await screen.findByText('Nuevo Usuario')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Quitar' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(eliminaciones).toBe(0);
+    expect(screen.getByText('Nuevo Usuario')).toBeInTheDocument();
+  });
+
+  it('OWNER confirma la eliminacion y actualiza la lista', async () => {
+    let miembros = [owner, nuevoMiembro];
+    let eliminaciones = 0;
+
+    server.use(
+      http.get(`${BASE_URL}/auth/me`, () => HttpResponse.json({ user: owner.user })),
+
+      http.get(ENDPOINT, () => HttpResponse.json({ members: miembros })),
+
+      http.delete(`${ENDPOINT}/${nuevoMiembro.user.id}`, () => {
+        eliminaciones++;
+        miembros = [owner];
+
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+
+    const { user } = renderPagina();
+
+    expect(await screen.findByText('Nuevo Usuario')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Quitar' }));
+
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Confirmar eliminación' }));
+
+    await waitFor(() => {
+      expect(eliminaciones).toBe(1);
+      expect(screen.queryByText('Nuevo Usuario')).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
+  });
+});

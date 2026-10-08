@@ -40,6 +40,31 @@ export function createProjectsService(repo: ProjectsRepository) {
       return toProjectDto(project, 'OWNER');
     },
 
+    async changeMemberRole(
+      projectId: string,
+      actorId: string,
+      userId: string,
+      newRole: ProjectRole,
+    ) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:change-role')) {
+        throw new ForbiddenError('No tienes permisos para cambiar roles', 'PERMISSION_DENIED');
+      }
+
+      return repo.changeMemberRoleWithActivity(projectId, userId, actorId, newRole);
+    },
+
+    async removeMember(projectId: string, actorId: string, userId: string) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:remove')) {
+        throw new ForbiddenError('No tienes permisos para quitar miembros', 'PERMISSION_DENIED');
+      }
+
+      await repo.removeMemberWithActivity(projectId, userId, actorId);
+    },
+
     async getMembers(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 

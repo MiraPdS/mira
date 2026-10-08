@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AddMemberInput } from '@mira/shared';
 import { projectApi } from './project.api';
+import type { ProjectMemberRole } from './project.api';
 
 export const projectKeys = {
   members: (projectId: string) => ['projects', projectId, 'members'] as const,
@@ -25,6 +26,41 @@ export function useAddMember(projectId: string) {
 
   return useMutation({
     mutationFn: (input: AddMemberInput) => projectApi.addMember(projectId, input),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectKeys.members(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Cambia el rol de un miembro.
+ */
+export function useChangeMemberRole(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: ProjectMemberRole }) =>
+      projectApi.changeMemberRole(projectId, userId, role),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectKeys.members(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Quita un miembro del proyecto.
+ */
+export function useRemoveMember(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => projectApi.removeMember(projectId, userId),
 
     onSuccess: () => {
       void queryClient.invalidateQueries({

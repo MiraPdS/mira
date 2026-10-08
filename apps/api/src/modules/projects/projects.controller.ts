@@ -1,5 +1,5 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateProjectInput, ProjectDto } from '@mira/shared';
+import type { CreateProjectInput, ProjectDto, ProjectRole } from '@mira/shared';
 import { BadRequestError, UnauthorizedError } from '../../lib/errors.js';
 import type { ProjectsService } from './projects.service.js';
 
@@ -48,6 +48,55 @@ export function createProjectsController(service: ProjectsService) {
         const member = await service.addMember(projectId, req.user.id, req.body.email);
 
         res.status(201).json({ member });
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    // MIR-10: Cambiar el rol de un miembro
+    async changeMemberRole(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const { projectId, userId } = req.params;
+
+        if (!projectId || !userId) {
+          throw new BadRequestError(
+            'Falta el identificador del proyecto o del usuario',
+            'MEMBER_PARAMS_REQUIRED',
+          );
+        }
+
+        const member = await service.changeMemberRole(
+          projectId,
+          req.user.id,
+          userId,
+          req.body.role as ProjectRole,
+        );
+
+        res.status(200).json({ member });
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    // MIR-10: Quitar un miembro del proyecto
+    async removeMember(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const { projectId, userId } = req.params;
+
+        if (!projectId || !userId) {
+          throw new BadRequestError(
+            'Falta el identificador del proyecto o del usuario',
+            'MEMBER_PARAMS_REQUIRED',
+          );
+        }
+
+        await service.removeMember(projectId, req.user.id, userId);
+
+        res.status(204).send();
       } catch (error) {
         next(error);
       }
