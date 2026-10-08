@@ -1,4 +1,4 @@
-import type { Project } from '@prisma/client';
+import type { Project, ProjectRole } from '@prisma/client';
 import { prisma, type Db } from '../../lib/prisma.js';
 
 /**
@@ -14,6 +14,8 @@ export interface ProjectsRepository {
     data: { name: string; key: string; description: string | null },
     ownerId: string,
   ): Promise<Project>;
+  /** Membresias del usuario con su proyecto, ordenadas por nombre del proyecto. */
+  listMembershipsOf(userId: string): Promise<Array<{ role: ProjectRole; project: Project }>>;
 }
 
 export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
@@ -24,6 +26,14 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
     createWithOwner: (data, ownerId) =>
       db.project.create({
         data: { ...data, members: { create: { userId: ownerId, role: 'OWNER' } } },
+      }),
+    // Se parte de la membresia, no del proyecto: un proyecto ajeno no puede
+    // colarse en la lista porque nunca entra en la consulta.
+    listMembershipsOf: (userId) =>
+      db.projectMember.findMany({
+        where: { userId },
+        include: { project: true },
+        orderBy: { project: { name: 'asc' } },
       }),
   };
 }

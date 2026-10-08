@@ -14,6 +14,7 @@ export function createProjectsRouter(): Router {
   // Todas las rutas de proyectos exigen sesion.
   router.use(requireAuth);
 
+  router.get('/', controller.list);
   router.post('/', validateBody(createProjectSchema), controller.create);
 
   return router;

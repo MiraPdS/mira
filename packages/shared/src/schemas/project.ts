@@ -52,3 +52,9 @@ export const projectSchema = z.object({
   myRole: z.enum(PROJECT_ROLES),
 });
 export type ProjectDto = z.infer<typeof projectSchema>;
+
+/** Respuesta de GET /api/projects: los proyectos donde el usuario es miembro. */
+export const listProjectsResponseSchema = z.object({
+  projects: z.array(projectSchema),
+});
+export type ListProjectsResponse = z.infer<typeof listProjectsResponseSchema>;
