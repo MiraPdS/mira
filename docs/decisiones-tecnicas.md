@@ -236,7 +236,9 @@ originalmente `MIR-27`): depende de una política de los navegadores que ya
 excluye a Safari. Dominio propio compartido (`app.` y `api.` del mismo
 dominio): resuelve lo mismo pero cuesta dinero y configuración de DNS.
 
-**Consecuencia.** La URL de Render queda escrita en `vercel.json`. CORS deja de
+**Consecuencia.** La cookie pasa a `SameSite=Lax` también en producción: siendo
+first-party ya no necesita `None`, y `Lax` impide que otro sitio dispare
+peticiones con la sesión (CSRF). La URL de Render queda escrita en `vercel.json`. CORS deja de
 intervenir en producción, pero `CORS_ORIGIN` se fija igual al origen exacto de
 Vercel como red de seguridad. Las previews de Vercel también funcionan (cada
 una es su propio origen), aunque usan la misma API y la misma base que

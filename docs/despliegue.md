@@ -88,7 +88,8 @@ Unos 20 minutos. Hazlo en este orden: cada paso necesita un dato del anterior.
 
 1. En Render, ajusta `CORS_ORIGIN` a la URL exacta de Vercel (redeploy automático).
 2. UptimeRobot → New monitor → HTTP(s), URL
-   `https://<proyecto>.vercel.app/api/health`, intervalo 10 minutos.
+   `https://<proyecto>.vercel.app/api/health`, intervalo 5 minutos (el mínimo
+   del plan free).
    Mantiene despierta la API y evita que Supabase pause el proyecto tras 7 días
    sin actividad.
 3. Pon la URL de producción en la tabla de enlaces del README.
@@ -121,6 +122,9 @@ conservando el servicio y vuelve a crearlo desde `main`.
 
 ## Cosas que conviene saber
 
+- **Dos health checks.** Render usa `/api/health/live` (sin base: un parpadeo
+  de Supabase no reinicia la API). UptimeRobot usa `/api/health`, que hace
+  `SELECT 1` con un tope de 2 s y responde 503 si la base no contesta.
 - **Arranque en frío.** Si el pinger se detiene, Render duerme la API tras 15
   minutos sin tráfico y la primera petición tarda 30-60 s (puede llegar a dar
   504 en el rewrite). Antes de una demo, abre `/api/health` un minuto antes.

@@ -7,6 +7,9 @@
 # =============================================================================
 services:
   - type: web
+    # Render agrega un sufijo aleatorio a la URL si el nombre esta tomado
+    # (hoy: mira-api-2epf.onrender.com). Si el servicio se recrea, actualizar
+    # el destination de apps/web/vercel.json o /api apuntara a un host muerto.
     name: mira-api
     runtime: node
     plan: free
@@ -29,8 +32,10 @@ services:
       npm run db:deploy -w @mira/api &&
       npm run db:seed -w @mira/api
     startCommand: npm run start -w @mira/api
-    # Toca la base: un deploy que no alcanza Supabase nunca queda vivo.
-    healthCheckPath: /api/health
+    # Liveness sin base: un parpadeo de Supabase no debe reiniciar una API
+    # sana. Que la base este alcanzable ya lo prueba `migrate deploy` en el
+    # build. /api/health (con SELECT 1) queda para el pinger externo.
+    healthCheckPath: /api/health/live
     # Cambios solo del frontend no redeployan la API.
     buildFilter:
       paths:
@@ -38,6 +43,7 @@ services:
         - packages/shared/**
         - package.json
         - package-lock.json
+        - tsconfig.base.json
         - render.yaml
     envVars:
       - key: NODE_VERSION
