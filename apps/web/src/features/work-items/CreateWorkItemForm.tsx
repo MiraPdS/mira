@@ -9,6 +9,7 @@ import {
   WORK_ITEM_TYPES,
   type CreateWorkItemInput,
   type WorkItemDto,
+  type WorkItemStatus,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
@@ -21,6 +22,11 @@ import { useCreateWorkItem } from './useWorkItems';
 export interface CreateWorkItemFormProps {
   projectId: string;
   onCreated?: (item: WorkItemDto) => void;
+  /**
+   * Estado con el que nace el elemento. El backlog usa BACKLOG; el tablero
+   * (MIR-30) usa su primera columna, porque BACKLOG no se muestra en el tablero.
+   */
+  initialStatus?: WorkItemStatus;
 }
 
 const DEFAULT_VALUES: CreateWorkItemInput = {
@@ -35,8 +41,13 @@ const DEFAULT_VALUES: CreateWorkItemInput = {
  * Formulario reutilizable de creacion. Recibe el proyecto desde su contenedor
  * para no decidir rutas, navegacion ni el flujo de proyectos.
  */
-export function CreateWorkItemForm({ projectId, onCreated }: CreateWorkItemFormProps) {
+export function CreateWorkItemForm({
+  projectId,
+  onCreated,
+  initialStatus = 'BACKLOG',
+}: CreateWorkItemFormProps) {
   const createWorkItem = useCreateWorkItem(projectId);
+  const defaultValues = { ...DEFAULT_VALUES, status: initialStatus };
   const [createdReference, setCreatedReference] = useState<string | null>(null);
   const {
     register,
@@ -46,7 +57,7 @@ export function CreateWorkItemForm({ projectId, onCreated }: CreateWorkItemFormP
     formState: { errors, isSubmitting },
   } = useForm<CreateWorkItemInput>({
     resolver: zodResolver(createWorkItemSchema),
-    defaultValues: DEFAULT_VALUES,
+    defaultValues,
   });
 
   const onSubmit = handleSubmit(async (values) => {
@@ -54,7 +65,7 @@ export function CreateWorkItemForm({ projectId, onCreated }: CreateWorkItemFormP
 
     try {
       const item = await createWorkItem.mutateAsync(values);
-      reset(DEFAULT_VALUES);
+      reset(defaultValues);
       setCreatedReference(item.reference);
       onCreated?.(item);
     } catch (error) {

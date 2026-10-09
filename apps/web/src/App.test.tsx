@@ -241,4 +241,45 @@ describe('App', () => {
       '/proyectos/project_123/tablero',
     );
   });
+
+  it('MIR-30: desde el backlog, el titulo abre el detalle y "Volver" regresa al backlog', async () => {
+    const item: WorkItemDto = {
+      id: 'item_789',
+      reference: 'MIR-5',
+      projectId: 'project_123',
+      title: 'Elemento en backlog',
+      description: null,
+      type: 'BUG',
+      status: 'BACKLOG',
+      priority: 'LOW',
+      estimate: null,
+      dueDate: null,
+      assignee: null,
+      createdBy: USUARIO_DE_PRUEBA,
+      sprintId: null,
+      createdAt: '2026-10-01T10:00:00.000Z',
+      updatedAt: '2026-10-01T10:00:00.000Z',
+    };
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/work-items`, () =>
+        HttpResponse.json({ data: [item], total: 1, page: 1, pageSize: 20 }),
+      ),
+      http.get(`${BASE_URL}/projects/:projectId/members`, () => HttpResponse.json({ members: [] })),
+      http.get(`${BASE_URL}/projects/project_123/work-items/item_789`, () =>
+        HttpResponse.json({ item }),
+      ),
+    );
+
+    const { user } = renderConProviders(<App />, { route: '/proyectos/project_123/backlog' });
+
+    await user.click(await screen.findByRole('link', { name: 'Elemento en backlog' }));
+
+    expect(await screen.findByRole('region', { name: 'Historial' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /volver al backlog/i })).toHaveAttribute(
+      'href',
+      '/proyectos/project_123/backlog',
+    );
+    expect(screen.queryByRole('link', { name: /volver al tablero/i })).not.toBeInTheDocument();
+  });
 });

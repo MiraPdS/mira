@@ -351,6 +351,25 @@ Web:
 - **Dado** un item asignado, **cuando** quito el responsable, **entonces** queda como "sin asignar".
 - **Dado** el backlog, **cuando** filtro por responsable, **entonces** veo solo sus items.
 
+### MIR-30 · Crear desde el tablero y abrir el detalle desde el backlog — ✅ implementado
+
+> Como miembro
+> quiero crear items desde el tablero y abrir cualquier item desde el backlog
+> para no depender de una sola pantalla para cada cosa.
+
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 3
+
+Detectado al verificar el release `v1.0-entrega1`: el detalle solo se abría
+desde las tarjetas del tablero, así que un item en BACKLOG (que el tablero no
+muestra) no tenía cómo abrirse, y el tablero no permitía crear.
+
+**Criterios de aceptación**
+
+- **Dado** que soy OWNER o MEMBER, **cuando** creo un item desde el tablero, **entonces** nace en "Por hacer" y aparece en esa columna sin recargar.
+- **Dado** que soy VIEWER, **cuando** abro el tablero, **entonces** no veo el botón de crear.
+- **Dado** el backlog, **cuando** hago clic en el título de un item (en cualquier estado), **entonces** se abre su detalle.
+- **Dado** que abrí el detalle desde el backlog, **cuando** vuelvo o elimino el item, **entonces** regreso al backlog; desde el tablero, al tablero.
+
 ---
 
 ## Épica 4 — Tablero Kanban
@@ -601,8 +620,8 @@ funcionales nuevos**.
 | --- | --- | --- |
 | 1 — Autenticación | 4 | 16 |
 | 2 — Proyectos y equipo | 6 | 24 |
-| 3 — Elementos de trabajo | 7 | 32 |
+| 3 — Elementos de trabajo | 8 | 35 |
 | 4 — Tablero Kanban | 3 | 21 |
 | 5 — Colaboración y trazabilidad | 3 | 15 |
 | 6 — Calidad y entrega | 6 | 22 |
-| **Total Entrega 1** | **29** | **130** |
+| **Total Entrega 1** | **30** | **133** |
