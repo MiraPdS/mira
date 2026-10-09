@@ -2397,7 +2397,10 @@
             <button class="livechip" data-route="/proyectos">● ver en vivo</button>
             <div class="n">02 / GESTIÓN</div>
             <h3>Proyectos</h3>
-            <p>Crear (clave única, 409 si se repite), listar, ver, editar y panel de resumen.</p>
+            <p>
+              Crear (clave única, 409 si se repite), listar, ver, editar, eliminar y panel de
+              resumen.
+            </p>
           </div>
           <div class="card reveal" style="--i: 3">
             <button class="livechip" data-route="@miembros">● ver en vivo</button>
@@ -2411,8 +2414,8 @@
             <div class="n">04 / PLANIFICAR</div>
             <h3>Elementos de trabajo</h3>
             <p>
-              Crear, listar con paginación, buscar y filtrar, ver detalle, editar y eliminar. Cada
-              uno recibe una referencia <code>MIR-n</code>.
+              Crear, listar con paginación, buscar y filtrar, ver detalle, editar, asignar
+              responsable y eliminar. Cada uno recibe una referencia <code>MIR-n</code>.
             </p>
           </div>
           <div class="card reveal" style="--i: 5">
@@ -2421,15 +2424,15 @@
             <h3>Tablero Kanban</h3>
             <p>
               Por hacer · En progreso · En revisión · Hecho. Se mueve con el menú «Mover a…» o
-              arrastrando, también con teclado.
+              arrastrando, también con teclado; cada tarjeta abre su detalle.
             </p>
           </div>
           <div class="card reveal" style="--i: 6">
             <div class="n">06 / TRAZABILIDAD</div>
             <h3>Comentarios e historial</h3>
             <p>
-              Cada cambio escribe una fila en <code>ActivityLog</code> con su valor anterior y el
-              nuevo, dentro de la misma transacción.
+              Cada cambio escribe una fila en <code>ActivityLog</code>, en la misma transacción, y
+              el detalle del elemento muestra ese historial con el valor anterior y el nuevo.
             </p>
           </div>
         </div>
@@ -2601,13 +2604,13 @@
         </div>
         <div class="grid cols2" style="align-items: center">
           <div class="pyramid reveal" style="--i: 1">
-            <div class="tier t1"><b>232</b>COMPONENTE<small>RTL + user-event + MSW</small></div>
+            <div class="tier t1"><b>298</b>COMPONENTE<small>RTL + user-event + MSW</small></div>
             <div class="tier t2">
-              <b>178</b>INTEGRACIÓN<small>Supertest + PostgreSQL 16 real</small>
+              <b>212</b>INTEGRACIÓN<small>Supertest + PostgreSQL 16 real</small>
             </div>
             <div class="tier t3">
-              <b>240</b>UNITARIAS<small
-                >Vitest + vitest-mock-extended · incluye 104 de @mira/shared</small
+              <b>262</b>UNITARIAS<small
+                >Vitest + vitest-mock-extended · incluye 107 de @mira/shared</small
               >
             </div>
           </div>
@@ -2799,7 +2802,7 @@
         </div>
         <div class="grid cols3" style="margin-top: 22px">
           <div class="counter-card reveal" style="--i: 2; grid-column: span 1">
-            <strong>650+</strong><span>pruebas automatizadas en develop, en un solo reporte.</span>
+            <strong>770+</strong><span>pruebas automatizadas en develop, en un solo reporte.</span>
           </div>
           <div class="card reveal" style="--i: 3">
             <div class="n">DIAGNÓSTICO</div>
@@ -3054,7 +3057,7 @@
             </button>
             <button class="step" data-route="@tablero">
               <span class="n">04 · TABLERO</span><b>Mover tarjetas</b
-              ><span>menú «Mover a…», arrastre y teclado</span>
+              ><span>mover, abrir el detalle: responsable e historial</span>
             </button>
             <button class="step" data-route="@miembros">
               <span class="n">05 · EQUIPO</span><b>Roles por proyecto</b
@@ -3361,17 +3364,17 @@
           unit: {
             color: 'var(--blue)',
             parts: ['service', 'shared'],
-            text: '<b>Unitarias · 240.</b> El service se prueba con un repositorio doble (<code>vitest-mock-extended</code>), y <code>@mira/shared</code> con tests de tabla: la matriz completa rol × permiso y cada esquema Zod. Sin Docker, en milisegundos.',
+            text: '<b>Unitarias · 262.</b> El service se prueba con un repositorio doble (<code>vitest-mock-extended</code>), y <code>@mira/shared</code> con tests de tabla: la matriz completa rol × permiso y cada esquema Zod. Sin Docker, en milisegundos.',
           },
           integration: {
             color: 'var(--green)',
             parts: ['router', 'controller', 'service', 'repository', 'db'],
-            text: '<b>Integración · 178.</b> Supertest atraviesa la API completa contra un PostgreSQL 16 real: rutas, códigos de estado, cookies, SQL, restricciones, transacciones y concurrencia.',
+            text: '<b>Integración · 212.</b> Supertest atraviesa la API completa contra un PostgreSQL 16 real: rutas, códigos de estado, cookies, SQL, restricciones, transacciones y concurrencia.',
           },
           component: {
             color: 'var(--purple)',
             parts: ['web', 'shared'],
-            text: '<b>Componente · 232.</b> React Testing Library renderiza la UI real con TanStack Query y <code>api-client</code>; MSW contesta en la red. Se prueban formularios, carga, errores y accesibilidad.',
+            text: '<b>Componente · 298.</b> React Testing Library renderiza la UI real con TanStack Query y <code>api-client</code>; MSW contesta en la red. Se prueban formularios, carga, errores y accesibilidad.',
           },
         };
         const arch = $('#arch');
@@ -3401,7 +3404,7 @@
           ['Mover tarjetas de estado', 'work-item:change-status', [1, 1, 0]],
           ['Eliminar elementos', 'work-item:delete', [1, 1, 0]],
           ['Comentar', 'comment:create', [1, 1, 0]],
-          ['Editar el proyecto', 'project:update', [1, 0, 0]],
+          ['Editar y eliminar el proyecto', 'project:update', [1, 0, 0]],
           ['Invitar, cambiar rol y quitar miembros', 'member:*', [1, 0, 0]],
         ];
         const roleText = {
