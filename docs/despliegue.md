@@ -71,11 +71,18 @@ Unos 20 minutos. Hazlo en este orden: cada paso necesita un dato del anterior.
 
 ### 3. Vercel
 
-1. Add New → Project → importa `MiraPdS/mira`.
-2. **Root Directory:** `apps/web`. Framework: Vite (lo detecta).
+1. Add New → Project → conecta GitHub (app de Vercel en `MiraPdS`, solo `mira`)
+   → importa `MiraPdS/mira`. Vercel detecta `apps/api` y `apps/web` y ofrece
+   "Services": elige **web → Import single project** (la API vive en Render).
+2. **Root Directory:** `apps/web`. Framework: Vite (lo detecta). Build, output e
+   install por defecto: Vercel instala el monorepo desde la raíz.
 3. Environment Variables: `VITE_API_URL=/api` en Production y Preview.
 4. Settings → Git → Production Branch: `main`.
-5. Deploy y anota la URL de producción (`https://<proyecto>.vercel.app`).
+5. Deploy. Settings → Domains → Edit para dejar un nombre legible (la actual es
+   **`https://mira-pds.vercel.app`**; el nombre aleatorio original redirige).
+6. Las previews quedan tras Vercel Authentication (valor por defecto): solo el
+   dominio de producción es público. Para probar una preview desde la terminal,
+   `vercel curl <url>`.
 
 ### 4. Cerrar el círculo
 
@@ -130,5 +137,7 @@ conservando el servicio y vuelve a crearlo desde `main`.
   la versión anterior. Si una migración se aplicó pero un paso posterior falló,
   la base queda adelantada respecto del código: por eso las migraciones
   destructivas se hacen en dos releases.
+- **`prepare: "husky || true"`.** El `|| true` es a propósito: sin él,
+  `npm install` en Vercel falla con `husky: command not found`.
 - **Nunca apuntes tu `.env` local a Supabase.** `npm run db:reset` borraría la
   demo.

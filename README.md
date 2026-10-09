@@ -18,7 +18,7 @@ Santa María, segundo semestre 2026.
 | Cápsula de video — Entrega 1 | _(pendiente)_ |
 | Tablero Jira | https://bolgunn.atlassian.net/jira/software/projects/MIR/boards |
 | Release `v1.0-entrega1` | _(pendiente)_ |
-| Aplicación desplegada | _(pendiente: se publica con `MIR-27`, ver [despliegue](./docs/despliegue.md))_ |
+| Aplicación desplegada | https://mira-pds.vercel.app |
 
 ## Equipo
 
