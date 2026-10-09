@@ -22,13 +22,15 @@ const PAGE_SIZE = 20;
 
 export interface WorkItemBacklogProps {
   projectId: string;
+  /** Oculta el titulo visible cuando el contenedor ya muestra su propio encabezado. */
+  showTitle?: boolean;
 }
 
 /**
  * Backlog reutilizable: su contenedor entrega el proyecto, por lo que este
  * componente no necesita conocer rutas ni el flujo de proyectos.
  */
-export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
+export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklogProps) {
   const [pagination, setPagination] = useState({ projectId, page: 1 });
   const [filters, setFilters] = useState<WorkItemListFilters>({});
   // Al cambiar de proyecto la pagina anterior no es valida. Derivarla aqui,
@@ -90,7 +92,9 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
 
   return (
     <section className="w-full rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
-      <h2 className="text-xl font-semibold text-slate-900">Backlog</h2>
+      <h2 className={showTitle ? 'text-xl font-semibold text-slate-900' : 'sr-only'}>
+        {showTitle ? 'Backlog' : 'Elementos del backlog'}
+      </h2>
 
       <form
         className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-5"

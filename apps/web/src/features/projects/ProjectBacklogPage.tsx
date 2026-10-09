@@ -12,6 +12,15 @@ export function ProjectBacklogPage() {
   const project = useProject(projectId);
   const [creating, setCreating] = useState(false);
   const canCreate = can(project.data?.myRole, 'work-item:create');
+  // 403 y 404 no se resuelven reintentando: se informan sin ofrecer reintento.
+  const errorStatus = project.error?.status;
+  const permanentError = errorStatus === 403 || errorStatus === 404;
+  const errorMessage =
+    errorStatus === 403
+      ? 'No tienes acceso a este proyecto.'
+      : errorStatus === 404
+        ? 'El proyecto no existe.'
+        : 'No se pudo cargar el proyecto.';
 
   return (
     <main className="mx-auto w-full max-w-7xl min-w-0 space-y-6 px-4 py-6 sm:px-6 sm:py-10">
@@ -41,10 +50,12 @@ export function ProjectBacklogPage() {
         </p>
       ) : project.isError ? (
         <div role="alert" className="space-y-3">
-          <p className="text-sm text-red-700">{project.error.message}</p>
-          <Button variant="secondary" onClick={() => void project.refetch()}>
-            Reintentar
-          </Button>
+          <p className="text-sm text-red-700">{errorMessage}</p>
+          {!permanentError && (
+            <Button variant="secondary" onClick={() => void project.refetch()}>
+              Reintentar
+            </Button>
+          )}
         </div>
       ) : (
         <>
@@ -53,7 +64,7 @@ export function ProjectBacklogPage() {
               <CreateWorkItemForm key={projectId} projectId={projectId} />
             </div>
           )}
-          <WorkItemBacklog key={projectId} projectId={projectId} />
+          <WorkItemBacklog key={projectId} projectId={projectId} showTitle={false} />
         </>
       )}
     </main>

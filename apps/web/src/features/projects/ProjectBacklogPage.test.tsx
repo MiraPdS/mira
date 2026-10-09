@@ -187,12 +187,33 @@ describe('ProjectBacklogPage', () => {
     server.use(http.get(PROJECT_URL, () => apiError(500, 'INTERNAL_ERROR', 'Error del proyecto')));
     const { user } = renderPagina();
 
-    expect(await screen.findByRole('alert')).toHaveTextContent('Error del proyecto');
+    expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo cargar el proyecto.');
     expect(screen.queryByRole('button', { name: /crear elemento/i })).not.toBeInTheDocument();
 
     conRol('MEMBER');
     await user.click(screen.getByRole('button', { name: 'Reintentar' }));
     expect(await screen.findByRole('table')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: '+ Crear elemento' })).toBeInTheDocument();
+  });
+
+  it.each([
+    [403, 'FORBIDDEN', 'No tienes acceso a este proyecto.'],
+    [404, 'NOT_FOUND', 'El proyecto no existe.'],
+  ] as const)('un %i informa el error sin ofrecer reintentar', async (status, code, message) => {
+    server.use(http.get(PROJECT_URL, () => apiError(status, code, 'Error del servidor')));
+    renderPagina();
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(message);
+    expect(screen.queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('table')).not.toBeInTheDocument();
+  });
+
+  it('muestra un solo encabezado visible de backlog', async () => {
+    conRol('MEMBER');
+    renderPagina();
+
+    await screen.findByRole('table');
+    expect(screen.getAllByRole('heading', { name: 'Backlog' })).toHaveLength(1);
+    expect(screen.getByRole('heading', { level: 1, name: 'Backlog' })).toBeInTheDocument();
   });
 });
