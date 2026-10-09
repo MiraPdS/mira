@@ -4,6 +4,7 @@ import type {
   ListProjectsResponse,
   ProjectResponse,
   ProjectRole,
+  ProjectSummaryResponse,
   UpdateProjectInput,
 } from '@mira/shared';
 import { BadRequestError, UnauthorizedError } from '../../lib/errors.js';
@@ -153,6 +154,25 @@ export function createProjectsController(service: ProjectsService) {
         await service.removeMember(projectId, req.user.id, userId);
 
         res.status(204).send();
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    // MIR-23: Resumen estadistico y actividad reciente del proyecto.
+    async getSummary(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const projectId = req.params.projectId;
+
+        if (!projectId) {
+          throw new BadRequestError('Falta el identificador del proyecto', 'PROJECT_ID_REQUIRED');
+        }
+
+        const summary = await service.getProjectSummary(projectId, req.user.id);
+
+        res.json({ summary } satisfies ProjectSummaryResponse);
       } catch (error) {
         next(error);
       }

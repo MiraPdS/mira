@@ -1,5 +1,15 @@
 import { Prisma as PrismaRuntime } from '@prisma/client';
-import type { Prisma, Project, ProjectMember, ProjectRole, User } from '@prisma/client';
+import type {
+  ActivityLog,
+  Prisma,
+  Project,
+  ProjectMember,
+  ProjectRole,
+  User,
+  WorkItemPriority,
+  WorkItemStatus,
+  WorkItemType,
+} from '@prisma/client';
 
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { prisma, type Db } from '../../lib/prisma.js';
@@ -23,6 +33,29 @@ export interface ProjectFieldChange {
   fromValue: string | null;
   toValue: string | null;
 }
+
+/** MIR-23: actividad reciente con el nombre de quien la hizo. */
+export type RecentProjectActivity = ActivityLog & {
+  actor: { id: string; name: string };
+};
+
+/** MIR-23: conteos del proyecto y su actividad reciente. */
+export interface ProjectSummaryData {
+  total: number;
+  byStatus: Record<WorkItemStatus, number>;
+  byType: Record<WorkItemType, number>;
+  byPriority: Record<WorkItemPriority, number>;
+  recentActivity: RecentProjectActivity[];
+}
+
+/** MIR-23: cuantas actividades muestra el panel. */
+export const RECENT_ACTIVITY_LIMIT = 10;
+
+/**
+ * MIR-23: campos de la bitacora que guardan el id de un usuario. El panel los
+ * muestra con el nombre; un usuario que ya no existe se muestra como null.
+ */
+const USER_ID_FIELDS = new Set(['assigneeId', 'member']);
 
 export interface ProjectsRepository {
   findById(projectId: string): Promise<Project | null>;
@@ -66,6 +99,9 @@ export interface ProjectsRepository {
   ): Promise<ProjectMember>;
 
   removeMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<void>;
+
+  /** MIR-23: conteos por estado, tipo y prioridad, y la actividad reciente. */
+  getProjectSummary(projectId: string): Promise<ProjectSummaryData>;
 }
 
 const transactionOptions = {
@@ -387,6 +423,80 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
           });
         }, transactionOptions),
       );
+    },
+
+    // MIR-23: Conteos y actividad reciente del proyecto.
+    async getProjectSummary(projectId) {
+      const [statusGroups, typeGroups, priorityGroups, activities] = await Promise.all([
+        db.workItem.groupBy({ by: ['status'], where: { projectId }, _count: { _all: true } }),
+        db.workItem.groupBy({ by: ['type'], where: { projectId }, _count: { _all: true } }),
+        db.workItem.groupBy({ by: ['priority'], where: { projectId }, _count: { _all: true } }),
+        db.activityLog.findMany({
+          where: { projectId },
+          // El id desempata actividades creadas en el mismo milisegundo.
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          take: RECENT_ACTIVITY_LIMIT,
+          include: { actor: { select: { id: true, name: true } } },
+        }),
+      ]);
+
+      // Partir de ceros: un proyecto vacio responde todas las claves.
+      const byStatus: Record<WorkItemStatus, number> = {
+        BACKLOG: 0,
+        TODO: 0,
+        IN_PROGRESS: 0,
+        IN_REVIEW: 0,
+        DONE: 0,
+      };
+      const byType: Record<WorkItemType, number> = { EPIC: 0, STORY: 0, TASK: 0, BUG: 0 };
+      const byPriority: Record<WorkItemPriority, number> = {
+        LOW: 0,
+        MEDIUM: 0,
+        HIGH: 0,
+        CRITICAL: 0,
+      };
+
+      for (const group of statusGroups) byStatus[group.status] = group._count._all;
+      for (const group of typeGroups) byType[group.type] = group._count._all;
+      for (const group of priorityGroups) byPriority[group.priority] = group._count._all;
+
+      // La bitacora guarda ids de usuario en algunos campos; se traducen a
+      // nombres en UNA consulta para que la UI nunca muestre un id crudo.
+      const userIds = new Set<string>();
+      for (const activity of activities) {
+        if (activity.field && USER_ID_FIELDS.has(activity.field)) {
+          if (activity.fromValue) userIds.add(activity.fromValue);
+          if (activity.toValue) userIds.add(activity.toValue);
+        }
+      }
+
+      const users =
+        userIds.size > 0
+          ? await db.user.findMany({
+              where: { id: { in: [...userIds] } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const nameById = new Map(users.map((user) => [user.id, user.name]));
+      const toName = (value: string | null) => (value ? (nameById.get(value) ?? null) : null);
+
+      const recentActivity = activities.map((activity) =>
+        activity.field && USER_ID_FIELDS.has(activity.field)
+          ? {
+              ...activity,
+              fromValue: toName(activity.fromValue),
+              toValue: toName(activity.toValue),
+            }
+          : activity,
+      );
+
+      return {
+        total: statusGroups.reduce((sum, group) => sum + group._count._all, 0),
+        byStatus,
+        byType,
+        byPriority,
+        recentActivity,
+      };
     },
   };
 }
