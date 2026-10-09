@@ -35,12 +35,12 @@ export function WorkItemCard({ item, onMove }: WorkItemCardProps) {
         className="rounded-md border border-slate-200 bg-white p-3 shadow-sm"
       >
         <div className="flex items-start justify-between gap-2">
-          <p className="font-mono text-xs text-slate-500">{item.reference}</p>
+          <p className="min-w-0 font-mono text-xs text-slate-500">{item.reference}</p>
           {onMove ? (
             <MoveToMenu reference={item.reference} currentStatus={item.status} onMove={onMove} />
           ) : null}
         </div>
-        <h4 id={titleId} className="mt-1 text-sm font-medium break-words text-slate-900">
+        <h4 id={titleId} className="mt-1 text-sm font-medium wrap-anywhere text-slate-900">
           {item.title}
         </h4>
 

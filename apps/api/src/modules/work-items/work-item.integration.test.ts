@@ -1018,6 +1018,42 @@ describe('GET /api/projects/:projectId/board', () => {
     ]);
   });
 
+  it('devuelve todos los items, mas que una pagina del backlog, en orden estable', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const columnas = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
+    const base = Date.parse('2026-01-01T00:00:00.000Z');
+    // 101 supera el pageSize maximo del backlog (100). Position y createdAt se
+    // repiten a proposito para que cada criterio de desempate entre en juego, y
+    // los ids decrecen para que el orden no coincida con el de insercion.
+    const total = 101;
+    for (let i = 0; i < total; i += 1) {
+      await createWorkItem({
+        project,
+        createdBy: owner,
+        id: `item_${String(total - i).padStart(3, '0')}`,
+        status: columnas[i % columnas.length],
+        position: (i * 7) % 5,
+        createdAt: new Date(base + (i % 3) * 1000),
+      });
+    }
+    const esperado = (await prisma.workItem.findMany({ where: { projectId: project.id } }))
+      .sort(
+        (a, b) =>
+          a.position - b.position ||
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          (a.id < b.id ? -1 : 1),
+      )
+      .map((item) => item.id);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(total);
+    expect(res.body.items.map((item: { id: string }) => item.id)).toEqual(esperado);
+  });
+
   it('incluye el responsable y no mezcla items de otros proyectos', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const assignee = await createUser({ email: 'grace@mira.test', name: 'Grace Hopper' });
@@ -1291,5 +1327,423 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       status: 'TODO',
     });
     expect(await prisma.activityLog.count()).toBe(0);
+  });
+});
+
+describe('PATCH /api/projects/:projectId/work-items/:workItemId', () => {
+  it('reintenta con datos vigentes cuando dos transacciones ya leyeron el mismo item', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const repository = createWorkItemRepository();
+    let reads = 0;
+    let releaseReads!: () => void;
+    const bothRead = new Promise<void>((resolve) => {
+      releaseReads = resolve;
+    });
+    // Solo sincronizamos las lecturas: persistencia y transacciones son PostgreSQL real.
+    const service = createWorkItemService({
+      ...repository,
+      withTransaction(operation) {
+        return repository.withTransaction((transactionRepo) =>
+          operation({
+            ...transactionRepo,
+            async findByIdInProject(projectId, workItemId) {
+              const item = await transactionRepo.findByIdInProject(projectId, workItemId);
+              const currentRead = ++reads;
+              if (currentRead === 2) releaseReads();
+              if (currentRead <= 2) await bothRead;
+              return item;
+            },
+          }),
+        );
+      },
+    });
+
+    await Promise.all([
+      service.update(project.id, owner.id, workItem.id, { title: 'Primera edicion' }),
+      service.update(project.id, owner.id, workItem.id, { title: 'Segunda edicion' }),
+    ]);
+    expect(reads).toBeGreaterThanOrEqual(3);
+    const activities = await prisma.activityLog.findMany({ where: { workItemId: workItem.id } });
+    expect(activities).toHaveLength(2);
+    const first = activities.find((entry) => entry.fromValue === 'Titulo original')!;
+    expect(first).toBeDefined();
+    const second = activities.find((entry) => entry.id !== first.id)!;
+    expect(second.fromValue).toBe(first.toValue);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      second.toValue,
+    );
+  });
+
+  it('serializa dos ediciones concurrentes sin fromValue obsoleto', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const cookie = await iniciarSesion(owner);
+    const titles = ['Primera edicion', 'Segunda edicion'];
+
+    const responses = await Promise.all(
+      titles.map((title) =>
+        request(app)
+          .patch(rutaDeDetalle(project.id, workItem.id))
+          .set('Cookie', cookie)
+          .send({ title }),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const activities = await prisma.activityLog.findMany({
+      where: { workItemId: workItem.id, action: 'ITEM_UPDATED' },
+    });
+    expect(activities).toHaveLength(2);
+    expect(activities.map((entry) => entry.toValue).sort()).toEqual([...titles].sort());
+    const first = activities.find((entry) => entry.fromValue === 'Titulo original');
+    expect(first).toBeDefined();
+    const second = activities.find((entry) => entry.id !== first!.id)!;
+    expect(second.fromValue).toBe(first!.toValue);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      second.toValue,
+    );
+  });
+
+  it('normaliza descripcion de espacios a null y no registra cambios identicos', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      description: 'Descripcion original',
+    });
+    const cookie = await iniciarSesion(owner);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const response = await request(app)
+        .patch(rutaDeDetalle(project.id, workItem.id))
+        .set('Cookie', cookie)
+        .send({ description: '   ' });
+      expect(response.status).toBe(200);
+      expect(response.body.item.description).toBeNull();
+    }
+    expect(
+      (await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).description,
+    ).toBeNull();
+    expect(await prisma.activityLog.findMany({ where: { workItemId: workItem.id } })).toEqual([
+      expect.objectContaining({
+        field: 'description',
+        fromValue: 'Descripcion original',
+        toValue: null,
+      }),
+    ]);
+  });
+
+  it('permite a MEMBER cambiar el titulo, persiste y registra ITEM_UPDATED', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const member = await createUser({ email: 'member@mira.test' });
+    await addMember(project, member, 'MEMBER');
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Titulo original',
+    });
+    const cookie = await iniciarSesion(member);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ title: 'Titulo actualizado' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.item.title).toBe('Titulo actualizado');
+
+    const [updatedWorkItem, activities] = await Promise.all([
+      prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } }),
+      prisma.activityLog.findMany({ where: { workItemId: workItem.id } }),
+    ]);
+    expect(updatedWorkItem.title).toBe('Titulo actualizado');
+    expect(activities).toEqual([
+      expect.objectContaining({
+        action: 'ITEM_UPDATED',
+        actorId: member.id,
+        field: 'title',
+        fromValue: 'Titulo original',
+        toValue: 'Titulo actualizado',
+      }),
+    ]);
+  });
+
+  it('permite a OWNER editar un item', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner, priority: 'MEDIUM' });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ priority: 'CRITICAL' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.item.priority).toBe('CRITICAL');
+  });
+
+  it('conserva todos los demas campos en un PATCH de un solo campo', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const dueDate = new Date('2026-03-15T12:00:00.000Z');
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Titulo original',
+      description: 'Descripcion original',
+      type: 'STORY',
+      status: 'IN_PROGRESS',
+      priority: 'HIGH',
+      estimate: 5,
+      dueDate,
+    });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ title: 'Solo cambia el titulo' });
+
+    expect(res.status).toBe(200);
+    expect(await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).toMatchObject({
+      title: 'Solo cambia el titulo',
+      description: 'Descripcion original',
+      type: 'STORY',
+      status: 'IN_PROGRESS',
+      priority: 'HIGH',
+      estimate: 5,
+      dueDate,
+    });
+  });
+
+  it('crea una actividad por cada campo que cambia', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      description: 'Descripcion original',
+      type: 'STORY',
+      priority: 'HIGH',
+      estimate: 5,
+      dueDate: new Date('2026-03-15T12:00:00.000Z'),
+    });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({
+        description: 'Nueva descripcion',
+        type: 'BUG',
+        priority: 'LOW',
+        estimate: 8,
+        dueDate: '2026-04-01T09:00:00.000Z',
+      });
+
+    expect(res.status).toBe(200);
+    const activities = await prisma.activityLog.findMany({
+      where: { workItemId: workItem.id, action: 'ITEM_UPDATED' },
+    });
+    expect(activities).toHaveLength(5);
+    expect(activities).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          field: 'description',
+          fromValue: 'Descripcion original',
+          toValue: 'Nueva descripcion',
+        }),
+        expect.objectContaining({ field: 'type', fromValue: 'STORY', toValue: 'BUG' }),
+        expect.objectContaining({ field: 'priority', fromValue: 'HIGH', toValue: 'LOW' }),
+        expect.objectContaining({ field: 'estimate', fromValue: '5', toValue: '8' }),
+        expect.objectContaining({
+          field: 'dueDate',
+          fromValue: '2026-03-15T12:00:00.000Z',
+          toValue: '2026-04-01T09:00:00.000Z',
+        }),
+      ]),
+    );
+  });
+
+  it('no crea historial ni escribe cuando recibe el mismo valor', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Titulo sin cambios',
+    });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ title: 'Titulo sin cambios' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.item.updatedAt).toBe(workItem.updatedAt.toISOString());
+    expect(await prisma.activityLog.count({ where: { workItemId: workItem.id } })).toBe(0);
+  });
+
+  it('permite asignar null a los campos nullable y conserva null en el historial', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({
+      project,
+      createdBy: owner,
+      description: 'Descripcion',
+      estimate: 5,
+      dueDate: new Date('2026-03-15T12:00:00.000Z'),
+    });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ description: null, estimate: null, dueDate: null });
+
+    expect(res.status).toBe(200);
+    expect(res.body.item).toMatchObject({ description: null, estimate: null, dueDate: null });
+    expect(
+      await prisma.activityLog.findMany({
+        where: { workItemId: workItem.id },
+        select: { field: true, toValue: true },
+      }),
+    ).toEqual(
+      expect.arrayContaining([
+        { field: 'description', toValue: null },
+        { field: 'estimate', toValue: null },
+        { field: 'dueDate', toValue: null },
+      ]),
+    );
+  });
+
+  it('rechaza a VIEWER sin modificar el item ni crear historial', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const viewer = await createUser({ email: 'viewer@mira.test' });
+    await addMember(project, viewer, 'VIEWER');
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const cookie = await iniciarSesion(viewer);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ title: 'No deberia actualizarse' });
+
+    expect(res.status).toBe(403);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      'Titulo original',
+    );
+    expect(await prisma.activityLog.count({ where: { workItemId: workItem.id } })).toBe(0);
+  });
+
+  it('rechaza a un usuario que no es miembro', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const outsider = await createUser({ email: 'outsider@mira.test' });
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const cookie = await iniciarSesion(outsider);
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ title: 'No deberia actualizarse' });
+
+    expect(res.status).toBe(404);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      'Titulo original',
+    );
+    expect(await prisma.activityLog.count({ where: { workItemId: workItem.id } })).toBe(0);
+  });
+
+  it('responde 404 para un item inexistente o que pertenece a otro proyecto', async () => {
+    const actor = await createUser({ email: 'actor@mira.test' });
+    const { project: projectA } = await createProject({ owner: actor, key: 'PA' });
+    const ownerB = await createUser({ email: 'owner-b@mira.test' });
+    const { project: projectB } = await createProject({ owner: ownerB, key: 'PB' });
+    const workItemB = await createWorkItem({ project: projectB, createdBy: ownerB });
+    const cookie = await iniciarSesion(actor);
+
+    for (const workItemId of ['work_item_inexistente', workItemB.id]) {
+      const res = await request(app)
+        .patch(rutaDeDetalle(projectA.id, workItemId))
+        .set('Cookie', cookie)
+        .send({ title: 'No deberia actualizarse' });
+
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe('NOT_FOUND');
+    }
+    expect(await prisma.activityLog.count()).toBe(0);
+  });
+
+  it('requiere una sesion valida', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner });
+
+    const res = await request(app)
+      .patch(rutaDeDetalle(project.id, workItem.id))
+      .send({ title: 'No hay sesion' });
+
+    expect(res.status).toBe(401);
+  });
+
+  it.each([{ status: 'DONE' }, { title: 'No' }])(
+    'rechaza cuerpos desconocidos o invalidos antes de modificar',
+    async (input) => {
+      const owner = await createUser({ email: 'owner@mira.test' });
+      const { project } = await createProject({ owner, key: 'MIR' });
+      const workItem = await createWorkItem({
+        project,
+        createdBy: owner,
+        title: 'Titulo original',
+      });
+      const cookie = await iniciarSesion(owner);
+
+      const res = await request(app)
+        .patch(rutaDeDetalle(project.id, workItem.id))
+        .set('Cookie', cookie)
+        .send(input);
+
+      expect(res.status).toBe(422);
+      expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+        'Titulo original',
+      );
+      expect(await prisma.activityLog.count({ where: { workItemId: workItem.id } })).toBe(0);
+    },
+  );
+
+  it('revierte la actualizacion si no puede registrar el historial', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const workItem = await createWorkItem({ project, createdBy: owner, title: 'Titulo original' });
+    const repository = createWorkItemRepository();
+
+    await expect(
+      repository.updateAtomically({
+        projectId: project.id,
+        workItemId: workItem.id,
+        actorId: 'actor_inexistente',
+        input: { title: 'Titulo que debe revertirse' },
+        changes: [
+          {
+            field: 'title',
+            fromValue: 'Titulo original',
+            toValue: 'Titulo que debe revertirse',
+          },
+        ],
+      }),
+    ).rejects.toThrow();
+
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).title).toBe(
+      'Titulo original',
+    );
+    expect(await prisma.activityLog.count({ where: { workItemId: workItem.id } })).toBe(0);
   });
 });

@@ -42,7 +42,7 @@ export function ProjectMembersPage() {
         <InviteMemberForm projectId={projectId} />
       )}
 
-      <ProjectMembers projectId={projectId} />
+      <ProjectMembers projectId={projectId} currentUserId={currentUser?.id} />
     </main>
   );
 }

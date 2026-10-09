@@ -6,6 +6,7 @@ import { changeWorkItemStatus, getBoard } from './board.api';
 /**
  * Clave propia del tablero: MIR-19 y MIR-20 la usan para la actualizacion
  * optimista al mover tarjetas, sin tocar la cache del backlog paginado.
+ * Crear, editar o eliminar items y quitar miembros la invalidan.
  */
 export const boardKeys = {
   project: (projectId: string) => ['board', projectId] as const,
