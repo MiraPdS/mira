@@ -81,7 +81,11 @@ export function InviteMemberForm({ projectId }: InviteMemberFormProps) {
           </p>
         ) : null}
 
-        <Button type="submit" disabled={isSubmitting || addMember.isPending}>
+        <Button
+          type="submit"
+          className="w-full sm:w-auto"
+          disabled={isSubmitting || addMember.isPending}
+        >
           {addMember.isPending ? 'Invitando...' : 'Invitar miembro'}
         </Button>
       </form>

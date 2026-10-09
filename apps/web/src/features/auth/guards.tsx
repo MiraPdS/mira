@@ -22,7 +22,7 @@ export function RequiereSesion({ children }: { children: ReactNode }) {
 
   if (isError) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-6">
+      <main className="mx-auto flex min-h-screen max-w-md flex-col items-center justify-center gap-4 px-4 sm:px-6">
         <p role="alert" className="text-sm text-red-700">
           No se pudo verificar tu sesion.
         </p>

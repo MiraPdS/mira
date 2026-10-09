@@ -133,10 +133,12 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
 
             return (
               <li key={member.id} className="flex flex-wrap items-center justify-between gap-4 p-4">
-                <div>
-                  <p className="font-medium text-slate-900">{member.user.name}</p>
+                {/* MIR-24: min-w-0 + wrap-anywhere para que un nombre o correo
+                    largo se parta en vez de ensanchar la pagina en movil. */}
+                <div className="min-w-0 flex-1 basis-48">
+                  <p className="font-medium wrap-anywhere text-slate-900">{member.user.name}</p>
 
-                  <p className="text-sm text-slate-500">{member.user.email}</p>
+                  <p className="text-sm wrap-anywhere text-slate-500">{member.user.email}</p>
                 </div>
 
                 <div className="flex items-center gap-3">
@@ -151,7 +153,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                           event.target.value as ProjectMemberRole,
                         );
                       }}
-                      className="rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700"
+                      className="h-11 rounded-md border border-slate-300 bg-white px-3 text-base text-slate-700 sm:h-auto sm:py-2 sm:text-sm"
                     >
                       {/* OWNER no es un rol asignable desde la interfaz.
                           Si el miembro ya es OWNER, conservamos su opcion
@@ -184,7 +186,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                           name: member.user.name,
                         });
                       }}
-                      className="rounded-md border border-red-200 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+                      className="h-11 rounded-md border border-red-200 px-3 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50 sm:h-auto sm:py-2"
                     >
                       Quitar
                     </button>
@@ -214,7 +216,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
             setMemberToRemove(null);
           }
         }}
-        className="m-auto w-full max-w-md rounded-lg border border-red-200 bg-white p-6 shadow-xl backdrop:bg-black/50"
+        className="m-auto w-[calc(100%-2rem)] max-w-md rounded-lg border border-red-200 bg-white p-4 shadow-xl backdrop:bg-black/50 sm:p-6"
       >
         {memberToRemove && (
           <>
@@ -222,7 +224,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
               Confirmar eliminación
             </h3>
 
-            <p id="remove-member-description" className="mt-3 text-sm text-slate-700">
+            <p id="remove-member-description" className="mt-3 text-sm wrap-anywhere text-slate-700">
               ¿Quieres quitar a {memberToRemove.name} del proyecto? Sus tareas asignadas quedarán
               sin responsable, pero no se eliminarán.
             </p>
@@ -237,12 +239,12 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
               </p>
             )}
 
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 disabled={isUpdating}
                 onClick={handleCancelRemove}
-                className="rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+                className="h-11 rounded-md border border-slate-300 px-4 text-sm text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:h-auto sm:py-2"
               >
                 Cancelar
               </button>
@@ -251,7 +253,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                 type="button"
                 disabled={isUpdating}
                 onClick={() => void handleRemoveMember()}
-                className="rounded-md bg-red-700 px-4 py-2 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50"
+                className="h-11 rounded-md bg-red-700 px-4 text-sm font-medium text-white hover:bg-red-800 disabled:opacity-50 sm:h-auto sm:py-2"
               >
                 {removeMember.isPending ? 'Quitando...' : 'Confirmar eliminación'}
               </button>

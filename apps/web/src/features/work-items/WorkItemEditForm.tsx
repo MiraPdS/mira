@@ -169,7 +169,7 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
     updateWorkItem.error instanceof ApiRequestError ? updateWorkItem.error.message : undefined;
 
   return (
-    <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
+    <section className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
       <h2 className="text-xl font-semibold text-slate-900">Editar elemento</h2>
       <p className="mt-1 text-sm text-slate-500">Actualiza los campos propios de este elemento.</p>
 
@@ -188,7 +188,7 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
           <textarea
             id="description"
             rows={4}
-            className="flex min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
+            className="flex min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
             aria-invalid={Boolean(errors.description)}
             aria-describedby={errors.description ? 'description-error' : undefined}
             {...register('description')}
@@ -199,7 +199,7 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
           <Field id="type" label="Tipo" error={errors.type?.message}>
             <select
               id="type"
-              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
+              className="flex h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:h-10 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
               aria-invalid={Boolean(errors.type)}
               aria-describedby={errors.type ? 'type-error' : undefined}
               {...register('type')}
@@ -215,7 +215,7 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
           <Field id="priority" label="Prioridad" error={errors.priority?.message}>
             <select
               id="priority"
-              className="flex h-10 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
+              className="flex h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:h-10 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
               aria-invalid={Boolean(errors.priority)}
               aria-describedby={errors.priority ? 'priority-error' : undefined}
               {...register('priority')}
@@ -266,11 +266,21 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
           </p>
         ) : null}
 
-        <div className="flex justify-end gap-3">
-          <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full sm:w-auto"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
             Cancelar
           </Button>
-          <Button type="submit" disabled={isSubmitting || updateWorkItem.isPending}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={isSubmitting || updateWorkItem.isPending}
+          >
             {updateWorkItem.isPending ? 'Guardando...' : 'Guardar'}
           </Button>
         </div>

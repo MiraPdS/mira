@@ -5,14 +5,17 @@ import {
   type WorkItemDto,
   type WorkItemStatus,
 } from '@mira/shared';
+import { useState } from 'react';
 import {
   DndContext,
+  DragOverlay,
   KeyboardSensor,
-  PointerSensor,
+  MouseSensor,
   useDroppable,
   useSensor,
   useSensors,
   type DragEndEvent,
+  type DragStartEvent,
 } from '@dnd-kit/core';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
@@ -24,10 +27,11 @@ import {
   detectarColumna,
   instrucciones,
   saltarDeColumna,
+  SensorTactilDesdeAsa,
   type CardDragData,
 } from './boardDnd';
 import { useBoard, useMoveWorkItem } from './useBoard';
-import { WorkItemCard } from './WorkItemCard';
+import { TarjetaArrastrada, WorkItemCard } from './WorkItemCard';
 
 export interface KanbanBoardProps {
   projectId: string;
@@ -46,6 +50,10 @@ interface BoardColumnProps {
  * La lista se renderiza SIEMPRE, aunque este vacia, y con alto minimo: es el
  * destino al que MIR-19 (menu "Mover a...") y MIR-20 (arrastre) llevan las
  * tarjetas, asi que no puede desaparecer cuando se queda sin items.
+ *
+ * MIR-24: en pantallas angostas la columna deja siempre 2.5rem libres para que
+ * asome la siguiente y se note que el tablero se desplaza; desde 320 px de
+ * ancho util en adelante mide sus 18rem (w-72) de siempre.
  */
 function BoardColumn({ status, items, onMove }: BoardColumnProps) {
   const label = STATUS_LABELS[status];
@@ -58,7 +66,7 @@ function BoardColumn({ status, items, onMove }: BoardColumnProps) {
       ref={setNodeRef}
       aria-labelledby={headingId}
       className={cn(
-        'flex w-72 shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3 transition-colors',
+        'flex w-[min(18rem,calc(100%-2.5rem))] shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3 transition-colors',
         isOver && 'bg-sky-100 ring-2 ring-sky-300',
       )}
     >
@@ -98,6 +106,18 @@ function BoardColumn({ status, items, onMove }: BoardColumnProps) {
 }
 
 /**
+ * Auto-scroll al acercar la tarjeta al borde del tablero (MIR-24).
+ *
+ * Los valores por defecto de dnd-kit (20 % del ancho como zona de borde y
+ * aceleracion 10) estan pensados para escritorio: en 375 px toda la franja
+ * visible de la columna siguiente caia en la zona y el tablero corria a mas
+ * de 1500 px/s, sin dar tiempo a soltar ahi. Con una zona mas angosta y menos
+ * aceleracion, soltar en la columna que asoma es facil y para llegar a una
+ * lejana basta con mantener el dedo junto al borde.
+ */
+const AUTO_SCROLL = { threshold: { x: 0.1, y: 0.2 }, acceleration: 3 };
+
+/**
  * Tablero Kanban reutilizable: su contenedor entrega el proyecto, por lo que
  * este componente no necesita conocer rutas.
  *
@@ -116,15 +136,25 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   const canMove = !userError && !membersError && can(role, 'work-item:change-status');
 
   // La distancia minima evita que un clic (en "Mover a..." o en la tarjeta)
-  // se interprete como un arrastre.
+  // se interprete como un arrastre. Raton y tacto van por separado (MIR-24):
+  // con el dedo solo arrastra el asa, para que deslizar sobre una tarjeta
+  // desplace las columnas.
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(SensorTactilDesdeAsa, { activationConstraint: { distance: 5 } }),
     useSensor(KeyboardSensor, { coordinateGetter: saltarDeColumna }),
   );
+
+  // Tarjeta en vuelo: la dibuja el DragOverlay y, mientras exista, el tablero
+  // no encaja columnas (ver la region mas abajo).
+  const [enVuelo, setEnVuelo] = useState<WorkItemDto | null>(null);
+  const tomar = ({ active }: DragStartEvent) =>
+    setEnVuelo((active.data.current as CardDragData | undefined)?.item ?? null);
 
   // Misma mutacion optimista que el menu (MIR-19): si la API falla, la
   // tarjeta vuelve a su columna y aparece el mismo mensaje de error.
   const soltar = ({ active, over }: DragEndEvent) => {
+    setEnVuelo(null);
     const item = (active.data.current as CardDragData | undefined)?.item;
     const destino = columnaDestino(over?.id);
     if (!canMove || !item || !destino || destino === item.status) return;
@@ -159,6 +189,10 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
       <h2 id="tablero-titulo" className="text-xl font-semibold text-slate-900">
         Tablero
       </h2>
+      {/* Hasta xl las cuatro columnas no caben y el tablero se desplaza. */}
+      <p className="mt-1 text-sm text-slate-500 xl:hidden">
+        Desliza horizontalmente para ver todas las columnas.
+      </p>
 
       {move.isError ? (
         <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -173,14 +207,23 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
       <DndContext
         sensors={sensors}
         collisionDetection={detectarColumna}
+        onDragStart={tomar}
         onDragEnd={soltar}
+        onDragCancel={() => setEnVuelo(null)}
+        autoScroll={AUTO_SCROLL}
         accessibility={{ announcements: anuncios, screenReaderInstructions: instrucciones }}
       >
+        {/* MIR-24: el encaje (snap) se suspende durante el arrastre. Con el
+            encaje activo, cada paso del auto-scroll saltaba una columna
+            entera y la tarjeta pasaba de "Por hacer" a "Hecho" de golpe. */}
         <div
           role="region"
           aria-label="Columnas del tablero"
           tabIndex={0}
-          className="relative mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400"
+          className={cn(
+            'relative mt-4 flex gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400',
+            !enVuelo && 'snap-x snap-mandatory',
+          )}
         >
           {BOARD_STATUSES.map((status) => (
             <BoardColumn
@@ -193,6 +236,9 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
             />
           ))}
         </div>
+        <DragOverlay dropAnimation={null}>
+          {enVuelo ? <TarjetaArrastrada item={enVuelo} /> : null}
+        </DragOverlay>
       </DndContext>
     </section>
   );

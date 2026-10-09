@@ -88,7 +88,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
   }
 
   return (
-    <section className="w-full rounded-lg border border-slate-200 bg-white p-6">
+    <section className="w-full rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
       <h2 className="text-xl font-semibold text-slate-900">Backlog</h2>
 
       <form
@@ -118,7 +118,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
             onChange={(event) =>
               changeFilters({ type: (event.target.value || undefined) as WorkItemType | undefined })
             }
-            className="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
           >
             <option value="">Todos</option>
             {WORK_ITEM_TYPES.map((type) => (
@@ -141,7 +141,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 status: (event.target.value || undefined) as WorkItemStatus | undefined,
               })
             }
-            className="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
           >
             <option value="">Todos</option>
             {WORK_ITEM_STATUSES.map((status) => (
@@ -164,7 +164,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 priority: (event.target.value || undefined) as WorkItemPriority | undefined,
               })
             }
-            className="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
           >
             <option value="">Todas</option>
             {WORK_ITEM_PRIORITIES.map((priority) => (
@@ -185,7 +185,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
             onChange={(event) => changeFilters({ assigneeId: event.target.value || undefined })}
             disabled={members.isPending || members.isError}
             aria-describedby={members.isError ? 'backlog-members-error' : undefined}
-            className="mt-1 h-9 w-full rounded-md border border-slate-300 bg-white px-3 text-sm"
+            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
           >
             <option value="">{members.isPending ? 'Cargando miembros...' : 'Todos'}</option>
             {members.data?.members.map((member) => (
@@ -207,6 +207,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
           <Button
             type="button"
             variant="secondary"
+            className="w-full sm:w-auto"
             onClick={clearFilters}
             disabled={!hasActiveFilters}
           >
@@ -246,8 +247,8 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
             <tbody>
               {data.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100 text-slate-800">
-                  <td className="px-3 py-2 font-medium">{item.reference}</td>
-                  <td className="px-3 py-2">{item.title}</td>
+                  <td className="px-3 py-2 font-medium whitespace-nowrap">{item.reference}</td>
+                  <td className="min-w-48 px-3 py-2">{item.title}</td>
                   <td className="px-3 py-2">{TYPE_LABELS[item.type]}</td>
                   <td className="px-3 py-2">{STATUS_LABELS[item.status]}</td>
                   <td className="px-3 py-2">{PRIORITY_LABELS[item.priority]}</td>

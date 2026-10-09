@@ -8,7 +8,7 @@ import {
   type WorkItemDto,
   type WorkItemStatus,
 } from '@mira/shared';
-import { renderConProviders, screen, waitFor, within } from '@/test/render';
+import { fireEvent, renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { KanbanBoard } from './KanbanBoard';
@@ -16,8 +16,8 @@ import { KanbanBoard } from './KanbanBoard';
 /**
  * MIR-20: arrastrar y soltar tarjetas entre columnas.
  *
- * Se ejecuta dnd-kit real (PointerSensor y KeyboardSensor) con los eventos que
- * genera user-event. Lo unico simulado, ademas de la API con MSW, es el
+ * Se ejecuta dnd-kit real (MouseSensor, el sensor tactil del asa y
+ * KeyboardSensor) con los eventos que genera user-event o fireEvent. Lo unico simulado, ademas de la API con MSW, es el
  * layout: jsdom no calcula posiciones, asi que `getBoundingClientRect` ubica
  * las columnas una al lado de la otra (300 px cada una) y cada tarjeta dentro
  * de la suya. Asi dnd-kit decide el destino igual que en el navegador.
@@ -46,6 +46,14 @@ function rect(left: number, top: number, width: number, height: number): DOMRect
 
 /** Posicion simulada de un elemento segun la columna que lo contiene. */
 function layoutSimulado(this: Element): DOMRect {
+  // La tarjeta en vuelo (DragOverlay) no esta en ninguna columna: dnd-kit la
+  // fija con top/left/width/height inline, copiados de la tarjeta original.
+  const overlay = this.closest<HTMLElement>('[style*="position: fixed"]');
+  if (overlay) {
+    const { left, top, width, height } = overlay.style;
+    return rect(parseFloat(left), parseFloat(top), parseFloat(width), parseFloat(height));
+  }
+
   const columna = this.closest('section[aria-labelledby^="columna-"]');
   if (!columna) return rect(0, 0, 0, 0);
 
@@ -140,6 +148,37 @@ async function arrastrar(user: User, titulo: string, destino: (typeof BOARD_STAT
     { coords: fin },
     { keys: '[/MouseLeft]', coords: fin },
   ]);
+}
+
+/**
+ * Desliza un dedo desde `elemento` hasta el centro de una columna. Como un
+ * navegador tactil, emite a la vez eventos pointer (pointerType "touch") y
+ * touch, para que cualquier sensor de dnd-kit pueda reaccionar. jsdom no
+ * desplaza nada, asi que solo se observa si dnd-kit tomo o no la tarjeta.
+ */
+function deslizar(elemento: Element, destino: (typeof BOARD_STATUSES)[number]) {
+  const { left, top } = elemento.getBoundingClientRect();
+  const inicio = { clientX: left + 10, clientY: top + 10 };
+  const recorrido = [{ ...inicio, clientX: inicio.clientX + 10 }, centroDe(destino)];
+  const fin = recorrido.at(-1)!;
+
+  fireEvent(elemento, eventoTactil('pointerdown', inicio));
+  fireEvent.touchStart(elemento, { touches: [inicio] });
+  for (const punto of recorrido) {
+    fireEvent(elemento, eventoTactil('pointermove', punto));
+    fireEvent.touchMove(elemento, { touches: [punto] });
+  }
+  fireEvent(elemento, eventoTactil('pointerup', fin));
+  fireEvent.touchEnd(elemento, { touches: [], changedTouches: [fin] });
+}
+
+/** jsdom no implementa PointerEvent: se arma sobre MouseEvent. */
+function eventoTactil(tipo: string, punto: { clientX: number; clientY: number }) {
+  const evento = new MouseEvent(tipo, { bubbles: true, cancelable: true, button: 0, ...punto });
+  return Object.defineProperties(evento, {
+    pointerType: { value: 'touch' },
+    isPrimary: { value: true },
+  });
 }
 
 describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
@@ -289,6 +328,34 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
       await user.keyboard('{Enter}');
 
       expect(screen.getByRole('menu')).toBeInTheDocument();
+    });
+  });
+
+  describe('con el dedo (MIR-24)', () => {
+    it('arrastrar desde el asa mueve la tarjeta y persiste', async () => {
+      const peticiones = servidorConEstado([itemDePrueba()]);
+
+      renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      deslizar(await screen.findByRole('button', { name: 'Arrastrar MIR-3' }), 'DONE');
+
+      expect(await within(tarjetasDe('DONE')).findByText('Login')).toBeInTheDocument();
+      await waitFor(() => expect(peticiones).toHaveLength(1));
+      expect(peticiones[0]?.body).toEqual({ status: 'DONE' });
+    });
+
+    it('deslizar sobre el cuerpo de la tarjeta no la toma: queda libre para desplazar el tablero', async () => {
+      const peticiones = servidorConEstado([itemDePrueba()]);
+
+      renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
+      deslizar(screen.getByRole('heading', { name: 'Login' }), 'DONE');
+
+      // dnd-kit anuncia toda toma y soltada; sin anuncio, no hubo arrastre.
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
+      // Margen para que un PATCH o la actualizacion optimista alcancen a verse.
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(within(tarjetasDe('TODO')).getByText('Login')).toBeInTheDocument();
+      expect(peticiones).toHaveLength(0);
     });
   });
 

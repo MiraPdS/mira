@@ -69,7 +69,7 @@ export function CreateProjectPage() {
       : undefined;
 
   return (
-    <main className="mx-auto w-full max-w-xl px-6 py-10">
+    <main className="mx-auto w-full max-w-xl px-4 py-6 sm:px-6 sm:py-10">
       <h1 className="mb-1 text-2xl font-semibold text-slate-900">Nuevo proyecto</h1>
       <p className="mb-6 text-sm text-slate-500">Quedaras como propietario del proyecto.</p>
 
@@ -104,7 +104,7 @@ export function CreateProjectPage() {
             id="description"
             rows={4}
             className={cn(
-              'flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm',
+              'flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:text-sm',
               'placeholder:text-slate-400 focus-visible:ring-2 focus-visible:outline-none',
               'focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50',
               'aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400',
@@ -121,14 +121,18 @@ export function CreateProjectPage() {
           </p>
         ) : null}
 
-        <div className="flex items-center justify-end gap-3">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
           <Link
             to="/proyectos"
-            className="text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline"
+            className="inline-flex min-h-11 items-center justify-center text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline sm:min-h-0"
           >
             Cancelar
           </Link>
-          <Button type="submit" disabled={isSubmitting || crear.isPending}>
+          <Button
+            type="submit"
+            className="w-full sm:w-auto"
+            disabled={isSubmitting || crear.isPending}
+          >
             {crear.isPending ? 'Creando...' : 'Crear proyecto'}
           </Button>
         </div>
