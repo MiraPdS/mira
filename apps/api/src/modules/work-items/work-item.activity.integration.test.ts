@@ -287,14 +287,17 @@ describe('MIR-22: una edicion revertida no deja historial huerfano', () => {
     // HTTP: asi la atomicidad que se prueba es la del codigo de produccion,
     // no la de una transaccion abierta por el test.  La suite de integracion
     // corre en serie, por lo que el trigger no afecta a otros archivos.
-    await prisma.$executeRaw`
-      CREATE FUNCTION mir22_reject_priority() RETURNS trigger LANGUAGE plpgsql AS
-      $$ BEGIN
-        IF NEW.field = 'priority' THEN RAISE EXCEPTION 'MIR22_ACTIVITY_BLOCKED'; END IF;
-        RETURN NEW;
-      END; $$
-    `;
     try {
+      await prisma.$executeRaw`
+        CREATE OR REPLACE FUNCTION mir22_reject_priority() RETURNS trigger LANGUAGE plpgsql AS
+        $$ BEGIN
+          IF NEW.field = 'priority' THEN RAISE EXCEPTION 'MIR22_ACTIVITY_BLOCKED'; END IF;
+          RETURN NEW;
+        END; $$
+      `;
+      await prisma.$executeRaw`
+        DROP TRIGGER IF EXISTS mir22_reject_priority ON activity_log
+      `;
       await prisma.$executeRaw`
         CREATE TRIGGER mir22_reject_priority BEFORE INSERT ON activity_log
         FOR EACH ROW EXECUTE FUNCTION mir22_reject_priority()
