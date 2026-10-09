@@ -14,7 +14,16 @@ export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   };
 }>;
 
+/** Un campo del proyecto que cambio, tal como queda en la bitacora. */
+export interface ProjectFieldChange {
+  field: 'name' | 'description';
+  fromValue: string | null;
+  toValue: string | null;
+}
+
 export interface ProjectsRepository {
+  findById(projectId: string): Promise<Project | null>;
+
   findByKey(key: string): Promise<Project | null>;
 
   createWithOwner(
@@ -31,10 +40,23 @@ export interface ProjectsRepository {
   findMembersByProject(projectId: string): Promise<ProjectMemberWithUser[]>;
 
   addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
+
+  /** Actualiza el proyecto y registra una fila PROJECT_UPDATED por campo cambiado. */
+  updateWithActivity(
+    projectId: string,
+    data: { name?: string; description?: string | null },
+    changes: ProjectFieldChange[],
+    actorId: string,
+  ): Promise<Project>;
 }
 
 export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
   return {
+    findById: (projectId) =>
+      db.project.findUnique({
+        where: { id: projectId },
+      }),
+
     findByKey: (key) =>
       db.project.findUnique({
         where: { key },
@@ -136,6 +158,34 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
 
         return member;
       });
+    },
+
+    async updateWithActivity(projectId, data, changes, actorId) {
+      const run = async (tx: Db) => {
+        const project = await tx.project.update({
+          where: { id: projectId },
+          data,
+        });
+
+        if (changes.length > 0) {
+          await tx.activityLog.createMany({
+            data: changes.map((change) => ({
+              action: 'PROJECT_UPDATED' as const,
+              projectId,
+              actorId,
+              ...change,
+            })),
+          });
+        }
+
+        return project;
+      };
+
+      // Igual que addMemberWithActivity: si `db` ya es un cliente
+      // transaccional no se puede abrir otra transaccion.
+      if (!('$transaction' in db)) return run(db);
+
+      return db.$transaction((tx) => run(tx));
     },
   };
 }

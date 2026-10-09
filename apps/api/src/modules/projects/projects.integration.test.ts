@@ -9,7 +9,8 @@ import { prisma } from '../../lib/prisma.js';
  *
  * Supertest contra la app real y Postgres de pruebas. Cubre los criterios de
  * aceptacion de MIR-5 (201 + OWNER, 409 por clave repetida, 422 por formato y
- * 401 sin sesion) y de MIR-6 (solo los proyectos propios, con su rol).
+ * 401 sin sesion), de MIR-6 (solo los proyectos propios, con su rol) y de
+ * MIR-7 (ver y editar: 200 al OWNER, 403 al resto, 422 por campos ajenos).
  *
  * Requiere:  npm run db:up
  */
@@ -164,6 +165,162 @@ describe('GET /api/projects', () => {
 
   it('responde 401 sin sesion', async () => {
     const res = await request(app).get('/api/projects');
+
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('GET /api/projects/:projectId', () => {
+  it('devuelve el proyecto con el rol del miembro', async () => {
+    const user = await createUser();
+    const { project } = await createProject({ name: 'Mira' });
+    await addMember(project, user, 'VIEWER');
+
+    const res = await request(app)
+      .get(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(user));
+
+    expect(res.status).toBe(200);
+    expect(res.body.project).toMatchObject({ id: project.id, name: 'Mira', myRole: 'VIEWER' });
+  });
+
+  it('responde 403 a quien no es miembro', async () => {
+    const user = await createUser();
+    const { project } = await createProject();
+
+    const res = await request(app)
+      .get(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(user));
+
+    expect(res.status).toBe(403);
+    expect(res.body.error.code).toBe('PROJECT_ACCESS_DENIED');
+  });
+
+  it('responde 403 si el proyecto no existe', async () => {
+    const user = await createUser();
+
+    const res = await request(app)
+      .get('/api/projects/no-existe')
+      .set('Cookie', sessionCookie(user));
+
+    expect(res.status).toBe(403);
+  });
+
+  it('responde 401 sin sesion', async () => {
+    const { project } = await createProject();
+
+    const res = await request(app).get(`/api/projects/${project.id}`);
+
+    expect(res.status).toBe(401);
+  });
+});
+
+describe('PATCH /api/projects/:projectId', () => {
+  it('CA1: el OWNER edita nombre y descripcion, responde 200 y persiste', async () => {
+    const { project, owner } = await createProject({ name: 'Mira', description: 'Antes' });
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner))
+      .send({ name: '  Mira 2 ', description: 'Despues' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.project).toMatchObject({
+      name: 'Mira 2',
+      description: 'Despues',
+      key: project.key,
+      myRole: 'OWNER',
+    });
+
+    const visto = await request(app)
+      .get(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner));
+    expect(visto.body.project).toMatchObject({ name: 'Mira 2', description: 'Despues' });
+  });
+
+  it('una descripcion en blanco queda como null', async () => {
+    const { project, owner } = await createProject({ description: 'Antes' });
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner))
+      .send({ description: '   ' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.project.description).toBeNull();
+  });
+
+  it.each(['MEMBER', 'VIEWER'] as const)(
+    'CA2: responde 403 a un %s y no cambia nada',
+    async (role) => {
+      const user = await createUser();
+      const { project } = await createProject({ name: 'Mira' });
+      await addMember(project, user, role);
+
+      const res = await request(app)
+        .patch(`/api/projects/${project.id}`)
+        .set('Cookie', sessionCookie(user))
+        .send({ name: 'Hackeado' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.error.code).toBe('OWNER_REQUIRED');
+      expect((await prisma.project.findUnique({ where: { id: project.id } }))?.name).toBe('Mira');
+    },
+  );
+
+  it('responde 403 a quien no es miembro', async () => {
+    const user = await createUser();
+    const { project } = await createProject();
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(user))
+      .send({ name: 'Ajeno' });
+
+    expect(res.status).toBe(403);
+  });
+
+  it.each([
+    ['un campo desconocido', { name: 'Mira', color: 'rojo' }],
+    ['la clave (inmutable)', { key: 'NUEVA' }],
+    ['un cuerpo vacio', {}],
+  ])('CA3: responde 422 con %s', async (_caso, body) => {
+    const { project, owner } = await createProject();
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner))
+      .send(body);
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+  });
+
+  it('registra PROJECT_UPDATED solo por los campos que cambian', async () => {
+    const { project, owner } = await createProject({ name: 'Mira', description: 'Antes' });
+
+    await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner))
+      .send({ name: 'Mira', description: null });
+
+    const filas = await prisma.activityLog.findMany({
+      where: { projectId: project.id, action: 'PROJECT_UPDATED' },
+    });
+    expect(filas).toHaveLength(1);
+    expect(filas[0]).toMatchObject({
+      actorId: owner.id,
+      workItemId: null,
+      field: 'description',
+      fromValue: 'Antes',
+      toValue: null,
+    });
+  });
+
+  it('responde 401 sin sesion', async () => {
+    const { project } = await createProject();
+
+    const res = await request(app).patch(`/api/projects/${project.id}`).send({ name: 'X' });
 
     expect(res.status).toBe(401);
   });

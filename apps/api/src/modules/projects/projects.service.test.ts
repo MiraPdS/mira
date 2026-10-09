@@ -119,6 +119,99 @@ describe('projectsService', () => {
     });
   });
 
+  describe('getById - MIR-7', () => {
+    it('devuelve el proyecto con el rol del miembro', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'VIEWER' }));
+      repo.findById.mockResolvedValue(proyectoDePrueba());
+
+      const result = await service.getById('project_1', 'owner_1');
+
+      expect(result).toMatchObject({ id: 'project_1', myRole: 'VIEWER' });
+    });
+
+    it('rechaza con 403 a quien no es miembro, sin leer el proyecto', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.getById('project_1', 'outsider_1')).rejects.toMatchObject({
+        status: 403,
+        code: 'PROJECT_ACCESS_DENIED',
+      });
+      expect(repo.findById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update - MIR-7', () => {
+    beforeEach(() => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
+      repo.findById.mockResolvedValue(proyectoDePrueba({ description: 'Antes' }));
+      repo.updateWithActivity.mockImplementation(async (_id, data) =>
+        proyectoDePrueba({ description: 'Antes', ...data }),
+      );
+    });
+
+    it('el OWNER cambia el nombre y queda una fila en la bitacora', async () => {
+      const result = await service.update('project_1', 'owner_1', { name: 'Mira 2' });
+
+      expect(repo.updateWithActivity).toHaveBeenCalledWith(
+        'project_1',
+        { name: 'Mira 2' },
+        [{ field: 'name', fromValue: 'Mira', toValue: 'Mira 2' }],
+        'owner_1',
+      );
+      expect(result).toMatchObject({ name: 'Mira 2', myRole: 'OWNER' });
+    });
+
+    it('vaciar la descripcion registra el paso a null', async () => {
+      await service.update('project_1', 'owner_1', { description: null });
+
+      expect(repo.updateWithActivity).toHaveBeenCalledWith(
+        'project_1',
+        { description: null },
+        [{ field: 'description', fromValue: 'Antes', toValue: null }],
+        'owner_1',
+      );
+    });
+
+    it('solo registra los campos que realmente cambian', async () => {
+      await service.update('project_1', 'owner_1', { name: 'Mira', description: 'Despues' });
+
+      expect(repo.updateWithActivity.mock.calls[0]?.[2]).toEqual([
+        { field: 'description', fromValue: 'Antes', toValue: 'Despues' },
+      ]);
+    });
+
+    it('con los mismos valores escribe igual, sin filas de bitacora', async () => {
+      await service.update('project_1', 'owner_1', { name: 'Mira', description: 'Antes' });
+
+      expect(repo.updateWithActivity).toHaveBeenCalledWith(
+        'project_1',
+        { name: 'Mira', description: 'Antes' },
+        [],
+        'owner_1',
+      );
+    });
+
+    it.each(['MEMBER', 'VIEWER'] as const)('rechaza con 403 a un %s', async (role) => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role }));
+
+      await expect(service.update('project_1', 'user_1', { name: 'X' })).rejects.toMatchObject({
+        status: 403,
+        code: 'OWNER_REQUIRED',
+      });
+      expect(repo.updateWithActivity).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a quien no es miembro (o si el proyecto no existe)', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.update('project_1', 'outsider_1', { name: 'X' })).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      expect(repo.findById).not.toHaveBeenCalled();
+      expect(repo.updateWithActivity).not.toHaveBeenCalled();
+    });
+  });
+
   describe('getMembers - MIR-9', () => {
     it('permite listar miembros a un integrante del proyecto', async () => {
       repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'MEMBER' }));

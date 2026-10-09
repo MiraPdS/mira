@@ -1,5 +1,10 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateProjectInput, ListProjectsResponse, ProjectDto } from '@mira/shared';
+import type {
+  CreateProjectInput,
+  ListProjectsResponse,
+  ProjectResponse,
+  UpdateProjectInput,
+} from '@mira/shared';
 import { BadRequestError, UnauthorizedError } from '../../lib/errors.js';
 import type { ProjectsService } from './projects.service.js';
 
@@ -11,7 +16,7 @@ export function createProjectsController(service: ProjectsService) {
 
         const project = await service.create(req.body as CreateProjectInput, req.user.id);
 
-        res.status(201).json({ project } satisfies { project: ProjectDto });
+        res.status(201).json({ project } satisfies ProjectResponse);
       } catch (error) {
         next(error);
       }
@@ -22,6 +27,46 @@ export function createProjectsController(service: ProjectsService) {
         if (!req.user) throw new UnauthorizedError();
         const projects = await service.listForUser(req.user.id);
         res.json({ projects } satisfies ListProjectsResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async get(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const projectId = req.params.projectId;
+
+        if (!projectId) {
+          throw new BadRequestError('Falta el identificador del proyecto', 'PROJECT_ID_REQUIRED');
+        }
+
+        const project = await service.getById(projectId, req.user.id);
+
+        res.json({ project } satisfies ProjectResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async update(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const projectId = req.params.projectId;
+
+        if (!projectId) {
+          throw new BadRequestError('Falta el identificador del proyecto', 'PROJECT_ID_REQUIRED');
+        }
+
+        const project = await service.update(
+          projectId,
+          req.user.id,
+          req.body as UpdateProjectInput,
+        );
+
+        res.json({ project } satisfies ProjectResponse);
       } catch (error) {
         next(error);
       }
