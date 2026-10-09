@@ -25,13 +25,18 @@ export function LogoutButton() {
   };
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex shrink-0 items-center gap-3">
       {logout.isError ? (
-        <p role="alert" className="text-sm text-red-700">
+        <p role="alert" className="max-w-40 text-right text-sm text-red-700 sm:max-w-none">
           No se pudo cerrar sesion. Intenta de nuevo.
         </p>
       ) : null}
-      <Button variant="ghost" onClick={() => void cerrarSesion()} disabled={logout.isPending}>
+      <Button
+        variant="ghost"
+        className="px-3 whitespace-nowrap sm:px-4"
+        onClick={() => void cerrarSesion()}
+        disabled={logout.isPending}
+      >
         {logout.isPending ? 'Cerrando...' : 'Cerrar sesion'}
       </Button>
     </div>

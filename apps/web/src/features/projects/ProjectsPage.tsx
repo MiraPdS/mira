@@ -14,8 +14,8 @@ const NUEVO_PROYECTO = '/proyectos/nuevo';
  */
 export function ProjectsPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-10">
-      <div className="mb-6 flex items-center justify-between gap-4">
+    <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <h1 className="text-2xl font-semibold text-slate-900">Mis proyectos</h1>
         {/* Siempre visible: crear no depende de que la lista haya cargado. */}
         <Link
@@ -77,10 +77,15 @@ function ContenidoProyectos() {
   );
 }
 
+/**
+ * MIR-24: en movil el nombre va en su propia linea y las acciones debajo. En
+ * una sola fila, las acciones (que no se encogen) dejaban al nombre en 0 px y
+ * la clave quedaba encima de "Configuracion".
+ */
 function ProjectCard({ project }: { project: ProjectDto }) {
   return (
     <li className="rounded-lg border border-slate-200 p-4">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
         <div className="flex min-w-0 items-baseline gap-3">
           <Link
             to={`/proyectos/${encodeURIComponent(project.id)}`}
@@ -88,12 +93,12 @@ function ProjectCard({ project }: { project: ProjectDto }) {
           >
             {project.name}
           </Link>
-          <span className="font-mono text-xs text-slate-500">{project.key}</span>
+          <span className="shrink-0 font-mono text-xs text-slate-500">{project.key}</span>
         </div>
-        <div className="flex shrink-0 items-center gap-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
           <Link
             to={`/proyectos/${encodeURIComponent(project.id)}/configuracion`}
-            className="text-xs font-medium text-slate-600 hover:text-slate-900 hover:underline"
+            className="inline-flex min-h-11 items-center text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline sm:min-h-0 sm:text-xs"
             aria-label={`Configuracion de ${project.name}`}
           >
             Configuracion
@@ -105,14 +110,16 @@ function ProjectCard({ project }: { project: ProjectDto }) {
           <Link
             to={`/proyectos/${encodeURIComponent(project.id)}/tablero`}
             aria-label={`Ver tablero de ${project.name}`}
-            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:outline-none"
+            className="ml-auto inline-flex h-11 items-center justify-center rounded-md border border-slate-300 px-3 sm:ml-0 sm:h-8 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:outline-none"
           >
             Ver tablero
           </Link>
         </div>
       </div>
       {project.description && (
-        <p className="mt-2 line-clamp-2 text-sm text-slate-600">{project.description}</p>
+        <p className="mt-2 line-clamp-2 text-sm wrap-anywhere text-slate-600">
+          {project.description}
+        </p>
       )}
     </li>
   );

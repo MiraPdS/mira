@@ -12,7 +12,7 @@ import { ProjectSummaryPage } from '@/features/projects/ProjectSummaryPage';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   return (
-    <main className="mx-auto max-w-2xl px-6 py-16">
+    <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16">
       <h1 className="text-2xl font-semibold text-slate-900">{titulo}</h1>
 
       <p className="mt-2 text-sm text-slate-500">

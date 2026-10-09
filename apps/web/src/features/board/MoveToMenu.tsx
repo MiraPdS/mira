@@ -94,7 +94,7 @@ export function MoveToMenu({ reference, currentStatus, onMove }: MoveToMenuProps
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((abierto) => !abierto)}
-        className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-400"
+        className="-my-2 -mr-2 h-11 rounded px-3 text-sm font-medium text-slate-600 hover:bg-slate-100 focus-visible:outline-2 focus-visible:outline-slate-400 sm:my-0 sm:mr-0 sm:h-auto sm:px-2 sm:py-1 sm:text-xs"
       >
         Mover a…
       </button>
@@ -118,7 +118,7 @@ export function MoveToMenu({ reference, currentStatus, onMove }: MoveToMenuProps
                 tabIndex={-1}
                 onClick={() => elegir(status)}
                 className={cn(
-                  'block w-full px-3 py-1.5 text-left text-sm text-slate-800',
+                  'block min-h-11 w-full px-3 py-1.5 text-left text-sm text-slate-800 sm:min-h-0',
                   'hover:bg-slate-100 focus:bg-slate-100 focus:outline-none',
                 )}
               >

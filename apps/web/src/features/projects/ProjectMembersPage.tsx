@@ -18,7 +18,7 @@ export function ProjectMembersPage() {
 
   if (!projectId) {
     return (
-      <main className="mx-auto max-w-3xl px-6 py-10">
+      <main className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
         <p role="alert">No se encontro el proyecto.</p>
       </main>
     );
@@ -29,9 +29,12 @@ export function ProjectMembersPage() {
   const canInvite = can(currentMember?.role, 'member:invite');
 
   return (
-    <main className="mx-auto max-w-3xl space-y-8 px-6 py-10">
+    <main className="mx-auto max-w-3xl space-y-8 px-4 py-6 sm:px-6 sm:py-10">
       <div>
-        <Link to="/proyectos" className="text-sm text-slate-600 underline">
+        <Link
+          to="/proyectos"
+          className="inline-flex min-h-11 items-center text-sm text-slate-600 underline sm:min-h-0"
+        >
           Volver a proyectos
         </Link>
 
