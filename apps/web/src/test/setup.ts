@@ -11,6 +11,18 @@ import { server } from './msw/server';
  * esperando una respuesta que nunca llega. Los fallos silenciosos por
  * peticiones no mockeadas son de los mas caros de diagnosticar.
  */
+
+// JSDOM no implementa completamente HTMLDialogElement.
+// Simulamos showModal y close para las pruebas del frontend.
+HTMLDialogElement.prototype.showModal = function () {
+  this.setAttribute('open', '');
+};
+
+HTMLDialogElement.prototype.close = function () {
+  this.removeAttribute('open');
+  this.dispatchEvent(new Event('close'));
+};
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }));
 
 afterEach(() => {

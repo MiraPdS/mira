@@ -2,6 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AddMemberInput, CreateProjectInput, ProjectDto } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
+import type { ProjectMemberRole } from './project.api';
+import { boardKeys } from '@/features/board/useBoard';
 
 /**
  * Claves de cache de proyectos. `all` es prefijo de las demas: crear o editar
@@ -55,6 +57,61 @@ export function useAddMember(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Cambia el rol de un miembro.
+ */
+export function useChangeMemberRole(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: ProjectMemberRole }) =>
+      projectApi.changeMemberRole(projectId, userId, role),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectKeys.members(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Quita un miembro del proyecto.
+ */
+
+/**
+ * Quita un miembro del proyecto.
+ */
+export function useRemoveMember(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => projectApi.removeMember(projectId, userId),
+
+    onSuccess: async () => {
+      // Actualizar la lista de miembros.
+      await queryClient.invalidateQueries({
+        queryKey: projectKeys.members(projectId),
+      });
+
+      // Invalidar las paginas del backlog de este proyecto.
+      await queryClient.invalidateQueries({
+        queryKey: ['work-items', 'backlog', projectId],
+      });
+
+      // Invalidar los detalles de tareas de este proyecto.
+      await queryClient.invalidateQueries({
+        queryKey: ['work-item', projectId],
+      });
+
+      // Invalidar el tablero: sus tarjetas muestran al responsable eliminado.
+      await queryClient.invalidateQueries({
+        queryKey: boardKeys.project(projectId),
       });
     },
   });

@@ -1,7 +1,15 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import { addMember, createProject, createUser, PASSWORD_DE_PRUEBA } from '../../test/factories.js';
+
+import {
+  addMember,
+  createProject,
+  createUser,
+  createWorkItem,
+  PASSWORD_DE_PRUEBA,
+} from '../../test/factories.js';
+
 import { prisma } from '../../lib/prisma.js';
 
 let app: Express;
@@ -14,6 +22,7 @@ beforeAll(async () => {
 function cookieDeSesion(res: request.Response): string | undefined {
   const raw = res.headers['set-cookie'];
   const cookies = Array.isArray(raw) ? raw : raw ? [raw] : [];
+
   return cookies.find((c) => c.startsWith('mira_token='));
 }
 
@@ -31,9 +40,14 @@ async function iniciarSesion(email: string): Promise<string> {
   return cookie!;
 }
 
+// ============================================================
+// MIR-9: Agregar miembros
+// ============================================================
+
 describe('POST /api/projects/:projectId/members', () => {
   it('OWNER agrega un usuario registrado y responde 201', async () => {
     const { project, owner } = await createProject();
+
     const nuevoMiembro = await createUser({
       email: 'nuevo@mira.dev',
     });
@@ -85,6 +99,7 @@ describe('POST /api/projects/:projectId/members', () => {
 
   it('responde 409 si el usuario ya es miembro del proyecto', async () => {
     const { project, owner } = await createProject();
+
     const miembro = await createUser({
       email: 'miembro@mira.dev',
     });
@@ -181,6 +196,10 @@ describe('POST /api/projects/:projectId/members', () => {
   });
 });
 
+// ============================================================
+// MIR-9: Listar miembros
+// ============================================================
+
 describe('GET /api/projects/:projectId/members', () => {
   it('responde 200 y devuelve los miembros del proyecto', async () => {
     const { project, owner } = await createProject();
@@ -243,14 +262,12 @@ describe('GET /api/projects/:projectId/members', () => {
 
     const cookie = await iniciarSesion(owner.email);
 
-    // Primero invitamos al usuario.
     await request(app)
       .post(`/api/projects/${project.id}/members`)
       .set('Cookie', cookie)
       .send({ email: invitado.email })
       .expect(201);
 
-    // Luego consultamos la lista actualizada.
     const res = await request(app)
       .get(`/api/projects/${project.id}/members`)
       .set('Cookie', cookie)
@@ -267,5 +284,491 @@ describe('GET /api/projects/:projectId/members', () => {
         }),
       ]),
     );
+  });
+});
+
+// ============================================================
+// MIR-10: Cambiar rol de miembros
+// ============================================================
+
+describe('PATCH /api/projects/:projectId/members/:userId/role - MIR-10', () => {
+  it('OWNER cambia MEMBER a VIEWER y registra la actividad', async () => {
+    const { project, owner } = await createProject();
+
+    const miembro = await createUser({
+      email: 'rol-viewer@mira.dev',
+    });
+
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookie = await iniciarSesion(owner.email);
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}/members/${miembro.id}/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'VIEWER' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.member.role).toBe('VIEWER');
+
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: miembro.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership?.role).toBe('VIEWER');
+
+    const activity = await prisma.activityLog.findFirst({
+      where: {
+        projectId: project.id,
+        action: 'MEMBER_ROLE_CHANGED',
+      },
+    });
+
+    expect(activity).toMatchObject({
+      actorId: owner.id,
+      field: 'role',
+      fromValue: 'MEMBER',
+      toValue: 'VIEWER',
+    });
+  });
+
+  it('VIEWER no puede cambiar roles', async () => {
+    const { project } = await createProject();
+
+    const viewer = await createUser({
+      email: 'viewer-rol@mira.dev',
+    });
+
+    const miembro = await createUser({
+      email: 'destino-rol@mira.dev',
+    });
+
+    await addMember(project, viewer, 'VIEWER');
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookie = await iniciarSesion(viewer.email);
+
+    await request(app)
+      .patch(`/api/projects/${project.id}/members/${miembro.id}/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'VIEWER' })
+      .expect(403);
+  });
+
+  it('no permite ascender un MEMBER a OWNER', async () => {
+    const { project, owner } = await createProject();
+
+    const miembro = await createUser({
+      email: 'ascenso-owner@mira.dev',
+    });
+
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookie = await iniciarSesion(owner.email);
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}/members/${miembro.id}/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'OWNER' });
+
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    expect(res.body.error.fields).toHaveProperty('role');
+
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: miembro.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership?.role).toBe('MEMBER');
+
+    const activity = await prisma.activityLog.findFirst({
+      where: {
+        projectId: project.id,
+        action: 'MEMBER_ROLE_CHANGED',
+      },
+    });
+
+    expect(activity).toBeNull();
+  });
+
+  // MIR-10: El ultimo OWNER debe permanecer protegido.
+  it('no permite degradar al unico OWNER y responde 400', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner.email);
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}/members/${owner.id}/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'MEMBER' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('OWNER_PROTECTED');
+
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: owner.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership?.role).toBe('OWNER');
+  });
+
+  // MIR-10: Un OWNER puede degradarse si existe otro OWNER.
+  it('permite degradar a un OWNER cuando existe otro OWNER', async () => {
+    const { project, owner } = await createProject();
+
+    const otroOwner = await createUser({
+      email: 'otro-owner-degradar@mira.dev',
+    });
+
+    await addMember(project, otroOwner, 'OWNER');
+
+    const cookie = await iniciarSesion(owner.email);
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}/members/${otroOwner.id}/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'MEMBER' });
+
+    expect(res.status).toBe(200);
+    expect(res.body.member.role).toBe('MEMBER');
+
+    const memberships = await prisma.projectMember.findMany({
+      where: {
+        projectId: project.id,
+      },
+    });
+
+    // Debe quedar exactamente un OWNER.
+    expect(memberships.filter((member) => member.role === 'OWNER')).toHaveLength(1);
+
+    expect(memberships.find((member) => member.userId === owner.id)?.role).toBe('OWNER');
+
+    expect(memberships.find((member) => member.userId === otroOwner.id)?.role).toBe('MEMBER');
+
+    const activity = await prisma.activityLog.findFirst({
+      where: {
+        projectId: project.id,
+        action: 'MEMBER_ROLE_CHANGED',
+      },
+    });
+
+    expect(activity).toMatchObject({
+      actorId: owner.id,
+      field: 'role',
+      fromValue: 'OWNER',
+      toValue: 'MEMBER',
+    });
+  });
+
+  it('responde 404 si el miembro no existe', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner.email);
+
+    await request(app)
+      .patch(`/api/projects/${project.id}/members/usuario_inexistente/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'VIEWER' })
+      .expect(404);
+  });
+
+  it('responde 422 si el rol es invalido', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner.email);
+
+    await request(app)
+      .patch(`/api/projects/${project.id}/members/${owner.id}/role`)
+      .set('Cookie', cookie)
+      .send({ role: 'ADMIN' })
+      .expect(422);
+  });
+});
+
+// ============================================================
+// MIR-10: Quitar miembros
+// ============================================================
+
+describe('DELETE /api/projects/:projectId/members/:userId - MIR-10', () => {
+  it('OWNER elimina un MEMBER y registra la actividad', async () => {
+    const { project, owner } = await createProject();
+
+    const miembro = await createUser({
+      email: 'eliminar@mira.dev',
+    });
+
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookie = await iniciarSesion(owner.email);
+
+    await request(app)
+      .delete(`/api/projects/${project.id}/members/${miembro.id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: miembro.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership).toBeNull();
+
+    const activity = await prisma.activityLog.findFirst({
+      where: {
+        projectId: project.id,
+        action: 'MEMBER_REMOVED',
+      },
+    });
+
+    expect(activity).toMatchObject({
+      actorId: owner.id,
+      field: 'member',
+      fromValue: miembro.id,
+    });
+  });
+
+  it('VIEWER no puede quitar miembros', async () => {
+    const { project } = await createProject();
+
+    const viewer = await createUser({
+      email: 'viewer-delete@mira.dev',
+    });
+
+    const miembro = await createUser({
+      email: 'destino-delete@mira.dev',
+    });
+
+    await addMember(project, viewer, 'VIEWER');
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookie = await iniciarSesion(viewer.email);
+
+    await request(app)
+      .delete(`/api/projects/${project.id}/members/${miembro.id}`)
+      .set('Cookie', cookie)
+      .expect(403);
+  });
+
+  // MIR-10: No se puede dejar un proyecto sin OWNER.
+  it('no permite eliminar al unico OWNER y responde 400', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner.email);
+
+    const res = await request(app)
+      .delete(`/api/projects/${project.id}/members/${owner.id}`)
+      .set('Cookie', cookie);
+
+    expect(res.status).toBe(400);
+    expect(res.body.error.code).toBe('OWNER_PROTECTED');
+
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: owner.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership?.role).toBe('OWNER');
+  });
+
+  // MIR-10: Se permite eliminar un OWNER si queda otro.
+  it('permite eliminar a un OWNER cuando existe otro OWNER', async () => {
+    const { project, owner } = await createProject();
+
+    const otroOwner = await createUser({
+      email: 'otro-owner-eliminar@mira.dev',
+    });
+
+    await addMember(project, otroOwner, 'OWNER');
+
+    const cookie = await iniciarSesion(owner.email);
+
+    await request(app)
+      .delete(`/api/projects/${project.id}/members/${otroOwner.id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    const memberships = await prisma.projectMember.findMany({
+      where: {
+        projectId: project.id,
+      },
+    });
+
+    expect(memberships.filter((member) => member.role === 'OWNER')).toHaveLength(1);
+
+    expect(memberships.find((member) => member.userId === owner.id)?.role).toBe('OWNER');
+
+    expect(memberships.some((member) => member.userId === otroOwner.id)).toBe(false);
+
+    const activity = await prisma.activityLog.findFirst({
+      where: {
+        projectId: project.id,
+        action: 'MEMBER_REMOVED',
+      },
+    });
+
+    expect(activity).toMatchObject({
+      actorId: owner.id,
+      field: 'member',
+      fromValue: otroOwner.id,
+    });
+  });
+
+  it('responde 404 si el miembro no existe', async () => {
+    const { project, owner } = await createProject();
+    const cookie = await iniciarSesion(owner.email);
+
+    await request(app)
+      .delete(`/api/projects/${project.id}/members/usuario_inexistente`)
+      .set('Cookie', cookie)
+      .expect(404);
+  });
+
+  it('desasigna las tareas del miembro eliminado sin borrarlas', async () => {
+    const { project, owner } = await createProject();
+
+    const miembro = await createUser({
+      email: 'miembro-tareas@mira.dev',
+    });
+
+    await addMember(project, miembro, 'MEMBER');
+
+    const tarea1 = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Implementar login',
+      assigneeId: miembro.id,
+    });
+
+    const tarea2 = await createWorkItem({
+      project,
+      createdBy: owner,
+      title: 'Implementar dashboard',
+      assigneeId: miembro.id,
+    });
+
+    const cookie = await iniciarSesion(owner.email);
+
+    await request(app)
+      .delete(`/api/projects/${project.id}/members/${miembro.id}`)
+      .set('Cookie', cookie)
+      .expect(204);
+
+    // Las tareas deben seguir existiendo.
+    const tareas = await prisma.workItem.findMany({
+      where: {
+        id: {
+          in: [tarea1.id, tarea2.id],
+        },
+      },
+    });
+
+    expect(tareas).toHaveLength(2);
+
+    // Ambas tareas deben quedar sin responsable.
+    expect(tareas.every((tarea) => tarea.assigneeId === null)).toBe(true);
+
+    // La membresia debe haber sido eliminada.
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: miembro.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership).toBeNull();
+  });
+});
+
+// ============================================================
+// MIR-10: Actualizacion inmediata de permisos
+// ============================================================
+
+describe('MIR-10: Actualizacion inmediata de permisos', () => {
+  it('MEMBER pierde el permiso de crear tareas al cambiar a VIEWER', async () => {
+    const { project, owner } = await createProject();
+
+    const miembro = await createUser({
+      email: 'member-permisos@mira.dev',
+    });
+
+    await addMember(project, miembro, 'MEMBER');
+
+    const cookieOwner = await iniciarSesion(owner.email);
+    const cookieMiembro = await iniciarSesion(miembro.email);
+
+    // El MEMBER puede crear tareas inicialmente.
+    const primeraCreacion = await request(app)
+      .post(`/api/projects/${project.id}/work-items`)
+      .set('Cookie', cookieMiembro)
+      .send({
+        title: 'Primera tarea del miembro',
+      });
+
+    expect(primeraCreacion.status).toBe(201);
+
+    // El OWNER cambia al MEMBER a VIEWER.
+    const cambioRol = await request(app)
+      .patch(`/api/projects/${project.id}/members/${miembro.id}/role`)
+      .set('Cookie', cookieOwner)
+      .send({
+        role: 'VIEWER',
+      });
+
+    expect(cambioRol.status).toBe(200);
+    expect(cambioRol.body.member.role).toBe('VIEWER');
+
+    // El mismo usuario intenta crear otra tarea con la misma cookie.
+    const segundaCreacion = await request(app)
+      .post(`/api/projects/${project.id}/work-items`)
+      .set('Cookie', cookieMiembro)
+      .send({
+        title: 'Segunda tarea del miembro',
+      });
+
+    // Debe perder inmediatamente el permiso.
+    expect(segundaCreacion.status).toBe(403);
+
+    // Comprobar que solo existe la primera tarea.
+    const tareas = await prisma.workItem.findMany({
+      where: {
+        projectId: project.id,
+      },
+    });
+
+    expect(tareas).toHaveLength(1);
+    expect(tareas[0]?.title).toBe('Primera tarea del miembro');
+
+    // Verificar que el rol persistido es VIEWER.
+    const membership = await prisma.projectMember.findUnique({
+      where: {
+        userId_projectId: {
+          userId: miembro.id,
+          projectId: project.id,
+        },
+      },
+    });
+
+    expect(membership?.role).toBe('VIEWER');
   });
 });

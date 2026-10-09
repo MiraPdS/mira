@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import type { ApiError, AuthResponse, ListProjectsResponse, ProjectDto } from '@mira/shared';
+import type {
+  ApiError,
+  AuthResponse,
+  BoardResponse,
+  ListProjectsResponse,
+  ProjectDto,
+} from '@mira/shared';
 import { renderConProviders, screen } from '@/test/render';
 import { server } from '@/test/msw/server';
 import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
@@ -42,6 +48,23 @@ describe('App', () => {
     expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/correo electronico/i)).toBeInTheDocument();
     expect(screen.getByLabelText(/contrasena/i)).toBeInTheDocument();
+  });
+
+  it('en /proyectos/:projectId/tablero muestra el tablero de ese proyecto', async () => {
+    let proyectoSolicitado: string | undefined;
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/board`, ({ params }) => {
+        proyectoSolicitado = params.projectId as string;
+        return HttpResponse.json<BoardResponse>({ items: [] });
+      }),
+    );
+
+    renderConProviders(<App />, { route: '/proyectos/project_123/tablero' });
+
+    expect(await screen.findByRole('heading', { name: 'Tablero' })).toBeInTheDocument();
+    expect(proyectoSolicitado).toBe('project_123');
+    expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
   });
 
   it('en /proyectos con sesion muestra la pantalla dentro del layout autenticado', async () => {
