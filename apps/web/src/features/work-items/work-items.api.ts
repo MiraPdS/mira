@@ -94,6 +94,19 @@ export async function updateWorkItem(
   return item;
 }
 
+/** MIR-17: asigna el responsable (o lo quita con null) y devuelve el item persistido. */
+export async function assignWorkItem(
+  projectId: string,
+  workItemId: string,
+  assigneeId: string | null,
+): Promise<WorkItemDto> {
+  const { item } = await api.patch<WorkItemResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/assignee`,
+    { assigneeId },
+  );
+  return item;
+}
+
 /** Obtiene los comentarios de un elemento de trabajo. */
 export async function getComments(projectId: string, workItemId: string): Promise<CommentDto[]> {
   const { comments } = await api.get<CommentsResponse>(
