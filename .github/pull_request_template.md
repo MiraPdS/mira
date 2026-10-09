@@ -30,7 +30,8 @@ Detalle:
 
 ## Uso de IA
 
-<!-- Borra esta seccion si no hubo apoyo sustancial de IA. -->
+<!-- Obligatoria: no la borres. Si no hubo apoyo de IA, escribe "Ninguna" en
+     Herramienta. Se resume en la Wiki de cada entrega. -->
 
 - Herramienta:
 - Que se genero o modifico:
