@@ -3,11 +3,18 @@ import {
   type CreateWorkItemInput,
   type Paginated,
   type PublicUser,
+  type UpdateWorkItemInput,
   type WorkItemDto,
   type WorkItemFilters,
 } from '@mira/shared';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
-import type { WorkItemForDto, WorkItemRepository, WorkItemUser } from './work-item.repository.js';
+import type {
+  WorkItemForDto,
+  WorkItemRepository,
+  WorkItemUpdateChange,
+  WorkItemUser,
+} from './work-item.repository.js';
+export type { WorkItemUpdateChange } from './work-item.repository.js';
 
 /** Convierte el subconjunto de usuario retornado por el repositorio al DTO publico. */
 function toPublicUser(user: WorkItemUser): PublicUser {
@@ -38,6 +45,68 @@ export function toWorkItemDto(workItem: WorkItemForDto): WorkItemDto {
     createdAt: workItem.createdAt.toISOString(),
     updatedAt: workItem.updatedAt.toISOString(),
   };
+}
+
+export const UPDATEABLE_WORK_ITEM_FIELDS = [
+  'title',
+  'description',
+  'type',
+  'priority',
+  'estimate',
+  'dueDate',
+] as const satisfies readonly (keyof UpdateWorkItemInput)[];
+
+export type UpdateableWorkItemField = (typeof UPDATEABLE_WORK_ITEM_FIELDS)[number];
+
+/** DTO y actividades derivadas de una actualizacion. */
+export interface PreparedWorkItemUpdate {
+  item: WorkItemDto;
+  changes: WorkItemUpdateChange[];
+}
+
+type UpdateableWorkItemValue = string | number | Date | null;
+
+function valuesAreEqual(
+  currentValue: UpdateableWorkItemValue,
+  nextValue: UpdateableWorkItemValue,
+): boolean {
+  if (currentValue instanceof Date && nextValue instanceof Date) {
+    return currentValue.getTime() === nextValue.getTime();
+  }
+  return currentValue === nextValue;
+}
+
+function toActivityValue(value: UpdateableWorkItemValue): string | null {
+  if (value === null) return null;
+  return value instanceof Date ? value.toISOString() : String(value);
+}
+
+/**
+ * Aplica solo los campos presentes y prepara sus cambios para el historial.
+ */
+export function prepareWorkItemUpdate(
+  workItem: WorkItemForDto,
+  input: UpdateWorkItemInput,
+): PreparedWorkItemUpdate {
+  const updatedWorkItem = { ...workItem };
+  const changes: WorkItemUpdateChange[] = [];
+
+  for (const field of UPDATEABLE_WORK_ITEM_FIELDS) {
+    const nextValue = input[field];
+    if (nextValue === undefined) continue;
+
+    const currentValue = workItem[field];
+    if (valuesAreEqual(currentValue, nextValue)) continue;
+
+    changes.push({
+      field,
+      fromValue: toActivityValue(currentValue),
+      toValue: toActivityValue(nextValue),
+    });
+    Object.assign(updatedWorkItem, { [field]: nextValue });
+  }
+
+  return { item: toWorkItemDto(updatedWorkItem), changes };
 }
 
 /**
@@ -104,6 +173,43 @@ export function createWorkItemService(repo: WorkItemRepository) {
       if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
       return toWorkItemDto(workItem);
+    },
+
+    async board(projectId: string, actorId: string): Promise<WorkItemDto[]> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      if (!can(role, 'work-item:view')) throw new ForbiddenError();
+
+      const items = await repo.listBoardByProject(projectId);
+      return items.map(toWorkItemDto);
+    },
+
+    async update(
+      projectId: string,
+      actorId: string,
+      workItemId: string,
+      input: UpdateWorkItemInput,
+    ): Promise<PreparedWorkItemUpdate> {
+      return repo.withTransaction(async (transactionRepo) => {
+        const role = await transactionRepo.findMemberRole(projectId, actorId);
+        if (role === null) throw new NotFoundError('Elemento de trabajo');
+        if (!can(role, 'work-item:update')) throw new ForbiddenError();
+
+        const workItem = await transactionRepo.findByIdInProject(projectId, workItemId);
+        if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+        const preparedUpdate = prepareWorkItemUpdate(workItem, input);
+        if (preparedUpdate.changes.length === 0) return preparedUpdate;
+
+        const updatedWorkItem = await transactionRepo.updateAtomically({
+          projectId,
+          workItemId,
+          actorId,
+          input,
+          changes: preparedUpdate.changes,
+        });
+
+        return { item: toWorkItemDto(updatedWorkItem), changes: preparedUpdate.changes };
+      });
     },
   };
 }

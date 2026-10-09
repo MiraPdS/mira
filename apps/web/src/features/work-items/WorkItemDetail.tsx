@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
 import { useDeleteWorkItem, useWorkItem } from './useWorkItems';
+import { WorkItemEditForm } from './WorkItemEditForm';
 
 export interface WorkItemDetailProps {
   projectId: string;
@@ -15,6 +16,10 @@ export interface WorkItemDetailProps {
 const dateFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'medium',
   timeStyle: 'short',
+});
+const calendarDateFormatter = new Intl.DateTimeFormat('es-CL', {
+  dateStyle: 'long',
+  timeZone: 'UTC',
 });
 
 function fechaLegible(isoDate: string): string {
@@ -54,6 +59,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     if (confirming) dialogRef.current?.showModal();
   }, [confirming]);
   const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
+  const [isEditing, setIsEditing] = useState(false);
 
   if (deletion.isSuccess) {
     return <p role="status">Elemento eliminado.</p>;
@@ -89,6 +95,19 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     );
   }
 
+  const canEdit = !userError && !membersError && can(role, 'work-item:update');
+
+  if (isEditing && canEdit) {
+    return (
+      <WorkItemEditForm
+        projectId={projectId}
+        item={item}
+        onCancel={() => setIsEditing(false)}
+        onSaved={() => setIsEditing(false)}
+      />
+    );
+  }
+
   return (
     <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
       <header className="border-b border-slate-200 pb-4">
@@ -106,6 +125,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             Eliminar elemento
           </Button>
         )}
+        {canEdit ? <Button onClick={() => setIsEditing(true)}>Editar</Button> : null}
       </header>
 
       {confirming && (
@@ -189,7 +209,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           <dt className="text-sm font-medium text-slate-500">Fecha límite</dt>
           <dd className="mt-1 text-sm text-slate-900">
             {item.dueDate ? (
-              <time dateTime={item.dueDate}>{fechaLegible(item.dueDate)}</time>
+              <time dateTime={item.dueDate}>
+                {calendarDateFormatter.format(new Date(item.dueDate))}
+              </time>
             ) : (
               'Sin fecha límite'
             )}
