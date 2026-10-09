@@ -62,6 +62,17 @@ export const changeStatusSchema = z
   .strict();
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
 
+/**
+ * Asignar o quitar el responsable (MIR-17). Endpoint propio, como mover
+ * (MIR-19): `null` deja el item sin asignar. Estricto: no se editan otros campos.
+ */
+export const assignWorkItemSchema = z
+  .object({
+    assigneeId: z.string().trim().min(1, 'Indica el responsable o null').nullable(),
+  })
+  .strict();
+export type AssignWorkItemInput = z.infer<typeof assignWorkItemSchema>;
+
 /** Busqueda y filtros del backlog (requisito explicito del tema). */
 export const workItemFiltersSchema = paginationQuerySchema.extend({
   /** Texto libre; busca en titulo y descripcion, sin distinguir mayusculas. */

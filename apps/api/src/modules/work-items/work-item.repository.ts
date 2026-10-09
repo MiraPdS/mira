@@ -76,6 +76,15 @@ export interface ChangeStatusData {
   toStatus: WorkItemStatus;
 }
 
+/** MIR-17: cambio de responsable; null significa sin asignar. */
+export interface AssignData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  fromAssigneeId: string | null;
+  toAssigneeId: string | null;
+}
+
 export interface ListWorkItemsData extends Pick<
   WorkItemFilters,
   'q' | 'type' | 'status' | 'priority' | 'assigneeId'
@@ -106,6 +115,8 @@ export interface WorkItemRepository {
   deleteAtomically(data: DeleteWorkItemData): Promise<void>;
   /** Cambia el estado y registra ITEM_STATUS_CHANGED como una sola unidad. */
   changeStatusAtomically(data: ChangeStatusData): Promise<WorkItemForDto>;
+  /** MIR-17: cambia el responsable y registra ITEM_ASSIGNED como una sola unidad. */
+  assignAtomically(data: AssignData): Promise<WorkItemForDto>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
   /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
   listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
@@ -262,6 +273,33 @@ async function changeStatusInTransaction(db: Db, data: ChangeStatusData): Promis
   return workItem;
 }
 
+async function assignInTransaction(db: Db, data: AssignData): Promise<WorkItemForDto> {
+  const workItem = await db.workItem.update({
+    where: { id: data.workItemId, projectId: data.projectId },
+    data: { assigneeId: data.toAssigneeId },
+    include: {
+      assignee: usersForDto,
+      createdBy: usersForDto,
+    },
+  });
+
+  // Se guardan ids de usuario: el panel del proyecto (MIR-23) los traduce a
+  // nombres al mostrar la actividad.
+  await db.activityLog.create({
+    data: {
+      action: 'ITEM_ASSIGNED',
+      projectId: data.projectId,
+      workItemId: data.workItemId,
+      actorId: data.actorId,
+      field: 'assigneeId',
+      fromValue: data.fromAssigneeId,
+      toValue: data.toAssigneeId,
+    },
+  });
+
+  return workItem;
+}
+
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
     async withTransaction(operation) {
@@ -319,6 +357,11 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
     async changeStatusAtomically(data) {
       if (!hasTransaction(db)) return changeStatusInTransaction(db, data);
       return db.$transaction((tx) => changeStatusInTransaction(tx, data));
+    },
+
+    async assignAtomically(data) {
+      if (!hasTransaction(db)) return assignInTransaction(db, data);
+      return db.$transaction((tx) => assignInTransaction(tx, data));
     },
 
     async listByProject(data) {

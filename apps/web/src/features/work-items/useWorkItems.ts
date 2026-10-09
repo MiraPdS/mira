@@ -9,6 +9,7 @@ import type {
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import {
+  assignWorkItem,
   createComment,
   createWorkItem,
   deleteWorkItem,
@@ -125,6 +126,25 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
       queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
       // El backlog tiene una query por pagina. El prefijo alcanza todas las
       // paginas del proyecto actualizado, sin invalidar otros proyectos.
+      void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
+      void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+    },
+  });
+}
+
+/**
+ * MIR-17: asigna o quita el responsable. Escribe el detalle con la respuesta
+ * del servidor y refresca backlog (filtro por responsable), tablero (la
+ * tarjeta muestra al responsable) y resumen (registra ITEM_ASSIGNED).
+ */
+export function useAssignWorkItem(projectId: string, workItemId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkItemDto, ApiRequestError, string | null>({
+    mutationFn: (assigneeId) => assignWorkItem(projectId, workItemId, assigneeId),
+    onSuccess: (item) => {
+      queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
       void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });

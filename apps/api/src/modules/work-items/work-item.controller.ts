@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type {
+  AssignWorkItemInput,
   BoardResponse,
   ChangeStatusInput,
   CreateWorkItemInput,
@@ -89,6 +90,23 @@ export function createWorkItemController(service: WorkItemService) {
           req.user.id,
           req.params.workItemId!,
           req.body as ChangeStatusInput,
+        );
+        res.status(200).json({ item } satisfies WorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    // MIR-17: asignar o quitar el responsable.
+    async assign(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const item = await service.assign(
+          req.params.projectId!,
+          req.user.id,
+          req.params.workItemId!,
+          req.body as AssignWorkItemInput,
         );
         res.status(200).json({ item } satisfies WorkItemResponse);
       } catch (error) {

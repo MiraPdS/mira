@@ -8,10 +8,17 @@ import {
   TYPE_LABELS,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
-import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
+import {
+  useAssignWorkItem,
+  useComments,
+  useCreateComment,
+  useDeleteWorkItem,
+  useWorkItem,
+} from './useWorkItems';
 import { WorkItemEditForm } from './WorkItemEditForm';
 
 export interface WorkItemDetailProps {
@@ -226,7 +233,18 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Responsable</dt>
-          <dd className="mt-1 text-sm text-slate-900">{item.assignee?.name ?? 'Sin asignar'}</dd>
+          <dd className="mt-1 text-sm text-slate-900">
+            {canEdit && members ? (
+              <AssigneeField
+                projectId={projectId}
+                workItemId={workItemId}
+                assignee={item.assignee}
+                members={members.members.map((member) => member.user)}
+              />
+            ) : (
+              (item.assignee?.name ?? 'Sin asignar')
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Estimación</dt>
@@ -356,5 +374,58 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         )}
       </section>
     </article>
+  );
+}
+
+/**
+ * MIR-17: selector de responsable. Solo ofrece miembros del proyecto (la API
+ * responde 400 a cualquier otro); "Sin asignar" quita el responsable.
+ */
+function AssigneeField({
+  projectId,
+  workItemId,
+  assignee,
+  members,
+}: {
+  projectId: string;
+  workItemId: string;
+  assignee: { id: string; name: string } | null;
+  members: Array<{ id: string; name: string }>;
+}) {
+  const asignar = useAssignWorkItem(projectId, workItemId);
+  const selectId = useId();
+  // Si el responsable actual ya no es miembro (lo quitaron del equipo), se
+  // sigue mostrando para no aparentar que el item esta sin asignar.
+  const yaNoEsMiembro = assignee && !members.some((member) => member.id === assignee.id);
+
+  return (
+    <>
+      <label htmlFor={selectId} className="sr-only">
+        Responsable
+      </label>
+      <Select
+        id={selectId}
+        value={assignee?.id ?? ''}
+        disabled={asignar.isPending}
+        onChange={(event) => asignar.mutate(event.target.value || null)}
+      >
+        <option value="">Sin asignar</option>
+        {yaNoEsMiembro ? (
+          <option value={assignee.id} disabled>
+            {assignee.name} (ya no es miembro)
+          </option>
+        ) : null}
+        {members.map((member) => (
+          <option key={member.id} value={member.id}>
+            {member.name}
+          </option>
+        ))}
+      </Select>
+      {asignar.error ? (
+        <p role="alert" className="mt-1 text-sm text-red-700">
+          {asignar.error.message}
+        </p>
+      ) : null}
+    </>
   );
 }

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  assignWorkItemSchema,
   changeStatusSchema,
   createWorkItemSchema,
   updateWorkItemSchema,
@@ -49,6 +50,14 @@ export function createWorkItemRouter(): Router {
     requireAuth,
     validateBody(changeStatusSchema),
     controller.changeStatus,
+  );
+
+  // Asignar responsable (MIR-17): PATCH /api/projects/:projectId/work-items/:workItemId/assignee
+  router.patch(
+    '/:projectId/work-items/:workItemId/assignee',
+    requireAuth,
+    validateBody(assignWorkItemSchema),
+    controller.assign,
   );
 
   // Tablero Kanban: GET /api/projects/:projectId/board
