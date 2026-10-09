@@ -1,6 +1,12 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
-import type { CreateWorkItemInput, PaginationQuery, ProjectRole } from '@mira/shared';
+import type {
+  CreateWorkItemInput,
+  PaginationQuery,
+  ProjectRole,
+  UpdateWorkItemInput,
+  WorkItemFilters,
+} from '@mira/shared';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   ListWorkItemsResult,
@@ -35,6 +41,16 @@ const INPUT: CreateWorkItemInput = {
 const PAGINATION: PaginationQuery = {
   page: 2,
   pageSize: 20,
+};
+
+const FILTERS: WorkItemFilters = {
+  page: 3,
+  pageSize: 10,
+  q: 'login',
+  type: 'BUG',
+  status: 'TODO',
+  priority: 'HIGH',
+  assigneeId: 'user_2',
 };
 
 function usuarioDePrueba(overrides: Partial<WorkItemUser> = {}): WorkItemUser {
@@ -74,6 +90,11 @@ describe('workItemService', () => {
 
   beforeEach(() => {
     repo = mock<WorkItemRepository>();
+    repo.withTransaction.mockImplementation(async (operation) => operation(repo));
+    repo.updateAtomically.mockImplementation(async ({ input }) => ({
+      ...itemDePrueba(),
+      ...input,
+    }));
     service = createWorkItemService(repo);
   });
 
@@ -211,6 +232,64 @@ describe('workItemService', () => {
       },
     );
 
+    it('delega la busqueda de texto junto con la paginacion existente', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 1 });
+
+      const result = await service.list(PROJECT_ID, ACTOR_ID, {
+        page: FILTERS.page,
+        pageSize: FILTERS.pageSize,
+        q: FILTERS.q,
+      });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 3,
+        pageSize: 10,
+        q: 'login',
+      });
+      expect(result).toEqual({ data: [], page: 3, pageSize: 10, total: 1 });
+    });
+
+    it.each([
+      ['type', { type: 'BUG' }],
+      ['status', { status: 'IN_REVIEW' }],
+      ['priority', { priority: 'CRITICAL' }],
+      ['assigneeId', { assigneeId: 'user_2' }],
+    ] as const)('delega el filtro individual %s', async (_name, filter) => {
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list(PROJECT_ID, ACTOR_ID, { page: 1, pageSize: 20, ...filter });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 1,
+        pageSize: 20,
+        ...filter,
+      });
+    });
+
+    it('delega filtros combinados con AND', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listByProject.mockResolvedValue({ items: [], total: 0 });
+
+      await service.list(PROJECT_ID, ACTOR_ID, {
+        page: 1,
+        pageSize: 20,
+        type: 'BUG',
+        priority: 'HIGH',
+      });
+
+      expect(repo.listByProject).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        page: 1,
+        pageSize: 20,
+        type: 'BUG',
+        priority: 'HIGH',
+      });
+    });
+
     it('rechaza a un usuario que no pertenece al proyecto sin consultar el listado', async () => {
       repo.findMemberRole.mockResolvedValue(null);
 
@@ -293,6 +372,72 @@ describe('workItemService', () => {
       repo.listByProject.mockRejectedValue(error);
 
       await expect(service.list(PROJECT_ID, ACTOR_ID, PAGINATION)).rejects.toBe(error);
+    });
+  });
+
+  describe('delete', () => {
+    it.each(['OWNER', 'MEMBER'] as const)('%s puede eliminar el item', async (role) => {
+      repo.findMemberRole.mockResolvedValue(role);
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba({ reference: 'MIR-12' }));
+      repo.deleteAtomically.mockResolvedValue(undefined);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toBeUndefined();
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+      expect(repo.deleteAtomically).toHaveBeenCalledTimes(1);
+      expect(repo.deleteAtomically).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        actorId: ACTOR_ID,
+        workItemId: 'item_1',
+        reference: 'MIR-12',
+      });
+    });
+
+    it('rechaza VIEWER sin buscar ni eliminar el item', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.deleteAtomically).not.toHaveBeenCalled();
+    });
+
+    it('oculta al no miembro con NotFoundError como en el detalle', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.deleteAtomically).not.toHaveBeenCalled();
+    });
+
+    it.each(['item inexistente', 'item de otro proyecto'])(
+      'rechaza %s sin intentar eliminar ni registrar actividad',
+      async () => {
+        repo.findMemberRole.mockResolvedValue('MEMBER');
+        repo.findByIdInProject.mockResolvedValue(null);
+
+        await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+          NotFoundError,
+        );
+
+        expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+        expect(repo.deleteAtomically).not.toHaveBeenCalled();
+      },
+    );
+
+    it('propaga un fallo de persistencia sin informar exito', async () => {
+      const error = new Error('No se pudo eliminar el item');
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.deleteAtomically.mockRejectedValue(error);
+
+      await expect(service.delete(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBe(error);
     });
   });
 
@@ -385,6 +530,215 @@ describe('workItemService', () => {
         sprintId: null,
         createdAt: '2026-02-01T10:00:00.000Z',
         updatedAt: '2026-02-01T10:05:00.000Z',
+      });
+    });
+  });
+
+  describe('update', () => {
+    const WORK_ITEM_ID = 'item_1';
+
+    it('lee y escribe mediante el repository de la misma transaccion', async () => {
+      const transactionRepo = mock<WorkItemRepository>();
+      transactionRepo.findMemberRole.mockResolvedValue('MEMBER');
+      transactionRepo.findByIdInProject.mockResolvedValue(
+        itemDePrueba({ title: 'Titulo vigente' }),
+      );
+      transactionRepo.updateAtomically.mockResolvedValue(itemDePrueba({ title: 'Titulo nuevo' }));
+      repo.withTransaction.mockImplementation(async (operation) => operation(transactionRepo));
+
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
+        title: 'Titulo nuevo',
+      });
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.updateAtomically).not.toHaveBeenCalled();
+      expect(transactionRepo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, WORK_ITEM_ID);
+      expect(result.changes).toEqual([
+        { field: 'title', fromValue: 'Titulo vigente', toValue: 'Titulo nuevo' },
+      ]);
+      expect(transactionRepo.updateAtomically).toHaveBeenCalledWith(
+        expect.objectContaining({ changes: result.changes }),
+      );
+    });
+
+    it('permite que MEMBER edite el titulo y prepara su actividad', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
+        title: 'Preparar la segunda entrega',
+      });
+
+      expect(result.item.title).toBe('Preparar la segunda entrega');
+      expect(result.changes).toEqual([
+        {
+          field: 'title',
+          fromValue: 'Preparar la primera entrega',
+          toValue: 'Preparar la segunda entrega',
+        },
+      ]);
+      expect(repo.updateAtomically).toHaveBeenCalledWith({
+        projectId: PROJECT_ID,
+        workItemId: WORK_ITEM_ID,
+        actorId: ACTOR_ID,
+        input: { title: 'Preparar la segunda entrega' },
+        changes: result.changes,
+      });
+    });
+
+    it('permite que OWNER edite un item', async () => {
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+      await expect(
+        service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, { priority: 'CRITICAL' }),
+      ).resolves.toMatchObject({
+        item: { priority: 'CRITICAL' },
+        changes: [{ field: 'priority', fromValue: 'HIGH', toValue: 'CRITICAL' }],
+      });
+    });
+
+    it('rechaza a VIEWER sin buscar el item', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+
+      await expect(
+        service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, { title: 'Nuevo titulo valido' }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+    });
+
+    it('rechaza a un usuario que no pertenece al proyecto sin buscar el item', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(
+        service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, { title: 'Nuevo titulo valido' }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+    });
+
+    it('informa NotFoundError cuando el item no existe', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(null);
+
+      await expect(
+        service.update(PROJECT_ID, ACTOR_ID, 'item_inexistente', { title: 'Nuevo titulo valido' }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('mantiene los campos no enviados en un PATCH de un solo campo', async () => {
+      const workItem = itemDePrueba();
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(workItem);
+
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
+        title: 'Solo cambia el titulo',
+      });
+
+      expect(result.item).toEqual({
+        ...toWorkItemDto(workItem),
+        title: 'Solo cambia el titulo',
+      });
+    });
+
+    it('prepara un cambio por cada campo que realmente cambia', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+      const input: UpdateWorkItemInput = {
+        description: 'Nueva descripcion',
+        type: 'BUG',
+        priority: 'LOW',
+        estimate: 8,
+        dueDate: new Date('2026-04-01T09:00:00.000Z'),
+      };
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, input);
+
+      expect(result.changes).toEqual([
+        {
+          field: 'description',
+          fromValue: 'Implementar la base del producto.',
+          toValue: 'Nueva descripcion',
+        },
+        { field: 'type', fromValue: 'STORY', toValue: 'BUG' },
+        { field: 'priority', fromValue: 'HIGH', toValue: 'LOW' },
+        { field: 'estimate', fromValue: '5', toValue: '8' },
+        {
+          field: 'dueDate',
+          fromValue: '2026-03-15T12:00:00.000Z',
+          toValue: '2026-04-01T09:00:00.000Z',
+        },
+      ]);
+    });
+
+    it('no prepara actividad cuando recibe el mismo valor', async () => {
+      const workItem = itemDePrueba();
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.findByIdInProject.mockResolvedValue(workItem);
+
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
+        title: workItem.title,
+        dueDate: new Date(workItem.dueDate!.getTime()),
+      });
+
+      expect(result).toEqual({ item: toWorkItemDto(workItem), changes: [] });
+    });
+
+    it('permite limpiar los campos nullable y prepara sus valores null', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
+        description: null,
+        estimate: null,
+        dueDate: null,
+      });
+
+      expect(result.item).toMatchObject({ description: null, estimate: null, dueDate: null });
+      expect(result.changes).toEqual([
+        {
+          field: 'description',
+          fromValue: 'Implementar la base del producto.',
+          toValue: null,
+        },
+        { field: 'estimate', fromValue: '5', toValue: null },
+        { field: 'dueDate', fromValue: '2026-03-15T12:00:00.000Z', toValue: null },
+      ]);
+    });
+
+    it('serializa el DTO resultante con fechas ISO y relaciones publicas', async () => {
+      const createdBy = usuarioDePrueba({ createdAt: new Date('2026-01-02T03:04:05.000Z') });
+      const assignee = usuarioDePrueba({
+        id: 'user_2',
+        name: 'Grace Hopper',
+        email: 'grace@mira.dev',
+        createdAt: new Date('2026-01-03T04:05:06.000Z'),
+      });
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      const workItem = itemDePrueba({ createdBy, assignee });
+      repo.findByIdInProject.mockResolvedValue(workItem);
+      repo.updateAtomically.mockResolvedValue({
+        ...workItem,
+        dueDate: new Date('2026-04-01T09:00:00.000Z'),
+      });
+
+      const result = await service.update(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
+        dueDate: new Date('2026-04-01T09:00:00.000Z'),
+      });
+
+      expect(result.item).toMatchObject({
+        dueDate: '2026-04-01T09:00:00.000Z',
+        createdAt: '2026-02-01T10:00:00.000Z',
+        updatedAt: '2026-02-01T10:05:00.000Z',
+        assignee: {
+          id: 'user_2',
+          createdAt: '2026-01-03T04:05:06.000Z',
+        },
+        createdBy: {
+          id: 'user_1',
+          createdAt: '2026-01-02T03:04:05.000Z',
+        },
       });
     });
   });

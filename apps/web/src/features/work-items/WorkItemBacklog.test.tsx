@@ -1,16 +1,18 @@
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import {
   PRIORITY_LABELS,
   STATUS_LABELS,
   TYPE_LABELS,
   type Paginated,
+  type ProjectMemberDto,
   type WorkItemDto,
 } from '@mira/shared';
 import { renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemBacklog } from './WorkItemBacklog';
+import { projectKeys } from '@/features/projects/useProjects';
 
 /**
  * NIVEL 3 de la piramide: componente con React Testing Library + MSW.
@@ -22,6 +24,31 @@ import { WorkItemBacklog } from './WorkItemBacklog';
 const BASE_URL = 'http://localhost:3000/api';
 const PROJECT_ID = 'project_123';
 const WORK_ITEMS_URL = `${BASE_URL}/projects/:projectId/work-items`;
+const MEMBERS_URL = `${BASE_URL}/projects/:projectId/members`;
+const MEMBERS: ProjectMemberDto[] = [
+  {
+    id: 'membership_ada',
+    role: 'OWNER',
+    joinedAt: '2026-01-01T00:00:00.000Z',
+    user: {
+      id: 'user_ada',
+      name: 'Ada Lovelace',
+      email: 'ada@mira.dev',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  },
+  {
+    id: 'membership_grace',
+    role: 'MEMBER',
+    joinedAt: '2026-01-01T00:00:00.000Z',
+    user: {
+      id: 'user_grace',
+      name: 'Grace Hopper',
+      email: 'grace@mira.dev',
+      createdAt: '2026-01-01T00:00:00.000Z',
+    },
+  },
+];
 
 function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
   return {
@@ -59,6 +86,10 @@ function pagina(
 }
 
 describe('WorkItemBacklog', () => {
+  beforeEach(() => {
+    server.use(http.get(MEMBERS_URL, () => HttpResponse.json({ members: MEMBERS })));
+  });
+
   it('muestra carga accesible y no renderiza una tabla mientras espera la respuesta', async () => {
     let releaseResponse!: () => void;
     const responsePending = new Promise<void>((resolve) => {
@@ -319,16 +350,311 @@ describe('WorkItemBacklog', () => {
     await waitFor(() => expect(requestedPages).toEqual(['1', '2', '1']));
   });
 
-  it('no muestra controles de busqueda, filtros ni orden de MIR-13', async () => {
+  it('muestra controles accesibles de busqueda y filtros compartidos', async () => {
     server.use(http.get(WORK_ITEMS_URL, () => HttpResponse.json(pagina([itemDePrueba()]))));
 
     renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
 
     await screen.findByRole('table');
-    expect(screen.queryByRole('searchbox')).not.toBeInTheDocument();
-    expect(
-      screen.queryByLabelText(/busqueda|tipo|estado|prioridad|responsable|orden/i),
-    ).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /filtrar|ordenar/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('searchbox', { name: 'Buscar' })).toBeInTheDocument();
+    expect(screen.getByLabelText('Tipo')).toBeInTheDocument();
+    expect(screen.getByLabelText('Estado')).toBeInTheDocument();
+    expect(screen.getByLabelText('Prioridad')).toBeInTheDocument();
+    expect(screen.getByLabelText('Responsable')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Limpiar filtros' })).toBeDisabled();
   });
+
+  it('busca por texto y envia q desde la primera pagina', async () => {
+    const queries: Array<{ q: string | null; page: string | null }> = [];
+    const foundItem = itemDePrueba({ title: 'Login encontrado' });
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        queries.push({ q: query.get('q'), page: query.get('page') });
+        return HttpResponse.json(
+          query.get('q') === 'login' ? pagina([foundItem]) : pagina([itemDePrueba()]),
+        );
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByText('Implementar login');
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar' }), 'login');
+
+    expect(await screen.findByText('Login encontrado')).toBeInTheDocument();
+    await waitFor(() => expect(queries).toContainEqual({ q: 'login', page: '1' }));
+  });
+
+  it('combina busqueda, tipo, estado, prioridad y responsable en una misma consulta', async () => {
+    let query: URLSearchParams | undefined;
+    const filteredItem = itemDePrueba({ title: 'Bug de login en progreso' });
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        query = new URL(request.url).searchParams;
+        const matches =
+          query.get('q') === 'login' &&
+          query.get('type') === 'BUG' &&
+          query.get('status') === 'IN_PROGRESS' &&
+          query.get('priority') === 'HIGH' &&
+          query.get('assigneeId') === 'user_grace';
+        return HttpResponse.json(matches ? pagina([filteredItem]) : pagina([itemDePrueba()]));
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByText('Implementar login');
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar' }), 'login');
+    await user.selectOptions(screen.getByLabelText('Tipo'), 'BUG');
+    await user.selectOptions(screen.getByLabelText('Estado'), 'IN_PROGRESS');
+    await user.selectOptions(screen.getByLabelText('Prioridad'), 'HIGH');
+    await user.selectOptions(screen.getByLabelText('Responsable'), 'user_grace');
+
+    expect(await screen.findByText('Bug de login en progreso')).toBeInTheDocument();
+    expect(query?.get('q')).toBe('login');
+    expect(query?.get('type')).toBe('BUG');
+    expect(query?.get('status')).toBe('IN_PROGRESS');
+    expect(query?.get('priority')).toBe('HIGH');
+    expect(query?.get('assigneeId')).toBe('user_grace');
+  });
+
+  it('mantiene la paginacion con filtros y vuelve a la primera pagina al cambiarlos', async () => {
+    const requests: Array<{ page: string | null; type: string | null; priority: string | null }> =
+      [];
+    const bugPageOne = itemDePrueba({ title: 'Bug pagina uno', type: 'BUG' });
+    const bugPageTwo = itemDePrueba({ id: 'item_21', title: 'Bug pagina dos', type: 'BUG' });
+    const highPriorityBug = itemDePrueba({
+      title: 'Bug prioritario',
+      type: 'BUG',
+      priority: 'HIGH',
+    });
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        const page = query.get('page');
+        const type = query.get('type');
+        const priority = query.get('priority');
+        requests.push({ page, type, priority });
+
+        if (type === 'BUG' && priority === 'HIGH') {
+          return HttpResponse.json(pagina([highPriorityBug], 1, 1));
+        }
+        if (type === 'BUG' && page === '2') return HttpResponse.json(pagina([bugPageTwo], 2, 25));
+        if (type === 'BUG') return HttpResponse.json(pagina([bugPageOne], 1, 25));
+        return HttpResponse.json(pagina([itemDePrueba()], 1, 25));
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByText('Implementar login');
+    await user.selectOptions(screen.getByLabelText('Tipo'), 'BUG');
+    expect(await screen.findByText('Bug pagina uno')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Siguiente' }));
+    expect(await screen.findByText('Bug pagina dos')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(requests).toContainEqual({ page: '2', type: 'BUG', priority: null }),
+    );
+
+    await user.selectOptions(screen.getByLabelText('Prioridad'), 'HIGH');
+    expect(await screen.findByText('Bug prioritario')).toBeInTheDocument();
+    await waitFor(() =>
+      expect(requests).toContainEqual({ page: '1', type: 'BUG', priority: 'HIGH' }),
+    );
+    expect(screen.getByText('Pagina 1 de 1')).toBeInTheDocument();
+  });
+
+  it('distingue un backlog vacio de una busqueda sin resultados', async () => {
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q');
+        return HttpResponse.json(q ? pagina([]) : pagina([itemDePrueba()]));
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByText('Implementar login');
+    await user.type(screen.getByRole('searchbox', { name: 'Buscar' }), 'sin coincidencias');
+
+    expect(await screen.findByText('Sin resultados')).toBeInTheDocument();
+    expect(screen.queryByText('Aun no hay elementos en este proyecto.')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Limpiar filtros' })).toBeEnabled();
+  });
+
+  it('limpia los filtros y recupera el backlog sin filtrar', async () => {
+    const queries: Array<string | null> = [];
+    const filteredItem = itemDePrueba({ title: 'Resultado filtrado' });
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const q = new URL(request.url).searchParams.get('q');
+        queries.push(q);
+        return HttpResponse.json(q ? pagina([filteredItem]) : pagina([itemDePrueba()]));
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    const search = await screen.findByRole('searchbox', { name: 'Buscar' });
+    await user.type(search, 'login');
+    expect(await screen.findByText('Resultado filtrado')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+
+    expect(await screen.findByText('Implementar login')).toBeInTheDocument();
+    expect(search).toHaveValue('');
+    expect(screen.getByRole('button', { name: 'Limpiar filtros' })).toBeDisabled();
+    await waitFor(() => expect(queries.at(-1)).toBeNull());
+  });
+
+  it('carga la lista completa del proyecto usando la cache de MIR-9', async () => {
+    let requestedProject: string | undefined;
+    let releaseMembers!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      releaseMembers = resolve;
+    });
+    server.use(
+      http.get(WORK_ITEMS_URL, () => HttpResponse.json(pagina([itemDePrueba()]))),
+      http.get(MEMBERS_URL, async ({ params }) => {
+        requestedProject = params.projectId as string;
+        await pending;
+        return HttpResponse.json({ members: MEMBERS });
+      }),
+    );
+
+    const { queryClient } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    const select = await screen.findByLabelText('Responsable');
+    expect(select).toBeDisabled();
+    expect(
+      within(select).getByRole('option', { name: 'Cargando miembros...' }),
+    ).toBeInTheDocument();
+
+    releaseMembers();
+    // Ninguno de estos usuarios esta asignado al unico item del backlog.
+    expect(
+      await within(select).findByRole('option', { name: 'Grace Hopper (grace@mira.dev)' }),
+    ).toHaveValue('user_grace');
+    expect(within(select).getByRole('option', { name: 'Ada Lovelace (ada@mira.dev)' })).toHaveValue(
+      'user_ada',
+    );
+    expect(select).toBeEnabled();
+    expect(requestedProject).toBe(PROJECT_ID);
+    expect(queryClient.getQueryData(projectKeys.members(PROJECT_ID))).toEqual({ members: MEMBERS });
+    expect(queryClient.getQueryData(projectKeys.members('otro_proyecto'))).toBeUndefined();
+  });
+
+  it('envia el id del usuario como assigneeId, nunca el id de membresia', async () => {
+    const requests: Array<string | null> = [];
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const assigneeId = new URL(request.url).searchParams.get('assigneeId');
+        requests.push(assigneeId);
+        return HttpResponse.json(
+          pagina([itemDePrueba({ title: assigneeId ? 'Item de Grace' : 'Sin filtro' })]),
+        );
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByRole('option', { name: 'Grace Hopper (grace@mira.dev)' });
+    await user.selectOptions(screen.getByLabelText('Responsable'), 'user_grace');
+
+    expect(await screen.findByText('Item de Grace')).toBeInTheDocument();
+    expect(requests).toContain('user_grace');
+    expect(requests).not.toContain('membership_grace');
+
+    await user.selectOptions(screen.getByLabelText('Responsable'), '');
+    expect(await screen.findByText('Sin filtro')).toBeInTheDocument();
+    await waitFor(() => expect(requests.at(-1)).toBeNull());
+  });
+
+  it('cambiar responsable vuelve a pagina 1 y paginar conserva el responsable', async () => {
+    const requests: Array<{ page: string | null; assigneeId: string | null }> = [];
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        const query = new URL(request.url).searchParams;
+        const page = query.get('page');
+        const assigneeId = query.get('assigneeId');
+        requests.push({ page, assigneeId });
+        return HttpResponse.json(
+          pagina(
+            [itemDePrueba({ title: `${assigneeId ?? 'Todos'} pagina ${page}` })],
+            Number(page),
+            25,
+          ),
+        );
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByText('Todos pagina 1');
+    await user.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await screen.findByText('Todos pagina 2');
+
+    await user.selectOptions(screen.getByLabelText('Responsable'), 'user_grace');
+    expect(await screen.findByText('user_grace pagina 1')).toBeInTheDocument();
+    expect(screen.getByText('Pagina 1 de 2')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Siguiente' }));
+    await screen.findByText('user_grace pagina 2');
+
+    await user.selectOptions(screen.getByLabelText('Responsable'), 'user_ada');
+    expect(await screen.findByText('user_ada pagina 1')).toBeInTheDocument();
+    expect(requests).toContainEqual({ page: '2', assigneeId: 'user_grace' });
+    expect(requests).toContainEqual({ page: '1', assigneeId: 'user_ada' });
+    expect(requests).not.toContainEqual({ page: '2', assigneeId: 'user_ada' });
+  });
+
+  it('muestra sin resultados por responsable y limpiar elimina todos los filtros', async () => {
+    let query: URLSearchParams | undefined;
+    server.use(
+      http.get(WORK_ITEMS_URL, ({ request }) => {
+        query = new URL(request.url).searchParams;
+        return HttpResponse.json(query.has('assigneeId') ? pagina([]) : pagina([itemDePrueba()]));
+      }),
+    );
+
+    const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+    await screen.findByRole('option', { name: 'Grace Hopper (grace@mira.dev)' });
+    await user.type(screen.getByLabelText('Buscar'), 'login');
+    await user.selectOptions(screen.getByLabelText('Tipo'), 'BUG');
+    await user.selectOptions(screen.getByLabelText('Estado'), 'TODO');
+    await user.selectOptions(screen.getByLabelText('Prioridad'), 'HIGH');
+    await user.selectOptions(screen.getByLabelText('Responsable'), 'user_grace');
+
+    expect(await screen.findByText('Sin resultados')).toBeInTheDocument();
+    expect(screen.queryByText('Aun no hay elementos en este proyecto.')).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Limpiar filtros' }));
+
+    expect(await screen.findByText('Implementar login')).toBeInTheDocument();
+    for (const label of ['Buscar', 'Tipo', 'Estado', 'Prioridad', 'Responsable']) {
+      expect(screen.getByLabelText(label)).toHaveValue('');
+    }
+    await waitFor(() =>
+      expect([...query!.entries()]).toEqual([
+        ['page', '1'],
+        ['pageSize', '20'],
+      ]),
+    );
+    expect(screen.getByRole('button', { name: 'Limpiar filtros' })).toBeDisabled();
+  });
+
+  it.each(['servidor', 'red'] as const)(
+    'informa error de %s al cargar miembros sin impedir ver el backlog',
+    async (failure) => {
+      server.use(
+        http.get(WORK_ITEMS_URL, () => HttpResponse.json(pagina([itemDePrueba()]))),
+        http.get(MEMBERS_URL, () =>
+          failure === 'red'
+            ? HttpResponse.error()
+            : apiError(500, 'INTERNAL_ERROR', 'No se pudo cargar el equipo'),
+        ),
+      );
+
+      renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+
+      expect(await screen.findByText('Implementar login')).toBeInTheDocument();
+      expect(await screen.findByRole('alert')).toHaveTextContent(
+        failure === 'red' ? 'No se pudo conectar con el servidor.' : 'No se pudo cargar el equipo',
+      );
+      expect(screen.getByLabelText('Responsable')).toBeDisabled();
+      expect(screen.getByLabelText('Tipo')).toBeEnabled();
+    },
+  );
 });

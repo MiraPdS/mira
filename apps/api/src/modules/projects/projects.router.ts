@@ -1,5 +1,10 @@
 import { Router } from 'express';
-import { addMemberSchema, createProjectSchema, updateProjectSchema } from '@mira/shared';
+import {
+  addMemberSchema,
+  changeMemberRoleSchema,
+  createProjectSchema,
+  updateProjectSchema,
+} from '@mira/shared';
 import { validateBody } from '../../middleware/validate.js';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { createProjectsRepository } from './projects.repository.js';
@@ -15,7 +20,8 @@ export function createProjectsRouter(): Router {
   // Todas las rutas de proyectos exigen sesion.
   router.use(requireAuth);
 
-  // MIR-5: crear proyecto. MIR-6: listar los proyectos del usuario.
+  // MIR-5: Crear proyecto.
+  // MIR-6: Listar los proyectos del usuario.
   router.get('/', controller.list);
   router.post('/', validateBody(createProjectSchema), controller.create);
 
@@ -26,6 +32,15 @@ export function createProjectsRouter(): Router {
   // MIR-9: Listar miembros e invitar usuarios.
   router.get('/:projectId/members', controller.listMembers);
   router.post('/:projectId/members', validateBody(addMemberSchema), controller.addMember);
+
+  // MIR-10: Cambiar rol y quitar miembros.
+  router.patch(
+    '/:projectId/members/:userId/role',
+    validateBody(changeMemberRoleSchema),
+    controller.changeMemberRole,
+  );
+
+  router.delete('/:projectId/members/:userId', controller.removeMember);
 
   return router;
 }
