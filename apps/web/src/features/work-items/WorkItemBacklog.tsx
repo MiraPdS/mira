@@ -12,6 +12,7 @@ import {
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Select } from '@/components/ui/select';
 import { ApiRequestError } from '@/lib/api-client';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { useWorkItems } from './useWorkItems';
@@ -101,6 +102,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
           </label>
           <Input
             id="backlog-search"
+            className="mt-1"
             type="search"
             value={filters.q ?? ''}
             onChange={(event) => changeFilters({ q: event.target.value || undefined })}
@@ -112,13 +114,13 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
           <label htmlFor="backlog-type" className="text-sm font-medium text-slate-700">
             Tipo
           </label>
-          <select
+          <Select
             id="backlog-type"
             value={filters.type ?? ''}
             onChange={(event) =>
               changeFilters({ type: (event.target.value || undefined) as WorkItemType | undefined })
             }
-            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
+            className="mt-1"
           >
             <option value="">Todos</option>
             {WORK_ITEM_TYPES.map((type) => (
@@ -126,14 +128,14 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 {TYPE_LABELS[type]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label htmlFor="backlog-status" className="text-sm font-medium text-slate-700">
             Estado
           </label>
-          <select
+          <Select
             id="backlog-status"
             value={filters.status ?? ''}
             onChange={(event) =>
@@ -141,7 +143,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 status: (event.target.value || undefined) as WorkItemStatus | undefined,
               })
             }
-            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
+            className="mt-1"
           >
             <option value="">Todos</option>
             {WORK_ITEM_STATUSES.map((status) => (
@@ -149,14 +151,14 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 {STATUS_LABELS[status]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label htmlFor="backlog-priority" className="text-sm font-medium text-slate-700">
             Prioridad
           </label>
-          <select
+          <Select
             id="backlog-priority"
             value={filters.priority ?? ''}
             onChange={(event) =>
@@ -164,7 +166,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 priority: (event.target.value || undefined) as WorkItemPriority | undefined,
               })
             }
-            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
+            className="mt-1"
           >
             <option value="">Todas</option>
             {WORK_ITEM_PRIORITIES.map((priority) => (
@@ -172,20 +174,20 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 {PRIORITY_LABELS[priority]}
               </option>
             ))}
-          </select>
+          </Select>
         </div>
 
         <div>
           <label htmlFor="backlog-assignee" className="text-sm font-medium text-slate-700">
             Responsable
           </label>
-          <select
+          <Select
             id="backlog-assignee"
             value={filters.assigneeId ?? ''}
             onChange={(event) => changeFilters({ assigneeId: event.target.value || undefined })}
             disabled={members.isPending || members.isError}
             aria-describedby={members.isError ? 'backlog-members-error' : undefined}
-            className="mt-1 h-11 w-full rounded-md border border-slate-300 bg-white px-3 text-base sm:h-9 sm:text-sm"
+            className="mt-1"
           >
             <option value="">{members.isPending ? 'Cargando miembros...' : 'Todos'}</option>
             {members.data?.members.map((member) => (
@@ -193,7 +195,7 @@ export function WorkItemBacklog({ projectId }: WorkItemBacklogProps) {
                 {member.user.name} ({member.user.email})
               </option>
             ))}
-          </select>
+          </Select>
           {members.isError ? (
             <p id="backlog-members-error" role="alert" className="mt-1 text-sm text-red-700">
               {members.error instanceof ApiRequestError

@@ -3,9 +3,9 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, useNavigate } from 'react-router-dom';
 import { createProjectSchema, type CreateProjectInput } from '@mira/shared';
 import { ApiRequestError } from '@/lib/api-client';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Field } from '@/components/ui/field';
 import { useCreateProject } from './useProjects';
 
@@ -100,15 +100,9 @@ export function CreateProjectPage() {
         </Field>
 
         <Field id="description" label="Descripcion (opcional)" error={errors.description?.message}>
-          <textarea
+          <Textarea
             id="description"
             rows={4}
-            className={cn(
-              'flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:text-sm',
-              'placeholder:text-slate-400 focus-visible:ring-2 focus-visible:outline-none',
-              'focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50',
-              'aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400',
-            )}
             aria-invalid={Boolean(errors.description)}
             aria-describedby={errors.description ? 'description-error' : undefined}
             {...register('description')}

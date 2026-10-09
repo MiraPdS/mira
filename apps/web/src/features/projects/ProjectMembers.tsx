@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { can } from '@mira/shared';
 import { ApiRequestError } from '@/lib/api-client';
+import { Select } from '@/components/ui/select';
 import { useChangeMemberRole, useProjectMembers, useRemoveMember } from './useProjects';
 import type { ProjectMemberRole } from './project.api';
 
@@ -143,7 +144,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
 
                 <div className="flex items-center gap-3">
                   {canManageRole ? (
-                    <select
+                    <Select
                       aria-label={`Rol de ${member.user.name}`}
                       value={member.role}
                       disabled={isUpdating}
@@ -153,7 +154,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
                           event.target.value as ProjectMemberRole,
                         );
                       }}
-                      className="h-11 rounded-md border border-slate-300 bg-white px-3 text-base text-slate-700 sm:h-auto sm:py-2 sm:text-sm"
+                      className="w-auto text-slate-700 sm:h-auto"
                     >
                       {/* OWNER no es un rol asignable desde la interfaz.
                           Si el miembro ya es OWNER, conservamos su opcion
@@ -166,7 +167,7 @@ export function ProjectMembers({ projectId, currentUserId }: ProjectMembersProps
 
                       <option value="MEMBER">MEMBER</option>
                       <option value="VIEWER">VIEWER</option>
-                    </select>
+                    </Select>
                   ) : (
                     <span className="rounded-md bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
                       {member.role}

@@ -14,6 +14,8 @@ import {
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Select } from '@/components/ui/select';
 import { ApiRequestError } from '@/lib/api-client';
 import { useUpdateWorkItem } from './useWorkItems';
 
@@ -185,10 +187,9 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
         </Field>
 
         <Field id="description" label="Descripcion" error={errors.description?.message}>
-          <textarea
+          <Textarea
             id="description"
             rows={4}
-            className="flex min-h-24 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:text-sm placeholder:text-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
             aria-invalid={Boolean(errors.description)}
             aria-describedby={errors.description ? 'description-error' : undefined}
             {...register('description')}
@@ -197,9 +198,8 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
 
         <div className="grid gap-4 sm:grid-cols-2">
           <Field id="type" label="Tipo" error={errors.type?.message}>
-            <select
+            <Select
               id="type"
-              className="flex h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:h-10 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
               aria-invalid={Boolean(errors.type)}
               aria-describedby={errors.type ? 'type-error' : undefined}
               {...register('type')}
@@ -209,13 +209,12 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
                   {TYPE_LABELS[type]}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
 
           <Field id="priority" label="Prioridad" error={errors.priority?.message}>
-            <select
+            <Select
               id="priority"
-              className="flex h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-base sm:h-10 sm:text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400 aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400"
               aria-invalid={Boolean(errors.priority)}
               aria-describedby={errors.priority ? 'priority-error' : undefined}
               {...register('priority')}
@@ -225,7 +224,7 @@ export function WorkItemEditForm({ projectId, item, onCancel, onSaved }: WorkIte
                   {PRIORITY_LABELS[priority]}
                 </option>
               ))}
-            </select>
+            </Select>
           </Field>
         </div>
 
