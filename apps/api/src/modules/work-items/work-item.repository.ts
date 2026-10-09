@@ -1,12 +1,13 @@
 import { Prisma, type PrismaClient } from '@prisma/client';
-import type {
-  CreateWorkItemInput,
-  ProjectRole,
-  UpdateWorkItemInput,
-  WorkItemFilters,
-  WorkItemPriority,
-  WorkItemStatus,
-  WorkItemType,
+import {
+  BOARD_STATUSES,
+  type CreateWorkItemInput,
+  type ProjectRole,
+  type UpdateWorkItemInput,
+  type WorkItemFilters,
+  type WorkItemPriority,
+  type WorkItemStatus,
+  type WorkItemType,
 } from '@mira/shared';
 import { prisma, type Db } from '../../lib/prisma.js';
 
@@ -96,6 +97,8 @@ export interface WorkItemRepository {
   updateAtomically(data: UpdateWorkItemData): Promise<WorkItemForDto>;
   deleteAtomically(data: DeleteWorkItemData): Promise<void>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
+  /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
+  listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
 }
 
 const usersForDto = {
@@ -309,6 +312,20 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       ]);
 
       return { items, total };
+    },
+
+    async listBoardByProject(projectId) {
+      return db.workItem.findMany({
+        // Usa el indice (projectId, status) del esquema.
+        where: { projectId, status: { in: [...BOARD_STATUSES] } },
+        // position queda listo para el reordenamiento de MIR-20; mientras
+        // tanto todos valen 0 y desempatan la creacion y el id.
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        include: {
+          createdBy: usersForDto,
+          assignee: usersForDto,
+        },
+      });
     },
   };
 }

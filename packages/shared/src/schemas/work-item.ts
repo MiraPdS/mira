@@ -88,6 +88,16 @@ export const workItemSchema = z.object({
 });
 export type WorkItemDto = z.infer<typeof workItemSchema>;
 
+/**
+ * Respuesta del tablero Kanban: items de las columnas de BOARD_STATUSES, sin
+ * paginar.  Va plana a proposito: el frontend recorre BOARD_STATUSES para
+ * armar las columnas, asi una columna sin items existe igual.
+ */
+export const boardResponseSchema = z.object({
+  items: z.array(workItemSchema),
+});
+export type BoardResponse = z.infer<typeof boardResponseSchema>;
+
 export const createCommentSchema = z.object({
   body: z.string().trim().min(1, 'El comentario no puede estar vacio').max(5000),
 });

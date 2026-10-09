@@ -38,5 +38,8 @@ export function createWorkItemRouter(): Router {
   );
   router.delete('/:projectId/work-items/:workItemId', requireAuth, controller.delete);
 
+  // Tablero Kanban: GET /api/projects/:projectId/board
+  router.get('/:projectId/board', requireAuth, controller.board);
+
   return router;
 }
