@@ -43,16 +43,22 @@ export function useProjectMembers(projectId: string) {
   });
 }
 
-/** MIR-9: Invita a un miembro y actualiza la lista del equipo. */
+/** MIR-9: Invita a un miembro y actualiza las consultas afectadas. */
 export function useAddMember(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (input: AddMemberInput) => projectApi.addMember(projectId, input),
 
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // MIR-9: Actualizar listado de miembros.
+      await queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
+      });
+
+      // MIR-23: Actualizar actividad reciente.
+      await queryClient.invalidateQueries({
+        queryKey: projectKeys.summary(projectId),
       });
     },
   });
@@ -66,9 +72,15 @@ export function useChangeMemberRole(projectId: string) {
     mutationFn: ({ userId, role }: { userId: string; role: ProjectMemberRole }) =>
       projectApi.changeMemberRole(projectId, userId, role),
 
-    onSuccess: () => {
-      void queryClient.invalidateQueries({
+    onSuccess: async () => {
+      // MIR-10: Actualizar listado de miembros.
+      await queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
+      });
+
+      // MIR-23: Actualizar actividad reciente.
+      await queryClient.invalidateQueries({
+        queryKey: projectKeys.summary(projectId),
       });
     },
   });
@@ -85,7 +97,7 @@ export function useRemoveMember(projectId: string) {
     mutationFn: (userId: string) => projectApi.removeMember(projectId, userId),
 
     onSuccess: async () => {
-      // Actualizar la lista de miembros.
+      // MIR-10: Actualizar la lista de miembros.
       await queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
       });
@@ -100,9 +112,14 @@ export function useRemoveMember(projectId: string) {
         queryKey: ['work-item', projectId],
       });
 
-      // Invalidar el tablero: sus tarjetas muestran al responsable.
+      // MIR-18: Invalidar tablero Kanban.
       await queryClient.invalidateQueries({
         queryKey: boardKeys.project(projectId),
+      });
+
+      // MIR-23: Actualizar actividad reciente.
+      await queryClient.invalidateQueries({
+        queryKey: projectKeys.summary(projectId),
       });
     },
   });
