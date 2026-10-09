@@ -23,7 +23,11 @@ export interface CreateCommentData {
 export interface CommentRepository {
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   workItemExists(projectId: string, workItemId: string): Promise<boolean>;
-  createAtomically(data: CreateCommentData): Promise<CommentForDto>;
+  /**
+   * Crea el comentario y su COMMENT_ADDED en una transaccion. Devuelve null si
+   * el elemento ya no existe (por ejemplo, otro usuario lo elimino recien).
+   */
+  createAtomically(data: CreateCommentData): Promise<CommentForDto | null>;
   listByWorkItem(workItemId: string): Promise<CommentForDto[]>;
 }
 
@@ -60,6 +64,16 @@ export function createCommentRepository(db: Db = prisma): CommentRepository {
 
     async createAtomically(data) {
       const create = async (tx: Db) => {
+        // FOR UPDATE: la eliminacion concurrente del elemento espera a que este
+        // comentario confirme, o bien ya ocurrio y aqui no se encuentra la fila.
+        // Sin este bloqueo, la FK fallaria con P2003 y el cliente veria un 500.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM work_items
+          WHERE id = ${data.workItemId} AND "projectId" = ${data.projectId}
+          FOR UPDATE
+        `;
+        if (locked.length === 0) return null;
+
         const comment = await tx.comment.create({
           data: {
             body: data.body,

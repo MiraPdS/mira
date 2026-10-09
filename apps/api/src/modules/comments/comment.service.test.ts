@@ -115,6 +115,16 @@ describe('commentService', () => {
       });
     });
 
+    it('responde 404 si el elemento se elimina antes de la transaccion', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.workItemExists.mockResolvedValue(true);
+      repo.createAtomically.mockResolvedValue(null);
+
+      await expect(
+        service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, INPUT),
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
     it('propaga errores de persistencia', async () => {
       const error = new Error('Error de base de datos');
 

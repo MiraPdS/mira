@@ -10,6 +10,7 @@ import {
   PASSWORD_DE_PRUEBA,
 } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
+import { createCommentRepository } from './comment.repository.js';
 
 let app: Express;
 
@@ -212,6 +213,42 @@ describe('POST /api/projects/:projectId/work-items/:workItemId/comments', () => 
       .send({ body: 'Comentario' });
 
     expect(res.status).toBe(404);
+  });
+
+  it('no crea nada si el elemento desaparece antes de la transaccion (carrera)', async () => {
+    // Simula el caso en que otro usuario elimina el elemento justo despues de
+    // que el service verifico que existia: la transaccion no lo encuentra y
+    // devuelve null (404) en vez de fallar por la FK (P2003 -> 500).
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    await prisma.workItem.delete({ where: { id: workItem.id } });
+
+    const comment = await createCommentRepository().createAtomically({
+      projectId: project.id,
+      workItemId: workItem.id,
+      actorId: owner.id,
+      body: 'Comentario tardio',
+    });
+
+    expect(comment).toBeNull();
+    expect(await prisma.comment.count()).toBe(0);
+    expect(await prisma.activityLog.count({ where: { action: 'COMMENT_ADDED' } })).toBe(0);
+  });
+
+  it('no permite comentar un elemento de otro proyecto', async () => {
+    const { project, owner } = await createProject();
+    const { project: otro, owner: otroOwner } = await createProject();
+    const ajeno = await createWorkItem({ project: otro, createdBy: otroOwner });
+
+    const comment = await createCommentRepository().createAtomically({
+      projectId: project.id,
+      workItemId: ajeno.id,
+      actorId: owner.id,
+      body: 'Comentario cruzado',
+    });
+
+    expect(comment).toBeNull();
+    expect(await prisma.comment.count()).toBe(0);
   });
 
   it('requiere una sesion valida', async () => {

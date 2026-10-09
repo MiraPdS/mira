@@ -47,6 +47,11 @@ export function createCommentService(repo: CommentRepository) {
         body: input.body.trim(),
       });
 
+      // El elemento pudo eliminarse entre la verificacion y la transaccion.
+      if (!comment) {
+        throw new NotFoundError('Elemento de trabajo');
+      }
+
       return toCommentDto(comment);
     },
 
