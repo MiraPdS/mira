@@ -15,7 +15,10 @@ loadEnv({ path: path.resolve(import.meta.dirname, '../../../.env') });
  *  2. Dar credenciales fijas a la capsula de video y a la demo en clases.
  *  3. Servir de estado inicial conocido para los E2E de la Entrega 3.
  *
- * Es idempotente (usa upsert): se puede correr las veces que haga falta.
+ * Es idempotente: se puede correr las veces que haga falta (corre en cada
+ * deploy de Render, MIR-27). Los usuarios y el proyecto usan upsert; los items
+ * se crean solo cuando el proyecto es nuevo, asi que nunca pisa lo que se hizo
+ * en la demo. Para volver al estado inicial en local: npm run db:reset.
  *
  *   npm run db:seed
  */
@@ -116,15 +119,18 @@ async function main() {
   // resucitaria items borrados en la demo con posiciones viejas, y mover el
   // contador podria repetir referencias ya usadas. El contador se reclama con
   // una escritura condicional en la base, sin leer antes, para no competir con
-  // items creados mientras corre el seed.
-  const reclamado = await prisma.project.updateMany({
-    where: { id: proyecto.id, itemCounter: 0 },
-    data: { itemCounter: items.length },
-  });
+  // items creados mientras corre el seed. Reclamo e items van en la MISMA
+  // transaccion: si un item fallara, el contador vuelve a 0 y el proximo seed
+  // reintenta, en vez de quedar reclamado con items faltantes para siempre.
+  const itemsCreados = await prisma.$transaction(async (tx) => {
+    const reclamado = await tx.project.updateMany({
+      where: { id: proyecto.id, itemCounter: 0 },
+      data: { itemCounter: items.length },
+    });
+    if (reclamado.count === 0) return false;
 
-  if (reclamado.count === 1) {
     for (const item of items) {
-      await prisma.workItem.upsert({
+      await tx.workItem.upsert({
         where: { reference: `MIR-${item.n}` },
         update: {},
         create: {
@@ -141,13 +147,14 @@ async function main() {
         },
       });
     }
-  }
+    return true;
+  });
 
   console.info(
     [
       '',
       'Seed aplicado.',
-      reclamado.count === 1
+      itemsCreados
         ? `  Proyecto: ${proyecto.name} (${proyecto.key}) creado con ${items.length} items`
         : `  Proyecto: ${proyecto.name} (${proyecto.key}) ya existia: sus items no se tocan`,
       '  Usuarios de demostracion (misma contrasena para los tres):',

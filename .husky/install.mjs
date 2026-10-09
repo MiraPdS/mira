@@ -16,7 +16,10 @@ let husky;
 try {
   husky = (await import('husky')).default;
 } catch (error) {
-  if (error?.code === 'ERR_MODULE_NOT_FOUND') process.exit(0); // devDependencies omitidas
+  // Solo se salta si falta el paquete husky (devDependencies omitidas). Un
+  // husky instalado pero roto debe fallar a la vista.
+  const faltaHusky = error?.code === 'ERR_MODULE_NOT_FOUND' && error.message.includes("'husky'");
+  if (faltaHusky) process.exit(0);
   throw error;
 }
 
