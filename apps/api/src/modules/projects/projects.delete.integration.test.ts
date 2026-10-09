@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
 import {
@@ -28,6 +28,14 @@ beforeAll(async () => {
 });
 
 describe('DELETE /api/projects/:projectId', () => {
+  // El service registra cada eliminacion en el log (auditoria): se silencia.
+  beforeEach(() => {
+    vi.spyOn(console, 'info').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
   it('CA1: el OWNER recibe 204 y el proyecto desaparece de su lista', async () => {
     const { project, owner } = await createProject({ name: 'Proyecto a borrar' });
     const { project: otro } = await createProject({ owner, name: 'Proyecto que queda' });
@@ -115,6 +123,38 @@ describe('DELETE /api/projects/:projectId', () => {
     const res = await request(app)
       .delete(`/api/projects/${project.id}`)
       .set('Cookie', sessionCookie(intruso));
+
+    expect(res.status).toBe(403);
+    expect(await prisma.project.count({ where: { id: project.id } })).toBe(1);
+  });
+
+  it('un segundo DELETE del mismo proyecto responde 404, no 403', async () => {
+    const { project, owner } = await createProject();
+
+    const primero = await request(app)
+      .delete(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner));
+    const segundo = await request(app)
+      .delete(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner));
+
+    expect(primero.status).toBe(204);
+    expect(segundo.status).toBe(404);
+    expect(segundo.body.error.code).toBe('PROJECT_NOT_FOUND');
+  });
+
+  it('un OWNER degradado antes de confirmar recibe 403 y no borra', async () => {
+    const { project, owner } = await createProject();
+    const otroOwner = await createUser();
+    await addMember(project, otroOwner, 'OWNER');
+    await prisma.projectMember.update({
+      where: { userId_projectId: { userId: owner.id, projectId: project.id } },
+      data: { role: 'MEMBER' },
+    });
+
+    const res = await request(app)
+      .delete(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner));
 
     expect(res.status).toBe(403);
     expect(await prisma.project.count({ where: { id: project.id } })).toBe(1);

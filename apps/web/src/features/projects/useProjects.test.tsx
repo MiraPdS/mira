@@ -10,6 +10,7 @@ import {
   useUpdateProject,
   projectKeys,
 } from './useProjects';
+import { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 
 vi.mock('./project.api', () => ({
@@ -201,23 +202,30 @@ describe('useUpdateProject - MIR-7 + MIR-23', () => {
 });
 
 describe('useDeleteProject - MIR-8', () => {
-  it('quita el proyecto de la lista y no vuelve a pedir su detalle', async () => {
-    const queryClient = createTestClient();
-    const proyecto = (id: string) => ({
-      id,
-      name: id,
-      key: id.toUpperCase(),
-      description: null,
-      createdAt: '2026-10-08T12:00:00.000Z',
-      updatedAt: '2026-10-08T12:00:00.000Z',
-      myRole: 'OWNER' as const,
-    });
+  const proyecto = (id: string) => ({
+    id,
+    name: id,
+    key: id.toUpperCase(),
+    description: null,
+    createdAt: '2026-10-08T12:00:00.000Z',
+    updatedAt: '2026-10-08T12:00:00.000Z',
+    myRole: 'OWNER' as const,
+  });
 
+  function cacheConDosProyectos(queryClient: QueryClient) {
     queryClient.setQueryData(projectKeys.all, [proyecto('project_1'), proyecto('project_2')]);
     queryClient.setQueryData(projectKeys.detail('project_1'), proyecto('project_1'));
     queryClient.setQueryData(projectKeys.summary('project_1'), { total: 3 });
+    queryClient.setQueryData(['board', 'project_1'], []);
+    queryClient.setQueryData(['work-items', 'backlog', 'project_1', 1, 10], { data: [] });
+    queryClient.setQueryData(['work-item', 'project_1', 'item_1'], { id: 'item_1' });
     queryClient.setQueryData(projectKeys.summary('project_2'), { total: 5 });
+    queryClient.setQueryData(['board', 'project_2'], []);
+  }
 
+  it('quita el proyecto de la lista y borra la cache de todo lo que cuelga de el', async () => {
+    const queryClient = createTestClient();
+    cacheConDosProyectos(queryClient);
     vi.mocked(projectApi.remove).mockResolvedValue(undefined);
 
     const { result } = renderHook(() => useDeleteProject('project_1'), {
@@ -225,19 +233,61 @@ describe('useDeleteProject - MIR-8', () => {
     });
 
     result.current.mutate();
-
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
 
     expect(projectApi.remove).toHaveBeenCalledWith('project_1');
     expect(
       queryClient.getQueryData<Array<{ id: string }>>(projectKeys.all)?.map((p) => p.id),
     ).toEqual(['project_2']);
 
-    // Lo que cuelga del proyecto eliminado queda obsoleto; lo de otros proyectos no.
-    expect(queryClient.getQueryState(projectKeys.detail('project_1'))?.isInvalidated).toBe(true);
-    expect(queryClient.getQueryState(projectKeys.summary('project_1'))?.isInvalidated).toBe(true);
+    // Nada del proyecto eliminado queda en cache: volver con el historial no
+    // muestra un tablero o un resumen fantasma.
+    for (const key of [
+      projectKeys.detail('project_1'),
+      projectKeys.summary('project_1'),
+      ['board', 'project_1'],
+      ['work-items', 'backlog', 'project_1', 1, 10],
+      ['work-item', 'project_1', 'item_1'],
+    ]) {
+      expect(queryClient.getQueryState(key)).toBeUndefined();
+    }
+
+    // Lo de otros proyectos no se toca.
     expect(queryClient.getQueryState(projectKeys.summary('project_2'))?.isInvalidated).toBe(false);
+    expect(queryClient.getQueryData(['board', 'project_2'])).toEqual([]);
+  });
+
+  it('un 404 (ya eliminado en otra pestana) cuenta como exito', async () => {
+    const queryClient = createTestClient();
+    cacheConDosProyectos(queryClient);
+    vi.mocked(projectApi.remove).mockRejectedValue(
+      new ApiRequestError(404, 'PROJECT_NOT_FOUND', 'Proyecto no encontrado'),
+    );
+
+    const { result } = renderHook(() => useDeleteProject('project_1'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+    expect(
+      queryClient.getQueryData<Array<{ id: string }>>(projectKeys.all)?.map((p) => p.id),
+    ).toEqual(['project_2']);
+  });
+
+  it('un 403 sigue siendo un error', async () => {
+    const queryClient = createTestClient();
+    vi.mocked(projectApi.remove).mockRejectedValue(
+      new ApiRequestError(403, 'OWNER_REQUIRED', 'Solo el propietario puede eliminar el proyecto'),
+    );
+
+    const { result } = renderHook(() => useDeleteProject('project_1'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    result.current.mutate();
+    await waitFor(() => expect(result.current.isError).toBe(true));
+    expect(result.current.error?.status).toBe(403);
   });
 });

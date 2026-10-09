@@ -110,21 +110,40 @@ export function createProjectsService(repo: ProjectsRepository) {
     },
 
     /**
-     * MIR-8: solo el OWNER elimina. Quien no es miembro recibe el mismo 403
-     * que en getById, exista o no el proyecto.
+     * MIR-8: solo el OWNER elimina. El rol se comprueba dentro de la misma
+     * transaccion que borra (ver deleteWithOwnerCheck), para que un cambio de
+     * rol concurrente no deje borrar a quien ya no es OWNER.
+     *
+     * 404 si el proyecto ya no existe (por ejemplo, un segundo DELETE desde
+     * otra pestana); 403 si existe pero quien llama no es su OWNER.
      */
     async delete(projectId: string, actorId: string): Promise<void> {
-      const membership = await repo.findMember(projectId, actorId);
+      const result = await repo.deleteWithOwnerCheck(projectId, actorId, (role) =>
+        can(role, 'project:delete'),
+      );
 
-      if (!can(membership?.role, 'project:delete')) {
+      if (result.status === 'not_found') {
+        throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+      }
+      if (result.status === 'forbidden') {
         throw new ForbiddenError(
           'Solo el propietario puede eliminar el proyecto',
           'OWNER_REQUIRED',
         );
       }
 
-      const deleted = await repo.deleteById(projectId);
-      if (!deleted) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+      // La cascada tambien borra la bitacora del proyecto: queda constancia en
+      // el log del servidor de quien elimino que proyecto y cuando.
+      console.info(
+        '[auditoria] proyecto eliminado',
+        JSON.stringify({
+          projectId: result.project.id,
+          key: result.project.key,
+          name: result.project.name,
+          actorId,
+          at: new Date().toISOString(),
+        }),
+      );
     },
 
     // MIR-9: Listar miembros del proyecto.

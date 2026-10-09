@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
 import type { Project, ProjectMember, User } from '@prisma/client';
 
@@ -291,37 +291,62 @@ describe('projectsService', () => {
   });
 
   describe('delete - MIR-8', () => {
+    const proyecto = { id: 'project_1', key: 'MIR', name: 'Mira' };
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
     it('el OWNER elimina el proyecto', async () => {
-      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
-      repo.deleteById.mockResolvedValue(true);
+      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'deleted', project: proyecto });
+      vi.spyOn(console, 'info').mockImplementation(() => {});
 
       await expect(service.delete('project_1', 'owner_1')).resolves.toBeUndefined();
 
-      expect(repo.deleteById).toHaveBeenCalledExactlyOnceWith('project_1');
+      expect(repo.deleteWithOwnerCheck).toHaveBeenCalledWith(
+        'project_1',
+        'owner_1',
+        expect.any(Function),
+      );
     });
 
-    it.each(['MEMBER', 'VIEWER'] as const)('rechaza con 403 a un %s sin borrar', async (role) => {
-      repo.findMember.mockResolvedValue(miembroDePrueba({ role, userId: 'user_2' }));
+    it('la regla de permiso que se comprueba en la transaccion solo acepta al OWNER', async () => {
+      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'forbidden' });
+
+      await service.delete('project_1', 'user_1').catch(() => undefined);
+
+      const canDelete = repo.deleteWithOwnerCheck.mock.calls[0]?.[2];
+      expect(canDelete?.('OWNER')).toBe(true);
+      expect(canDelete?.('MEMBER')).toBe(false);
+      expect(canDelete?.('VIEWER')).toBe(false);
+      expect(canDelete?.(null)).toBe(false);
+    });
+
+    it('responde 403 OWNER_REQUIRED a quien no es OWNER', async () => {
+      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'forbidden' });
 
       await expect(service.delete('project_1', 'user_2')).rejects.toMatchObject({
         status: 403,
         code: 'OWNER_REQUIRED',
       });
-      expect(repo.deleteById).not.toHaveBeenCalled();
     });
 
-    it('rechaza con 403 a quien no es miembro', async () => {
-      repo.findMember.mockResolvedValue(null);
-
-      await expect(service.delete('project_1', 'intruso')).rejects.toBeInstanceOf(ForbiddenError);
-      expect(repo.deleteById).not.toHaveBeenCalled();
-    });
-
-    it('responde 404 si el proyecto ya fue eliminado por otra peticion', async () => {
-      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
-      repo.deleteById.mockResolvedValue(false);
+    it('responde 404 si el proyecto ya no existe', async () => {
+      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'not_found' });
 
       await expect(service.delete('project_1', 'owner_1')).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('deja constancia en el log de quien elimino el proyecto', async () => {
+      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'deleted', project: proyecto });
+      const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+      await service.delete('project_1', 'owner_1');
+
+      expect(info).toHaveBeenCalledWith(
+        '[auditoria] proyecto eliminado',
+        expect.stringContaining('"actorId":"owner_1"'),
+      );
     });
   });
 

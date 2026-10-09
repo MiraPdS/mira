@@ -6,7 +6,7 @@ import type {
   ProjectSummaryDto,
   UpdateProjectInput,
 } from '@mira/shared';
-import type { ApiRequestError } from '@/lib/api-client';
+import { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 import type { ProjectMemberRole } from './project.api';
 import { boardKeys } from '@/features/board/useBoard';
@@ -82,23 +82,44 @@ export function useUpdateProject(projectId: string) {
 }
 
 /**
- * MIR-8: elimina el proyecto. Lo quita de la lista al instante y marca como
- * obsoleto todo lo que cuelga de el SIN refetch: la pantalla que lo muestra
- * sigue montada hasta navegar, y volver a pedirlo daria 403.
+ * MIR-8: elimina el proyecto, lo quita de la lista al instante y limpia la
+ * cache de todo lo que cuelga de el (ver onSuccess).
  */
 export function useDeleteProject(projectId: string) {
   const queryClient = useQueryClient();
 
   return useMutation<void, ApiRequestError, void>({
-    mutationFn: () => projectApi.remove(projectId),
+    // Un 404 significa que ya estaba eliminado (otra pestana u otra sesion):
+    // el resultado buscado ya se cumple, asi que se trata como exito.
+    mutationFn: async () => {
+      try {
+        await projectApi.remove(projectId);
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 404) return;
+        throw error;
+      }
+    },
     onSuccess: async () => {
       queryClient.setQueryData<ProjectDto[]>(projectKeys.all, (proyectos) =>
         proyectos?.filter((proyecto) => proyecto.id !== projectId),
       );
 
-      const proyecto = projectKeys.detail(projectId);
-      await queryClient.cancelQueries({ queryKey: proyecto });
-      await queryClient.invalidateQueries({ queryKey: proyecto, refetchType: 'none' });
+      // Todo lo que cuelga del proyecto: detalle, miembros, resumen, tablero,
+      // backlog, detalle de items y comentarios. Las claves llevan el id en
+      // la segunda o tercera posicion.
+      // La lista (['projects']) no entra: no tiene id.
+      const delProyecto = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+        queryKey.slice(1, 3).includes(projectId);
+
+      // Lo que no se esta mostrando se borra, para que volver con el historial
+      // no ensene datos de un proyecto que ya no existe. Lo que aun esta en
+      // pantalla (la configuracion, hasta navegar) solo se cancela y se marca
+      // obsoleto sin refetch: pedirlo de nuevo daria 403/404.
+      await queryClient.cancelQueries({ predicate: delProyecto });
+      queryClient.removeQueries({
+        predicate: (query) => delProyecto(query) && query.getObserversCount() === 0,
+      });
+      await queryClient.invalidateQueries({ predicate: delProyecto, refetchType: 'none' });
       await queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
     },
   });

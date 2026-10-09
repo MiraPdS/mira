@@ -295,4 +295,15 @@ describe('ProjectSettingsPage - eliminar proyecto (MIR-8)', () => {
     expect(screen.getByRole('dialog', { name: 'Eliminar proyecto' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Mis proyectos' })).not.toBeInTheDocument();
   });
+
+  it('si el proyecto ya fue eliminado en otra sesion (404), vuelve a la lista', async () => {
+    conProyecto();
+    capturarDelete(() => apiError(404, 'PROJECT_NOT_FOUND', 'Proyecto no encontrado'));
+    const { user } = renderConLista();
+
+    await user.click(await screen.findByRole('button', { name: 'Eliminar proyecto' }));
+    await user.click(screen.getByRole('button', { name: 'Eliminar' }));
+
+    expect(await screen.findByRole('heading', { name: 'Mis proyectos' })).toBeInTheDocument();
+  });
 });
