@@ -99,15 +99,20 @@ export function useDeleteProject(projectId: string) {
         throw error;
       }
     },
-    onSuccess: async () => {
+    // Nada se espera aqui: la navegacion a /proyectos (en el onSuccess del
+    // componente) no debe quedar detras de operaciones de cache.
+    onSuccess: () => {
+      // La lista se corrige localmente y no se vuelve a pedir: lo unico que
+      // cambio en el servidor es que este proyecto ya no esta.
       queryClient.setQueryData<ProjectDto[]>(projectKeys.all, (proyectos) =>
         proyectos?.filter((proyecto) => proyecto.id !== projectId),
       );
 
-      // Todo lo que cuelga del proyecto: detalle, miembros, resumen, tablero,
-      // backlog, detalle de items y comentarios. Las claves llevan el id en
-      // la segunda o tercera posicion.
-      // La lista (['projects']) no entra: no tiene id.
+      // Todo lo que cuelga del proyecto lleva su id en la 2a o 3a posicion de
+      // la clave: detalle, miembros y resumen (['projects', id, ...]), tablero
+      // (['board', id]), backlog (['work-items', 'backlog', id, ...]), detalle
+      // de items (['work-item', id, ...]) y comentarios
+      // (['work-item-comments', id, ...]). La lista (['projects']) no entra.
       const delProyecto = ({ queryKey }: { queryKey: readonly unknown[] }) =>
         queryKey.slice(1, 3).includes(projectId);
 
@@ -115,12 +120,11 @@ export function useDeleteProject(projectId: string) {
       // no ensene datos de un proyecto que ya no existe. Lo que aun esta en
       // pantalla (la configuracion, hasta navegar) solo se cancela y se marca
       // obsoleto sin refetch: pedirlo de nuevo daria 403/404.
-      await queryClient.cancelQueries({ predicate: delProyecto });
+      void queryClient.cancelQueries({ predicate: delProyecto });
       queryClient.removeQueries({
         predicate: (query) => delProyecto(query) && query.getObserversCount() === 0,
       });
-      await queryClient.invalidateQueries({ predicate: delProyecto, refetchType: 'none' });
-      await queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+      void queryClient.invalidateQueries({ predicate: delProyecto, refetchType: 'none' });
     },
   });
 }

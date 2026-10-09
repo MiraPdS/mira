@@ -1,6 +1,7 @@
 import type { Project } from '@prisma/client';
 import {
   can,
+  PROJECT_ROLES,
   type CreateProjectInput,
   type ProjectDto,
   type ProjectRole,
@@ -110,17 +111,16 @@ export function createProjectsService(repo: ProjectsRepository) {
     },
 
     /**
-     * MIR-8: solo el OWNER elimina. El rol se comprueba dentro de la misma
-     * transaccion que borra (ver deleteWithOwnerCheck), para que un cambio de
-     * rol concurrente no deje borrar a quien ya no es OWNER.
+     * MIR-8: solo quien tiene `project:delete` (el OWNER) elimina. El rol se
+     * comprueba en el mismo DELETE (ver deleteIfMemberRole), para que un
+     * cambio de rol concurrente no deje borrar a quien ya no es OWNER.
      *
      * 404 si el proyecto ya no existe (por ejemplo, un segundo DELETE desde
      * otra pestana); 403 si existe pero quien llama no es su OWNER.
      */
     async delete(projectId: string, actorId: string): Promise<void> {
-      const result = await repo.deleteWithOwnerCheck(projectId, actorId, (role) =>
-        can(role, 'project:delete'),
-      );
+      const rolesQuePuedenBorrar = PROJECT_ROLES.filter((role) => can(role, 'project:delete'));
+      const result = await repo.deleteIfMemberRole(projectId, actorId, rolesQuePuedenBorrar);
 
       if (result.status === 'not_found') {
         throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');

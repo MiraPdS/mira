@@ -298,32 +298,24 @@ describe('projectsService', () => {
     });
 
     it('el OWNER elimina el proyecto', async () => {
-      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'deleted', project: proyecto });
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'deleted', project: proyecto });
       vi.spyOn(console, 'info').mockImplementation(() => {});
 
       await expect(service.delete('project_1', 'owner_1')).resolves.toBeUndefined();
 
-      expect(repo.deleteWithOwnerCheck).toHaveBeenCalledWith(
-        'project_1',
-        'owner_1',
-        expect.any(Function),
-      );
+      expect(repo.deleteIfMemberRole).toHaveBeenCalledWith('project_1', 'owner_1', ['OWNER']);
     });
 
-    it('la regla de permiso que se comprueba en la transaccion solo acepta al OWNER', async () => {
-      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'forbidden' });
+    it('solo pide borrar si quien llama es OWNER (la matriz de permisos)', async () => {
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'forbidden' });
 
       await service.delete('project_1', 'user_1').catch(() => undefined);
 
-      const canDelete = repo.deleteWithOwnerCheck.mock.calls[0]?.[2];
-      expect(canDelete?.('OWNER')).toBe(true);
-      expect(canDelete?.('MEMBER')).toBe(false);
-      expect(canDelete?.('VIEWER')).toBe(false);
-      expect(canDelete?.(null)).toBe(false);
+      expect(repo.deleteIfMemberRole).toHaveBeenCalledWith('project_1', 'user_1', ['OWNER']);
     });
 
     it('responde 403 OWNER_REQUIRED a quien no es OWNER', async () => {
-      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'forbidden' });
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'forbidden' });
 
       await expect(service.delete('project_1', 'user_2')).rejects.toMatchObject({
         status: 403,
@@ -332,13 +324,13 @@ describe('projectsService', () => {
     });
 
     it('responde 404 si el proyecto ya no existe', async () => {
-      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'not_found' });
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'not_found' });
 
       await expect(service.delete('project_1', 'owner_1')).rejects.toBeInstanceOf(NotFoundError);
     });
 
     it('deja constancia en el log de quien elimino el proyecto', async () => {
-      repo.deleteWithOwnerCheck.mockResolvedValue({ status: 'deleted', project: proyecto });
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'deleted', project: proyecto });
       const info = vi.spyOn(console, 'info').mockImplementation(() => {});
 
       await service.delete('project_1', 'owner_1');

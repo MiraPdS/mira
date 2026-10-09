@@ -12,7 +12,7 @@ import type {
 } from '@prisma/client';
 
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
-import { hasTransaction, prisma, type Db } from '../../lib/prisma.js';
+import { prisma, type Db } from '../../lib/prisma.js';
 
 export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   include: {
@@ -101,14 +101,15 @@ export interface ProjectsRepository {
   removeMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<void>;
 
   /**
-   * MIR-8: en UNA transaccion bloquea la fila del proyecto y la membresia de
-   * quien borra, vuelve a comprobar el rol con `canDelete` y elimina. Miembros,
-   * items, comentarios y bitacora caen en cascada por las FK del esquema.
+   * MIR-8: elimina el proyecto solo si `actorId` es miembro con alguno de
+   * `roles`. La condicion de rol va en el WHERE del propio DELETE, asi que
+   * comprobar y borrar es una sola sentencia atomica. Miembros, items,
+   * comentarios y bitacora caen en cascada por las FK del esquema.
    */
-  deleteWithOwnerCheck(
+  deleteIfMemberRole(
     projectId: string,
     actorId: string,
-    canDelete: (role: ProjectRole | null) => boolean,
+    roles: ProjectRole[],
   ): Promise<DeleteProjectResult>;
 
   /** MIR-23: conteos por estado, tipo y prioridad, y la actividad reciente. */
@@ -516,33 +517,23 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       };
     },
 
-    // MIR-8: eliminar el proyecto comprobando el rol dentro de la transaccion.
-    async deleteWithOwnerCheck(projectId, actorId, canDelete) {
-      const run = async (tx: Db): Promise<DeleteProjectResult> => {
-        // FOR UPDATE sobre el proyecto: la creacion de items (que incrementa
-        // el contador del proyecto) espera a que esto confirme y luego no
-        // encuentra la fila (P2025 -> 404) en vez de chocar con la FK.
-        const [project] = await tx.$queryRaw<Array<Pick<Project, 'id' | 'key' | 'name'>>>`
-          SELECT id, key, name FROM projects WHERE id = ${projectId} FOR UPDATE
-        `;
-        if (!project) return { status: 'not_found' };
+    // MIR-8: eliminar el proyecto con la condicion de rol en el mismo DELETE.
+    async deleteIfMemberRole(projectId, actorId, roles) {
+      // Solo para el registro de auditoria y para distinguir 404 de 403.
+      const project = await db.project.findUnique({
+        where: { id: projectId },
+        select: { id: true, key: true, name: true },
+      });
+      if (!project) return { status: 'not_found' };
 
-        // FOR UPDATE sobre la membresia: si en paralelo degradan o quitan al
-        // OWNER, una de las dos operaciones espera a la otra y el rol que se
-        // comprueba aqui es el vigente.
-        const [membership] = await tx.$queryRaw<Array<{ role: ProjectRole }>>`
-          SELECT role FROM project_members
-          WHERE "projectId" = ${projectId} AND "userId" = ${actorId}
-          FOR UPDATE
-        `;
-        if (!canDelete(membership?.role ?? null)) return { status: 'forbidden' };
+      const { count } = await db.project.deleteMany({
+        where: { id: projectId, members: { some: { userId: actorId, role: { in: roles } } } },
+      });
+      if (count > 0) return { status: 'deleted', project };
 
-        await tx.project.delete({ where: { id: projectId } });
-        return { status: 'deleted', project };
-      };
-
-      if (!hasTransaction(db)) return run(db);
-      return db.$transaction((tx) => run(tx));
+      // No se borro: o ya no existe (otra peticion lo elimino) o no tiene el rol.
+      const sigueExistiendo = await db.project.count({ where: { id: projectId } });
+      return sigueExistiendo ? { status: 'forbidden' } : { status: 'not_found' };
     },
   };
 }

@@ -219,6 +219,7 @@ describe('useDeleteProject - MIR-8', () => {
     queryClient.setQueryData(['board', 'project_1'], []);
     queryClient.setQueryData(['work-items', 'backlog', 'project_1', 1, 10], { data: [] });
     queryClient.setQueryData(['work-item', 'project_1', 'item_1'], { id: 'item_1' });
+    queryClient.setQueryData(['work-item-comments', 'project_1', 'item_1'], []);
     queryClient.setQueryData(projectKeys.summary('project_2'), { total: 5 });
     queryClient.setQueryData(['board', 'project_2'], []);
   }
@@ -239,6 +240,8 @@ describe('useDeleteProject - MIR-8', () => {
     expect(
       queryClient.getQueryData<Array<{ id: string }>>(projectKeys.all)?.map((p) => p.id),
     ).toEqual(['project_2']);
+    // La lista se corrige en cache y no se vuelve a pedir al servidor.
+    expect(queryClient.getQueryState(projectKeys.all)?.isInvalidated).toBe(false);
 
     // Nada del proyecto eliminado queda en cache: volver con el historial no
     // muestra un tablero o un resumen fantasma.
@@ -248,6 +251,7 @@ describe('useDeleteProject - MIR-8', () => {
       ['board', 'project_1'],
       ['work-items', 'backlog', 'project_1', 1, 10],
       ['work-item', 'project_1', 'item_1'],
+      ['work-item-comments', 'project_1', 'item_1'],
     ]) {
       expect(queryClient.getQueryState(key)).toBeUndefined();
     }
