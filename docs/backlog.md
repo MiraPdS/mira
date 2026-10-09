@@ -1,7 +1,21 @@
 # Backlog — Mira
 
-Backlog inicial de la Entrega 1, listo para cargar en Jira. La versión
-importable está en [`jira-import.csv`](./jira-import.csv).
+Backlog de la Entrega 1. **Ya está cargado en Jira**, con los mismos IDs que
+aparecen en este documento:
+
+- Tablero: https://bolgunn.atlassian.net/jira/software/projects/MIR/boards
+- `MIR-1` … `MIR-29` — Entrega 1
+- `MIR-30` … `MIR-33` — reservado para la Entrega 2
+- `MIR-34` … `MIR-40` — las épicas
+
+Los items se crearon antes que las épicas precisamente para que esta
+numeración coincida: si las épicas se hubieran creado primero, se habrían
+llevado `MIR-1..7` y cada rama, commit y PR de este documento apuntaría al
+item equivocado.
+
+El archivo [`jira-import.csv`](./jira-import.csv) se conserva como respaldo
+para reimportar en un sitio limpio; nótese que usa `Epic Link`, mientras que
+Jira ya migró al campo `Parent`.
 
 **Convenciones.**
 
@@ -117,10 +131,18 @@ de rutas completo.
 
 **Criterios de aceptación**
 
+API:
+
 - **Dado** nombre y clave válidos, **cuando** creo el proyecto, **entonces** recibo 201 y quedo registrado como `OWNER`.
 - **Dado** que la clave ya existe, **cuando** creo el proyecto, **entonces** recibo 409 con un mensaje que indica el conflicto.
 - **Dado** que la clave no cumple el formato (2 a 8 caracteres, empieza con letra, solo alfanuméricos), **cuando** envío, **entonces** recibo 422.
 - **Dado** que no tengo sesión, **cuando** intento crear un proyecto, **entonces** recibo 401.
+
+Web:
+
+- **Dado** que estoy en "Mis proyectos", **cuando** pulso "Nuevo proyecto" y envío nombre y clave válidos, **entonces** vuelvo a la lista y el proyecto aparece con mi rol Propietario.
+- **Dado** que la clave ya existe, **cuando** envío, **entonces** veo el mensaje bajo el campo clave, conservo lo escrito y el campo recibe el foco.
+- **Dado** datos que no cumplen el formato, **cuando** envío, **entonces** veo el error bajo cada campo sin llamar a la API.
 
 ---
 
@@ -153,6 +175,9 @@ de rutas completo.
 - **Dado** que soy OWNER, **cuando** edito nombre o descripción, **entonces** recibo 200 y los cambios persisten.
 - **Dado** que soy MEMBER o VIEWER, **cuando** intento editar, **entonces** recibo 403 y la interfaz **no** muestra el botón de editar.
 - **Dado** que envío un campo desconocido, **cuando** hago PATCH, **entonces** recibo 422.
+- **Dado** que soy miembro, **cuando** abro la configuración del proyecto, **entonces** veo nombre, clave, descripción y mi rol; si no soy miembro recibo 403.
+- **Dado** que envío la clave en el PATCH, **cuando** edito, **entonces** recibo 422: la clave es inmutable.
+- **Dado** que edito como OWNER, **cuando** un campo cambia, **entonces** queda registrado en la bitácora (`PROJECT_UPDATED`) con su valor anterior y nuevo.
 
 ---
 
@@ -330,7 +355,7 @@ de rutas completo.
 
 ## Épica 4 — Tablero Kanban
 
-### MIR-18 · Visualizar el tablero
+### MIR-18 · Visualizar el tablero — ✅ implementado
 
 > Como miembro
 > quiero ver los items en columnas por estado
@@ -345,9 +370,15 @@ de rutas completo.
 - **Dado** una columna sin items, **cuando** abro el tablero, **entonces** la columna se muestra vacía y sigue siendo destino válido.
 - **Dado** que abro el tablero en un teléfono, **cuando** se renderiza, **entonces** las columnas se desplazan horizontalmente sin romper el diseño.
 
+**Notas.** `GET /api/projects/:projectId/board` devuelve `{ items }` sin
+paginar, solo con los estados de `BOARD_STATUSES` (el backlog no aparece);
+cualquier miembro, incluido VIEWER, puede verlo. La pantalla vive en
+`/proyectos/:projectId/tablero`; las columnas salen de `BOARD_STATUSES`, no de
+los items, por eso una columna vacía siempre existe.
+
 ---
 
-### MIR-19 · Cambiar el estado desde el menú de la tarjeta
+### MIR-19 · Cambiar el estado desde el menú de la tarjeta — ✅ implementado
 
 > Como miembro
 > quiero cambiar el estado de una tarjeta desde un menú
@@ -365,9 +396,19 @@ de rutas completo.
 **Notas.** Este es el camino determinista que usarán las pruebas E2E de la
 Entrega 3. Debe existir **antes** que MIR-20.
 
+`PATCH /api/projects/:projectId/work-items/:workItemId/status` recibe
+`{ status }` (estricto: otro campo responde 422) y devuelve `{ item }`. El
+cambio de estado y su `ITEM_STATUS_CHANGED` (`field: "status"`, `fromValue`,
+`toValue`) se escriben en la misma transacción; mover al mismo estado responde
+200 sin registrar historial. VIEWER recibe 403 y el no miembro 404, igual que
+en el detalle. En el tablero, cada tarjeta tiene el botón **Mover a…** (menú
+accesible con teclado) solo si `can(rol, 'work-item:change-status')`; la
+mutación `useMoveWorkItem` es optimista y, si la API falla, devuelve la
+tarjeta a su columna y muestra el error. MIR-20 debe reutilizarla.
+
 ---
 
-### MIR-20 · Arrastrar y soltar tarjetas
+### MIR-20 · Arrastrar y soltar tarjetas — ✅ implementado
 
 > Como miembro
 > quiero arrastrar una tarjeta a otra columna
@@ -384,6 +425,19 @@ Entrega 3. Debe existir **antes** que MIR-20.
 
 **Notas.** dnd-kit con `PointerSensor` y `KeyboardSensor`. Reutiliza la misma
 mutación de MIR-19.
+
+Cada columna es un destino (`useDroppable` con su estado como id) y cada
+tarjeta un arrastrable que lleva el item en `data`; al soltar en otra columna se
+llama a `useMoveWorkItem`, así que la actualización optimista, el rollback y el
+mensaje de error son los mismos del menú. Con ratón se toma la tarjeta desde
+cualquier punto (distancia mínima de 5 px, para que un clic no sea un arrastre);
+con teclado, desde el asa **Arrastrar MIR-n**: Espacio o Enter la toma, las
+flechas izquierda y derecha saltan a la columna vecina (`coordinateGetter`
+propio en `boardDnd.ts`), Espacio o Enter la suelta y Escape cancela. Los
+anuncios para lectores de pantalla están en español. Sin
+`can(rol, 'work-item:change-status')` el arrastrable queda deshabilitado y no
+hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
+`getBoundingClientRect` porque jsdom no lo calcula.
 
 ---
 
@@ -419,6 +473,12 @@ mutación de MIR-19.
 - **Dado** un item con cambios, **cuando** abro su historial, **entonces** veo las entradas en orden cronológico inverso, con actor y fecha.
 - **Dado** un cambio de estado, **cuando** lo veo en el historial, **entonces** se lee en lenguaje natural ("movió de Por hacer a En progreso"), no como nombres de columnas de base de datos.
 - **Dado** que una actualización falla a mitad de camino, **cuando** se revierte la transacción, **entonces** **no** queda una entrada de historial huérfana.
+
+Ampliados al planificar (ver `docs/plans/MIR-22-historial-elemento.md`):
+
+- **Dado** que soy VIEWER del proyecto, **cuando** abro el historial, **entonces** lo veo; **dado** que no soy miembro, **entonces** recibo 404.
+- **Dado** un item con más de 100 cambios, **cuando** abro su historial, **entonces** veo los 100 más recientes y un aviso de que la lista está recortada.
+- **Dado** el panel del proyecto (MIR-23), **cuando** muestra la actividad, **entonces** usa las mismas frases en lenguaje natural, refiriéndose a "un ítem".
 
 ---
 
@@ -465,10 +525,18 @@ mutación de MIR-19.
 **Tipo:** Documentación · **Prioridad:** High · **Estimación:** 5
 
 - Home como índice con enlaces a todas las páginas.
-- Páginas: Resumen, Tecnologías y Stack, Arquitectura, Estrategia de Pruebas,
-  Supuestos y Dependencias, Evidencias.
+- Páginas de `deliverables/entregas.md` §4.7: `Proyecto - Resumen y alcance`,
+  `Proyecto - Requisitos y trazabilidad`, `Proyecto - Arquitectura y
+  tecnologías`, `Proyecto - Estrategia de pruebas`, `Proyecto - Supuestos y
+  dependencias`, `Proyecto - Evidencias`, `Entrega 1`, `Entrega 2`, `Entrega 3`.
 - Página "Entrega 1" con H1 exactamente `Entrega 1`.
-- Contenido base disponible en `docs/`.
+- Contenido fuente en `docs/wiki/`, publicado a la Wiki por
+  `.github/workflows/wiki.yml` en cada push a `develop` (espejo exacto). La
+  Wiki no se edita en GitHub.
+- CI verifica en cada PR: sin `[[wikilinks]]`, sin enlaces rotos y el H1 de
+  cada entrega; en el PR de release a `main`, que no queden secciones ⏳.
+- Las secciones que dependen del release (resultados, evidencias, uso de IA)
+  quedan marcadas ⏳ y se completan en MIR-28.
 
 ---
 
@@ -476,10 +544,13 @@ mutación de MIR-19.
 
 **Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 5
 
-- Frontend desplegado en Vercel con `VITE_API_URL` apuntando a la API.
-- API desplegada en Render o Fly.io, conectada al PostgreSQL de Supabase.
+- Frontend desplegado en Vercel con `VITE_API_URL=/api`, reenviado a la API
+  por el rewrite de `apps/web/vercel.json`.
+- API desplegada en Render, conectada al PostgreSQL de Supabase.
 - Migraciones aplicadas con `prisma migrate deploy`.
-- CORS configurado con el origen exacto de producción y cookies cross-site funcionando.
+- Cookies de sesión funcionando en Chrome, incógnito y Safari (mismo origen vía
+  rewrite, ver D13); `CORS_ORIGIN` igual fijado al origen exacto de producción.
+- `/api/health` verifica la base y un pinger externo lo llama cada 10 minutos.
 
 ---
 
@@ -491,6 +562,10 @@ mutación de MIR-19.
 - Tag `v1.0-entrega1` sobre un commit estable de `main`.
 - GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y
   limitaciones conocidas.
+- Evidencia congelada con `npm run wiki:evidencias -- entrega-1` sobre el
+  commit del release, enlazada desde la Wiki.
+- Páginas de la Wiki sin secciones ⏳ (salvo Entrega 2 y 3): lo exige el check
+  "Verificar Wiki" del PR de release.
 
 ---
 

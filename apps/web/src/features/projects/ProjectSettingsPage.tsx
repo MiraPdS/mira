@@ -1,0 +1,353 @@
+import { useEffect, useId, useRef, useState } from 'react';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
+import {
+  can,
+  ROLE_LABELS,
+  updateProjectSchema,
+  type ProjectDto,
+  type UpdateProjectInput,
+} from '@mira/shared';
+import { ApiRequestError } from '@/lib/api-client';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Field } from '@/components/ui/field';
+import { projectKeys, useDeleteProject, useProject, useUpdateProject } from './useProjects';
+
+const CAMPOS = ['name', 'description'] as const;
+
+/**
+ * Configuracion del proyecto (MIR-7): cualquier miembro lo ve; solo quien
+ * puede `project:update` (el OWNER) ve el boton "Editar".
+ */
+export function ProjectSettingsPage() {
+  const { projectId = '' } = useParams<{ projectId: string }>();
+  const proyecto = useProject(projectId);
+  const [editando, setEditando] = useState(false);
+  const [guardado, setGuardado] = useState(false);
+  const [sinPermiso, setSinPermiso] = useState(false);
+
+  return (
+    <main className="mx-auto w-full max-w-xl px-4 py-6 sm:px-6 sm:py-10">
+      <Link
+        to="/proyectos"
+        className="inline-flex min-h-11 items-center text-sm text-slate-600 underline sm:min-h-0"
+      >
+        Volver a proyectos
+      </Link>
+
+      <h1 className="mt-4 mb-6 text-2xl font-semibold text-slate-900">
+        Configuracion del proyecto
+      </h1>
+
+      {/* Fuera del formulario: debe seguir visible cuando el refetch lo oculta. */}
+      {sinPermiso ? (
+        <p role="alert" className="mb-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          Ya no tienes permisos para editar este proyecto.
+        </p>
+      ) : null}
+
+      {proyecto.isPending ? (
+        <p role="status" className="text-sm text-slate-500">
+          Cargando proyecto...
+        </p>
+      ) : proyecto.isError ? (
+        proyecto.error.status === 403 ? (
+          <p role="alert" className="text-sm text-red-700">
+            No tienes acceso a este proyecto.
+          </p>
+        ) : (
+          <div role="alert" className="space-y-3">
+            <p className="text-sm text-red-700">No se pudo cargar el proyecto.</p>
+            <Button variant="secondary" onClick={() => void proyecto.refetch()}>
+              Reintentar
+            </Button>
+          </div>
+        )
+      ) : editando && can(proyecto.data.myRole, 'project:update') ? (
+        <EditProjectForm
+          project={proyecto.data}
+          onCancel={() => setEditando(false)}
+          onSaved={() => {
+            setEditando(false);
+            setGuardado(true);
+          }}
+          onForbidden={() => {
+            setEditando(false);
+            setSinPermiso(true);
+          }}
+        />
+      ) : (
+        <ProjectDetails
+          project={proyecto.data}
+          guardado={guardado}
+          onEdit={() => {
+            setGuardado(false);
+            setSinPermiso(false);
+            setEditando(true);
+          }}
+        />
+      )}
+    </main>
+  );
+}
+
+function ProjectDetails({
+  project,
+  guardado,
+  onEdit,
+}: {
+  project: ProjectDto;
+  guardado: boolean;
+  onEdit: () => void;
+}) {
+  return (
+    <section className="space-y-4">
+      {guardado ? (
+        <p role="status" className="rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+          Cambios guardados
+        </p>
+      ) : null}
+
+      <dl className="space-y-4 text-sm">
+        <div>
+          <dt className="font-medium text-slate-700">Nombre</dt>
+          <dd className="mt-1 wrap-anywhere text-slate-900">{project.name}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slate-700">Clave</dt>
+          <dd className="mt-1 font-mono text-slate-900">{project.key}</dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slate-700">Descripcion</dt>
+          <dd className="mt-1 whitespace-pre-line wrap-anywhere text-slate-900">
+            {project.description ?? <span className="text-slate-500">Sin descripcion</span>}
+          </dd>
+        </div>
+        <div>
+          <dt className="font-medium text-slate-700">Tu rol</dt>
+          <dd className="mt-1 text-slate-900">{ROLE_LABELS[project.myRole]}</dd>
+        </div>
+      </dl>
+
+      <div className="flex items-center justify-between gap-3">
+        <Link
+          to={`/proyectos/${encodeURIComponent(project.id)}/miembros`}
+          className="inline-flex min-h-11 items-center text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline sm:min-h-0"
+        >
+          Ver equipo
+        </Link>
+        {can(project.myRole, 'project:update') ? <Button onClick={onEdit}>Editar</Button> : null}
+      </div>
+
+      {can(project.myRole, 'project:delete') ? <DeleteProjectSection project={project} /> : null}
+    </section>
+  );
+}
+
+/**
+ * MIR-8: zona de peligro. Eliminar exige confirmar en un dialogo; cancelar
+ * no envia nada. Mismo patron de <dialog> que la eliminacion de items (MIR-16).
+ */
+function DeleteProjectSection({ project }: { project: ProjectDto }) {
+  const navigate = useNavigate();
+  const eliminar = useDeleteProject(project.id);
+  const [confirmando, setConfirmando] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const tituloId = useId();
+  const descripcionId = useId();
+
+  useEffect(() => {
+    if (confirmando) dialogRef.current?.showModal();
+  }, [confirmando]);
+
+  const cerrar = () => {
+    if (!eliminar.isPending) setConfirmando(false);
+  };
+
+  return (
+    <section className="mt-8 rounded-md border border-red-200 p-4">
+      <h2 className="text-sm font-semibold text-red-700">Zona de peligro</h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Eliminar el proyecto borra también sus elementos, comentarios e historial.
+      </p>
+      <Button
+        variant="destructive"
+        className="mt-3"
+        onClick={() => {
+          eliminar.reset();
+          setConfirmando(true);
+        }}
+      >
+        Eliminar proyecto
+      </Button>
+
+      {confirmando ? (
+        <dialog
+          ref={dialogRef}
+          aria-labelledby={tituloId}
+          aria-describedby={descripcionId}
+          className="max-w-lg rounded-lg p-6 backdrop:bg-black/40"
+          onCancel={(event) => {
+            event.preventDefault();
+            cerrar();
+          }}
+        >
+          <h3 id={tituloId} className="text-lg font-semibold">
+            Eliminar proyecto
+          </h3>
+          <p id={descripcionId} className="my-4 text-sm text-slate-700">
+            ¿Eliminar {project.key}: {project.name}? Se borrarán todos sus elementos, comentarios e
+            historial. Esta acción no se puede deshacer.
+          </p>
+          {eliminar.error ? (
+            <p role="alert" className="text-sm text-red-700">
+              {eliminar.error.status === 403
+                ? 'Ya no tienes permisos para eliminar este proyecto.'
+                : eliminar.error.message}
+            </p>
+          ) : null}
+          <div className="mt-4 flex gap-3">
+            <Button variant="secondary" autoFocus disabled={eliminar.isPending} onClick={cerrar}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={eliminar.isPending}
+              onClick={() =>
+                eliminar.mutate(undefined, {
+                  onSuccess: () => navigate('/proyectos', { replace: true }),
+                })
+              }
+            >
+              {eliminar.isPending ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </div>
+        </dialog>
+      ) : null}
+    </section>
+  );
+}
+
+/**
+ * Formulario de edicion. Misma receta que CreateProjectPage, con dos
+ * diferencias: solo se envian los campos que realmente cambian (la bitacora
+ * registra por campo; sin cambios no hay PATCH) y un 403 refresca el proyecto
+ * para que el boton desaparezca solo.
+ */
+function EditProjectForm({
+  project,
+  onCancel,
+  onSaved,
+  onForbidden,
+}: {
+  project: ProjectDto;
+  onCancel: () => void;
+  onSaved: () => void;
+  onForbidden: () => void;
+}) {
+  const queryClient = useQueryClient();
+  const editar = useUpdateProject(project.id);
+
+  const {
+    register,
+    handleSubmit,
+    setError,
+    formState: { errors, isDirty },
+  } = useForm<UpdateProjectInput>({
+    resolver: zodResolver(updateProjectSchema),
+    defaultValues: { name: project.name, description: project.description ?? '' },
+  });
+
+  const onSubmit = handleSubmit(async (values) => {
+    // `values` ya viene normalizado por el esquema (trim, "" -> null). Se
+    // compara contra el proyecto y no contra dirtyFields: agregar espacios al
+    // nombre ensucia el campo pero no lo cambia.
+    const cambios: UpdateProjectInput = {};
+    for (const campo of CAMPOS) {
+      if (values[campo] !== project[campo]) Object.assign(cambios, { [campo]: values[campo] });
+    }
+
+    if (Object.keys(cambios).length === 0) {
+      onCancel();
+      return;
+    }
+
+    try {
+      await editar.mutateAsync(cambios);
+      onSaved();
+    } catch (error) {
+      if (!(error instanceof ApiRequestError)) return;
+
+      if (error.status === 403) {
+        // Probablemente le quitaron el rol OWNER: el refetch trae el rol nuevo.
+        void queryClient.invalidateQueries({ queryKey: projectKeys.detail(project.id) });
+        onForbidden();
+        return;
+      }
+
+      if (error.status === 422) {
+        for (const campo of CAMPOS) {
+          const mensaje = error.fieldError(campo);
+          if (mensaje) setError(campo, { type: 'server', message: mensaje });
+        }
+      }
+    }
+  });
+
+  // El banner solo aparece si el error no se pudo asignar a un campo.
+  const errorApi = editar.error;
+  const errorServidor =
+    errorApi && !CAMPOS.some((campo) => errorApi.fieldError(campo)) ? errorApi.message : undefined;
+
+  return (
+    <form onSubmit={onSubmit} noValidate className="space-y-4">
+      <Field id="name" label="Nombre" error={errors.name?.message}>
+        <Input
+          id="name"
+          aria-invalid={Boolean(errors.name)}
+          aria-describedby={errors.name ? 'name-error' : undefined}
+          {...register('name')}
+        />
+      </Field>
+
+      <Field id="key" label="Clave" hint="La clave no se puede cambiar.">
+        <Input
+          id="key"
+          value={project.key}
+          readOnly
+          className="font-mono"
+          aria-describedby="key-hint"
+        />
+      </Field>
+
+      <Field id="description" label="Descripcion (opcional)" error={errors.description?.message}>
+        <Textarea
+          id="description"
+          rows={4}
+          aria-invalid={Boolean(errors.description)}
+          aria-describedby={errors.description ? 'description-error' : undefined}
+          {...register('description')}
+        />
+      </Field>
+
+      {errorServidor ? (
+        <p role="alert" className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          {errorServidor}
+        </p>
+      ) : null}
+
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <Button variant="ghost" className="w-full sm:w-auto" onClick={onCancel}>
+          Cancelar
+        </Button>
+        <Button type="submit" className="w-full sm:w-auto" disabled={!isDirty || editar.isPending}>
+          {editar.isPending ? 'Guardando...' : 'Guardar'}
+        </Button>
+      </div>
+    </form>
+  );
+}

@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  WORK_ITEM_PRIORITIES,
-  WORK_ITEM_STATUSES,
-  WORK_ITEM_TYPES,
-  ACTIVITY_ACTIONS,
-} from '../domain.js';
+import { WORK_ITEM_PRIORITIES, WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from '../domain.js';
 import { publicUserSchema } from './auth.js';
 import { paginationQuerySchema } from './common.js';
 
@@ -23,14 +18,55 @@ export const createWorkItemSchema = z.object({
 });
 export type CreateWorkItemInput = z.infer<typeof createWorkItemSchema>;
 
-export const updateWorkItemSchema = createWorkItemSchema.partial().strict();
+/**
+ * Campos que pertenecen a MIR-15. Asignacion, estado y sprint tienen casos de
+ * uso propios, por lo que no deben poder modificarse desde este contrato.
+ */
+export const updateWorkItemSchema = z
+  .object({
+    title: z
+      .string()
+      .trim()
+      .min(3, 'El titulo debe tener al menos 3 caracteres')
+      .max(200)
+      .optional(),
+    description: z
+      .string()
+      .trim()
+      .max(10_000)
+      .nullable()
+      .optional()
+      .transform((value) => (value === '' ? null : value)),
+    type: z.enum(WORK_ITEM_TYPES).optional(),
+    priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
+    /** Estimacion en story points (escala Fibonacci acotada). */
+    estimate: z.number().int().min(0).max(100).nullable().optional(),
+    dueDate: z.coerce.date().nullable().optional(),
+  })
+  .strict();
 export type UpdateWorkItemInput = z.infer<typeof updateWorkItemSchema>;
 
-/** Endpoint dedicado para mover una tarjeta en el tablero. */
-export const changeStatusSchema = z.object({
-  status: z.enum(WORK_ITEM_STATUSES),
-});
+/**
+ * Endpoint dedicado para mover una tarjeta en el tablero (MIR-19).
+ * Estricto: mover no es editar, asi que cualquier otro campo se rechaza.
+ */
+export const changeStatusSchema = z
+  .object({
+    status: z.enum(WORK_ITEM_STATUSES),
+  })
+  .strict();
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
+
+/**
+ * Asignar o quitar el responsable (MIR-17). Endpoint propio, como mover
+ * (MIR-19): `null` deja el item sin asignar. Estricto: no se editan otros campos.
+ */
+export const assignWorkItemSchema = z
+  .object({
+    assigneeId: z.string().trim().min(1, 'Indica el responsable o null').nullable(),
+  })
+  .strict();
+export type AssignWorkItemInput = z.infer<typeof assignWorkItemSchema>;
 
 /** Busqueda y filtros del backlog (requisito explicito del tema). */
 export const workItemFiltersSchema = paginationQuerySchema.extend({
@@ -40,8 +76,6 @@ export const workItemFiltersSchema = paginationQuerySchema.extend({
   status: z.enum(WORK_ITEM_STATUSES).optional(),
   priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
   assigneeId: z.string().optional(),
-  sortBy: z.enum(['createdAt', 'updatedAt', 'priority', 'dueDate']).default('createdAt'),
-  sortDir: z.enum(['asc', 'desc']).default('desc'),
 });
 export type WorkItemFilters = z.infer<typeof workItemFiltersSchema>;
 
@@ -65,8 +99,21 @@ export const workItemSchema = z.object({
 });
 export type WorkItemDto = z.infer<typeof workItemSchema>;
 
+/**
+ * Respuesta del tablero Kanban: items de las columnas de BOARD_STATUSES, sin
+ * paginar.  Va plana a proposito: el frontend recorre BOARD_STATUSES para
+ * armar las columnas, asi una columna sin items existe igual.
+ */
+export const boardResponseSchema = z.object({
+  items: z.array(workItemSchema),
+});
+export type BoardResponse = z.infer<typeof boardResponseSchema>;
+
+/** MIR-21: largo maximo de un comentario; lo usan la API y el formulario. */
+export const COMMENT_MAX_LENGTH = 5000;
+
 export const createCommentSchema = z.object({
-  body: z.string().trim().min(1, 'El comentario no puede estar vacio').max(5000),
+  body: z.string().trim().min(1, 'El comentario no puede estar vacio').max(COMMENT_MAX_LENGTH),
 });
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 
@@ -77,15 +124,3 @@ export const commentSchema = z.object({
   createdAt: z.string().datetime(),
 });
 export type CommentDto = z.infer<typeof commentSchema>;
-
-export const activityEntrySchema = z.object({
-  id: z.string(),
-  action: z.enum(ACTIVITY_ACTIONS),
-  actor: publicUserSchema,
-  /** Campo modificado, cuando aplica (por ejemplo "status"). */
-  field: z.string().nullable(),
-  fromValue: z.string().nullable(),
-  toValue: z.string().nullable(),
-  createdAt: z.string().datetime(),
-});
-export type ActivityEntryDto = z.infer<typeof activityEntrySchema>;

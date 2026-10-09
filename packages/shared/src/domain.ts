@@ -38,6 +38,7 @@ export const ACTIVITY_ACTIONS = [
   'MEMBER_ADDED',
   'MEMBER_ROLE_CHANGED',
   'MEMBER_REMOVED',
+  'PROJECT_UPDATED',
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 

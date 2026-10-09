@@ -6,6 +6,11 @@ import cookieParser from 'cookie-parser';
 import { env, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createAuthRouter } from './modules/auth/auth.router.js';
+import { createHealthRouter } from './modules/health/health.router.js';
+
+import { createProjectsRouter } from './modules/projects/projects.router.js';
+import { createWorkItemRouter } from './modules/work-items/work-item.router.js';
+import { createCommentRouter } from './modules/comments/comment.router.js';
 
 /**
  * Construye la aplicacion Express SIN escuchar en un puerto.
@@ -21,22 +26,30 @@ export function createApp(): Express {
   app.use(
     cors({
       origin: env.CORS_ORIGIN.split(',').map((o) => o.trim()),
-      // Imprescindible para que el navegador envie y acepte la cookie de sesion.
       credentials: true,
     }),
   );
+
   app.use(express.json({ limit: '1mb' }));
   app.use(cookieParser());
+
   if (!isTest) app.use(morgan('dev'));
 
-  /** Sonda de salud: la usan Render, Jenkins y los E2E para esperar el arranque. */
-  app.get('/api/health', (_req, res) => {
-    res.json({ status: 'ok', env: env.NODE_ENV, timestamp: new Date().toISOString() });
-  });
+  app.use('/api/health', createHealthRouter());
 
   app.use('/api/auth', createAuthRouter());
 
-  // Estos dos van SIEMPRE al final y en este orden.
+  // Rutas de proyectos provenientes de develop.
+  app.use('/api/projects', createProjectsRouter());
+
+  // Rutas de invitacion y listado de miembros (MIR-9).
+
+  // Rutas de elementos de trabajo.
+  app.use('/api/projects', createWorkItemRouter());
+
+  // Rutas de comentarios de elementos de trabajo (MIR-21).
+  app.use('/api/projects', createCommentRouter());
+
   app.use(notFoundHandler);
   app.use(errorHandler);
 

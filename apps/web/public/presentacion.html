@@ -1,0 +1,3903 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MIRA · INF331</title>
+    <script>
+      // Tema elegido en una visita anterior (oscuro por defecto).
+      try {
+        if (localStorage.getItem('mira-theme') === 'light')
+          document.documentElement.dataset.theme = 'light';
+      } catch {
+        /* sin almacenamiento */
+      }
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      :root {
+        --bg: #090d16;
+        --panel: #121925;
+        --card: #161e2c;
+        --stroke: #283348;
+        --stroke-2: #34465f;
+        --text: #f6f8ff;
+        --soft: #c9d3e3;
+        --muted: #96a3b8;
+        --dim: #7d8ca6;
+        --blue: #75a7ff;
+        --cyan: #5ce1e6;
+        --pink: #eb83bd;
+        --green: #62dcb2;
+        --amber: #f5c678;
+        --purple: #b19aff;
+        --red: #ff7b8a;
+        --sidebar: 244px;
+        --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+        --mono: 'JetBrains Mono', ui-monospace, monospace;
+        --display: 'Space Grotesk', sans-serif;
+      }
+      /* ---------- Paleta ----------
+   Cada color fijo del diseño es un token --k-<hex original>. El tema claro
+   se deriva invirtiendo la luminosidad de cada uno (mismo tono y saturación). */
+      :root {
+        color-scheme: dark;
+        --k-05080dcc: #05080dcc;
+        --k-071119: #071119;
+        --k-090d16d9: #090d16d9;
+        --k-091321: #091321;
+        --k-0a1723: #0a1723;
+        --k-0c121b: #0c121b;
+        --k-0d131d: #0d131d;
+        --k-0d1520: #0d1520;
+        --k-0e1724: #0e1724;
+        --k-0e1826: #0e1826;
+        --k-0f2128: #0f2128;
+        --k-0f2722: #0f2722;
+        --k-10302b: #10302b;
+        --k-111a27: #111a27;
+        --k-111e2b: #111e2b;
+        --k-11262c: #11262c;
+        --k-121923: #121923;
+        --k-121925ed: #121925ed;
+        --k-123230: #123230;
+        --k-123e38: #123e38;
+        --k-131d2c: #131d2c;
+        --k-141c29: #141c29;
+        --k-141e2c: #141e2c;
+        --k-151f2d: #151f2d;
+        --k-15202f: #15202f;
+        --k-161f2c: #161f2c;
+        --k-16243a: #16243a;
+        --k-163340: #163340;
+        --k-182231: #182231;
+        --k-182940: #182940;
+        --k-18304f: #18304f;
+        --k-18533d: #18533d;
+        --k-192230: #192230;
+        --k-1a2637: #1a2637;
+        --k-1a2638: #1a2638;
+        --k-1a2a3e: #1a2a3e;
+        --k-1b2533: #1b2533;
+        --k-1b2637: #1b2637;
+        --k-1b2738: #1b2738;
+        --k-1c4650: #1c4650;
+        --k-1d2c42: #1d2c42;
+        --k-202b3e: #202b3e;
+        --k-213b46: #213b46;
+        --k-223454: #223454;
+        --k-223654: #223654;
+        --k-233956: #233956;
+        --k-24464f: #24464f;
+        --k-244a5a: #244a5a;
+        --k-245360: #245360;
+        --k-263449: #263449;
+        --k-2a141a: #2a141a;
+        --k-2a2412f2: #2a2412f2;
+        --k-2a3342: #2a3342;
+        --k-2a3850: #2a3850;
+        --k-2a3b52: #2a3b52;
+        --k-2b3648: #2b3648;
+        --k-2b3d57: #2b3d57;
+        --k-2b405a: #2b405a;
+        --k-2e4056: #2e4056;
+        --k-2e7e69: #2e7e69;
+        --k-2f3d52: #2f3d52;
+        --k-2f3f55: #2f3f55;
+        --k-2f3f57: #2f3f57;
+        --k-2f415a: #2f415a;
+        --k-2f5560: #2f5560;
+        --k-2f5b72: #2f5b72;
+        --k-2f759b30: #2f759b30;
+        --k-334054: #334054;
+        --k-33435c: #33435c;
+        --k-33465f: #33465f;
+        --k-344158: #344158;
+        --k-34465f: #34465f;
+        --k-35465d: #35465d;
+        --k-354e72: #354e72;
+        --k-3a1a22: #3a1a22;
+        --k-3a1f35: #3a1f35;
+        --k-3a3014: #3a3014;
+        --k-3a4d68: #3a4d68;
+        --k-3b6aa3: #3b6aa3;
+        --k-3d1820: #3d1820;
+        --k-3d5068: #3d5068;
+        --k-3f9f86: #3f9f86;
+        --k-46617d: #46617d;
+        --k-46aecd1c: #46aecd1c;
+        --k-47739b: #47739b;
+        --k-4b5e78: #4b5e78;
+        --k-4b607e: #4b607e;
+        --k-5a64b8: #5a64b8;
+        --k-5a7ea6: #5a7ea6;
+        --k-5d6b80: #5d6b80;
+        --k-5d7ea8: #5d7ea8;
+        --k-5f708a: #5f708a;
+        --k-5f7390: #5f7390;
+        --k-62dcb2: #62dcb2;
+        --k-62dcb200: #62dcb200;
+        --k-62dcb280: #62dcb280;
+        --k-63768e: #63768e;
+        --k-677b96: #677b96;
+        --k-6b7a90: #6b7a90;
+        --k-718098: #718098;
+        --k-75849b: #75849b;
+        --k-75a7ff: #75a7ff;
+        --k-7d3445: #7d3445;
+        --k-7f93ae: #7f93ae;
+        --k-8093ad: #8093ad;
+        --k-8190a6: #8190a6;
+        --k-8aefbf: #8aefbf;
+        --k-8c7230: #8c7230;
+        --k-8f9fb5: #8f9fb5;
+        --k-8fa3be: #8fa3be;
+        --k-94a7bf: #94a7bf;
+        --k-96aac3: #96aac3;
+        --k-9a4f80: #9a4f80;
+        --k-9fb0c6: #9fb0c6;
+        --k-9fb2ca: #9fb2ca;
+        --k-a2aec1: #a2aec1;
+        --k-a34556: #a34556;
+        --k-a36b90: #a36b90;
+        --k-a7b5c8: #a7b5c8;
+        --k-a8873a: #a8873a;
+        --k-a8f0d4: #a8f0d4;
+        --k-aabbd0: #aabbd0;
+        --k-afbdd0: #afbdd0;
+        --k-b0bbce: #b0bbce;
+        --k-b19aff: #b19aff;
+        --k-b5c3d6: #b5c3d6;
+        --k-b8c6d8: #b8c6d8;
+        --k-b9c8dc: #b9c8dc;
+        --k-bff3f5: #bff3f5;
+        --k-bff5df: #bff5df;
+        --k-c8f5f7: #c8f5f7;
+        --k-c9d6e8: #c9d6e8;
+        --k-cfd9ea: #cfd9ea;
+        --k-cfe0f3: #cfe0f3;
+        --k-d4e3f3: #d4e3f3;
+        --k-d5fff0: #d5fff0;
+        --k-dbe8ff: #dbe8ff;
+        --k-e2eafb: #e2eafb;
+        --k-ffb3c0: #ffb3c0;
+        --k-ffd9df: #ffd9df;
+        --k-ffdce2: #ffdce2;
+        --k-ffe3f3: #ffe3f3;
+        --k-ffefc4: #ffefc4;
+        --k-fff: #fff;
+      }
+      :root[data-theme='light'] {
+        color-scheme: light;
+        --bg: #ebeef4;
+        --panel: #dce2eb;
+        --card: #d6dce6;
+        --stroke: #bbc3d3;
+        --stroke-2: #a5b3c6;
+        --text: #000209;
+        --soft: #1c2636;
+        --muted: #475469;
+        --dim: #4b576d;
+        --blue: #00328a;
+        --cyan: #199ea3;
+        --pink: #7c144e;
+        --green: #239d73;
+        --amber: #87580a;
+        --purple: #170065;
+        --red: #84000f;
+        --k-05080dcc: #f3f5f9cc;
+        --k-071119: #e8f0f6;
+        --k-090d16d9: #ebeef4d9;
+        --k-091321: #e1e8f3;
+        --k-0a1723: #dfe9f2;
+        --k-0c121b: #e6eaf1;
+        --k-0d131d: #e4e8f0;
+        --k-0d1520: #e1e7f0;
+        --k-0e1724: #dee4ee;
+        --k-0e1826: #dce4ee;
+        --k-0f2128: #dae8ed;
+        --k-0f2722: #dbede9;
+        --k-10302b: #d3ebe7;
+        --k-111a27: #dbe2eb;
+        --k-111e2b: #d7e1eb;
+        --k-11262c: #d6e6eb;
+        --k-121923: #dee3eb;
+        --k-121925ed: #dce2ebed;
+        --k-123230: #d1e9e8;
+        --k-123e38: #c7e7e3;
+        --k-131d2c: #d6dee9;
+        --k-141c29: #d9dfe8;
+        --k-141e2c: #d6dee8;
+        --k-151f2d: #d5dce7;
+        --k-15202f: #d3dce7;
+        --k-161f2c: #d6dce6;
+        --k-16243a: #cad4e4;
+        --k-163340: #c4dae4;
+        --k-182231: #d1d9e4;
+        --k-182940: #c4d1e2;
+        --k-18304f: #b7c9e0;
+        --k-18533d: #b3e0cf;
+        --k-192230: #d2d9e3;
+        --k-1a2637: #ccd5e1;
+        --k-1a2638: #cbd4e1;
+        --k-1a2a3e: #c5d2e0;
+        --k-1b2533: #cfd6e1;
+        --k-1b2637: #ccd4e0;
+        --k-1b2738: #cbd4e0;
+        --k-1c4650: #b6d5dc;
+        --k-1d2c42: #c2cddd;
+        --k-202b3e: #c5cddb;
+        --k-213b46: #bed1d9;
+        --k-223454: #b1bfd7;
+        --k-223654: #b1c0d7;
+        --k-233956: #afc0d6;
+        --k-24464f: #b5cfd6;
+        --k-244a5a: #acc8d4;
+        --k-245360: #a7cad3;
+        --k-263449: #bac5d5;
+        --k-2a141a: #e8d8dc;
+        --k-2a2412f2: #eae5d8f2;
+        --k-2a3342: #c0c7d2;
+        --k-2a3850: #b4bed0;
+        --k-2a3b52: #b2bfd0;
+        --k-2b3648: #bbc3d0;
+        --k-2b3d57: #aebbce;
+        --k-2b405a: #abbbce;
+        --k-2e4056: #aebccc;
+        --k-2e7e69: #8bc7b7;
+        --k-2f3d52: #b1bccc;
+        --k-2f3f55: #afbbcb;
+        --k-2f3f57: #adb9cb;
+        --k-2f415a: #aab8cb;
+        --k-2f5560: #a5c2ca;
+        --k-2f5b72: #95b6c8;
+        --k-2f759b30: #72a6c230;
+        --k-334054: #afb9c8;
+        --k-33435c: #a8b4c7;
+        --k-33465f: #a6b4c6;
+        --k-344158: #abb5c6;
+        --k-34465f: #a5b3c6;
+        --k-35465d: #a7b4c5;
+        --k-354e72: #95a7c2;
+        --k-3a1a22: #e1c9cf;
+        --k-3a1f35: #ddc8d9;
+        --k-3a3014: #e6dfca;
+        --k-3a4d68: #9dabbf;
+        --k-3b6aa3: #698cb7;
+        --k-3d1820: #e2c7cd;
+        --k-3d5068: #9cabbd;
+        --k-3f9f86: #6cb4a1;
+        --k-46617d: #899db2;
+        --k-46aecd1c: #2b86a11c;
+        --k-47739b: #6e8fae;
+        --k-4b5e78: #8d9bae;
+        --k-4b607e: #8797ae;
+        --k-5a64b8: #373f80;
+        --k-5a7ea6: #405a77;
+        --k-5d6b80: #838e9e;
+        --k-5d7ea8: #405877;
+        --k-5f708a: #7a879b;
+        --k-5f7390: #75849a;
+        --k-62dcb2: #239d73;
+        --k-62dcb200: #239d7300;
+        --k-62dcb280: #239d7380;
+        --k-63768e: #768597;
+        --k-677b96: #6f7e92;
+        --k-6b7a90: #747f8f;
+        --k-718098: #4d586a;
+        --k-75849b: #4d596a;
+        --k-75a7ff: #00328a;
+        --k-7d3445: #c28b98;
+        --k-7f93ae: #475970;
+        --k-8093ad: #485970;
+        --k-8190a6: #4c596c;
+        --k-8aefbf: #107545;
+        --k-8c7230: #c3b07e;
+        --k-8f9fb5: #49596f;
+        --k-8fa3be: #415570;
+        --k-94a7bf: #40536b;
+        --k-96aac3: #3c5069;
+        --k-9a4f80: #a76e93;
+        --k-9fb0c6: #394a60;
+        --k-9fb2ca: #354860;
+        --k-a2aec1: #3e4a5d;
+        --k-a34556: #ae6874;
+        --k-a36b90: #714663;
+        --k-a7b5c8: #374558;
+        --k-a8873a: #b79e65;
+        --k-a8f0d4: #0f573b;
+        --k-aabbd0: #2f4055;
+        --k-afbdd0: #2f3d50;
+        --k-b0bbce: #313c4f;
+        --k-b19aff: #170065;
+        --k-b5c3d6: #29374a;
+        --k-b8c6d8: #273547;
+        --k-b9c8dc: #233246;
+        --k-bff3f5: #0a3e40;
+        --k-bff5df: #0a402a;
+        --k-c8f5f7: #083537;
+        --k-c9d6e8: #172436;
+        --k-cfd9ea: #151f30;
+        --k-cfe0f3: #0c1d30;
+        --k-d4e3f3: #0c1b2b;
+        --k-d5fff0: #002a1b;
+        --k-dbe8ff: #000d24;
+        --k-e2eafb: #040c1d;
+        --k-ffb3c0: #4c000d;
+        --k-ffd9df: #260006;
+        --k-ffdce2: #230006;
+        --k-ffe3f3: #1c0010;
+        --k-ffefc4: #3b2b00;
+        --k-fff: #000000;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background: var(--bg);
+        color: var(--text);
+        font-family: 'DM Sans', sans-serif;
+      }
+      button {
+        font: inherit;
+        color: inherit;
+      }
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--cyan);
+        outline-offset: 3px;
+      }
+      code,
+      .code {
+        font-family: var(--mono);
+      }
+      body:before {
+        content: '';
+        pointer-events: none;
+        position: fixed;
+        inset: 0;
+        z-index: 0;
+        background:
+          radial-gradient(ellipse at 80% -12%, rgba(176, 84, 166, 0.15), transparent 40%),
+          radial-gradient(ellipse at 0% 100%, rgba(40, 144, 174, 0.1), transparent 45%);
+      }
+
+      /* ---------- Marco ---------- */
+      .top {
+        height: 58px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0 27px;
+        background: var(--k-090d16d9);
+        border-bottom: 1px solid var(--k-2a3342);
+        z-index: 30;
+        backdrop-filter: blur(18px);
+      }
+      .brand {
+        font: 700 13px var(--display);
+        letter-spacing: 0.04em;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+      }
+      .brandmark {
+        background: var(--cyan);
+        border-radius: 6px;
+        padding: 7px 10px;
+        color: var(--k-071119);
+        font: 800 12px var(--mono);
+        letter-spacing: 0.04em;
+      }
+      .top-right {
+        display: flex;
+        align-items: center;
+        gap: 18px;
+        font: 600 12px var(--mono);
+        color: var(--muted);
+      }
+      #counter {
+        color: var(--amber);
+        min-width: 62px;
+        text-align: right;
+      }
+      .live-toggle {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--k-2f5560);
+        background: var(--k-11262c);
+        color: var(--k-c8f5f7);
+        border-radius: 999px;
+        padding: 7px 13px;
+        font: 600 11px var(--mono);
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .theme-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 30px;
+        border: 1px solid var(--k-344158);
+        background: var(--k-1b2533);
+        border-radius: 999px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+        transition: 0.2s;
+      }
+      .theme-toggle:hover {
+        border-color: var(--cyan);
+      }
+      .theme-toggle .sun {
+        display: none;
+      }
+      :root[data-theme='light'] .theme-toggle .sun {
+        display: inline;
+      }
+      :root[data-theme='light'] .theme-toggle .moon {
+        display: none;
+      }
+      .live-toggle:hover,
+      .live-toggle[aria-pressed='true'] {
+        background: var(--k-1c4650);
+        border-color: var(--cyan);
+      }
+      .pulse {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--k-6b7a90);
+        flex: none;
+      }
+      .pulse.ok {
+        background: var(--green);
+        box-shadow: 0 0 0 0 var(--k-62dcb280);
+        animation: ping 2s infinite;
+      }
+      .pulse.warn {
+        background: var(--amber);
+      }
+      .pulse.err {
+        background: var(--red);
+      }
+      @keyframes ping {
+        70% {
+          box-shadow: 0 0 0 8px var(--k-62dcb200);
+        }
+        100% {
+          box-shadow: 0 0 0 0 var(--k-62dcb200);
+        }
+      }
+      .topline {
+        position: fixed;
+        top: 56px;
+        left: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--cyan), var(--blue), var(--pink));
+        width: 0;
+        z-index: 32;
+        transition: width 0.65s var(--ease);
+      }
+
+      aside {
+        position: fixed;
+        top: 72px;
+        bottom: 67px;
+        left: 14px;
+        width: var(--sidebar);
+        padding: 16px 10px;
+        z-index: 15;
+        border: 1px solid var(--stroke);
+        border-radius: 17px;
+        background: var(--k-121925ed);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
+      aside .label {
+        font: 600 10px var(--mono);
+        letter-spacing: 0.19em;
+        color: var(--dim);
+        margin: 4px 10px 15px;
+      }
+      .chapters {
+        overflow-y: auto;
+        min-height: 0;
+        scrollbar-width: thin;
+        scrollbar-color: var(--k-33435c) transparent;
+      }
+      .chapter {
+        display: block;
+        width: 100%;
+        margin: 2px 0 7px;
+        padding: 12px 11px;
+        text-align: left;
+        border: 1px solid transparent;
+        border-radius: 10px;
+        background: transparent;
+        color: var(--k-a2aec1);
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .chapter:hover {
+        background: var(--k-202b3e);
+        color: var(--k-fff);
+      }
+      .chapter.active {
+        background: var(--k-223454);
+        border-color: var(--k-354e72);
+        color: var(--k-fff);
+      }
+      .chapter strong {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+      .chapter .dot {
+        height: 15px;
+        width: 15px;
+        border-radius: 50%;
+        border: 1px solid var(--k-677b96);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font: 700 9px var(--mono);
+        flex: none;
+      }
+      .chapter.active .dot {
+        background: var(--cyan);
+        color: var(--k-0a1723);
+        border-color: var(--cyan);
+      }
+      .chap-progress {
+        display: flex;
+        gap: 5px;
+        padding: 7px 0 0 23px;
+      }
+      .chap-progress i {
+        width: 7px;
+        height: 7px;
+        border: 1px solid var(--k-718098);
+        border-radius: 50%;
+        display: block;
+      }
+      .chap-progress i.on {
+        background: var(--cyan);
+        border-color: var(--cyan);
+      }
+      .aside-foot {
+        margin-top: auto;
+        padding: 14px 10px 2px;
+        border-top: 1px solid var(--stroke);
+        font: 500 10px/1.75 var(--mono);
+        color: var(--k-8190a6);
+      }
+      .aside-foot b {
+        color: var(--soft);
+        font-weight: 600;
+      }
+
+      .stage {
+        position: fixed;
+        left: calc(var(--sidebar) + 27px);
+        right: 14px;
+        top: 72px;
+        bottom: 67px;
+        border-radius: 18px;
+        border: 1px solid var(--k-2b3648);
+        background:
+          radial-gradient(circle at 84% 6%, rgba(102, 94, 170, 0.07), transparent 33%),
+          var(--k-121923);
+        overflow: hidden;
+        isolation: isolate;
+        z-index: 10;
+      }
+      .slide {
+        position: absolute;
+        inset: 0;
+        padding: clamp(28px, 4.4vw, 80px);
+        display: flex;
+        flex-direction: column;
+        justify-content: safe center;
+        overflow-y: auto;
+        overflow-x: hidden;
+        scrollbar-color: var(--k-33435c) transparent;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(24px) scale(0.987);
+        transition:
+          opacity 0.54s var(--ease),
+          transform 0.54s var(--ease),
+          visibility 0.54s;
+        scrollbar-width: thin;
+      }
+      .slide.active {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        z-index: 2;
+      }
+      .slide > * {
+        position: relative;
+        z-index: 1;
+      }
+      .slide.active .reveal {
+        animation: rise 0.75s var(--ease) both;
+        animation-delay: calc(var(--i, 0) * 90ms + 90ms);
+      }
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(22px);
+          filter: blur(5px);
+        }
+        to {
+          opacity: 1;
+          transform: none;
+          filter: blur(0);
+        }
+      }
+      .spotlight {
+        position: absolute;
+        width: 380px;
+        height: 380px;
+        border-radius: 50%;
+        background: radial-gradient(circle, var(--k-46aecd1c), transparent 68%);
+        filter: blur(10px);
+        pointer-events: none;
+        transform: translate(-50%, -50%);
+        z-index: 0;
+        left: 70%;
+        top: 30%;
+      }
+
+      .footer {
+        position: fixed;
+        left: 14px;
+        right: 14px;
+        bottom: 9px;
+        height: 45px;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      .nav {
+        display: flex;
+        gap: 8px;
+      }
+      .nav button,
+      .action {
+        border-radius: 9px;
+        border: 1px solid var(--k-344158);
+        background: var(--k-1b2533);
+        color: var(--k-e2eafb);
+        cursor: pointer;
+        padding: 11px 16px;
+        font: 650 12px 'DM Sans';
+        transition: 0.2s;
+      }
+      .nav button:hover,
+      .action:hover {
+        background: var(--k-2b3d57);
+        border-color: var(--blue);
+      }
+      .nav button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+      .action.selected {
+        border-color: var(--cyan);
+        background: var(--k-245360);
+        color: var(--k-fff);
+      }
+      .focus .top,
+      .focus aside,
+      .focus .footer,
+      .focus .topline {
+        display: none;
+      }
+      .focus .stage {
+        inset: 10px;
+      }
+
+      /* ---------- Tipografía ---------- */
+      .eyebrow {
+        font: 700 clamp(10px, 1vw, 13px) var(--mono);
+        letter-spacing: 0.16em;
+        color: var(--pink);
+        text-transform: uppercase;
+      }
+      .headline {
+        font: 700 clamp(36px, 4.7vw, 76px)/1.04 var(--display);
+        letter-spacing: -0.055em;
+        margin: 22px 0 16px;
+        max-width: 1100px;
+      }
+      .sub {
+        color: var(--k-b0bbce);
+        font-size: clamp(14px, 1.3vw, 19px);
+        line-height: 1.6;
+        max-width: 950px;
+        margin: 0 0 30px;
+      }
+      .slidehead {
+        margin-bottom: 26px;
+      }
+      .slidehead h2 {
+        font: 700 clamp(28px, 3.1vw, 50px)/1.1 var(--display);
+        letter-spacing: -0.045em;
+        margin: 12px 0;
+      }
+      .slidehead p {
+        font-size: clamp(13px, 1.1vw, 17px);
+        line-height: 1.55;
+        color: var(--muted);
+        margin: 0;
+        max-width: 980px;
+      }
+      .quote {
+        font: 700 clamp(26px, 2.9vw, 46px)/1.22 var(--display);
+        letter-spacing: -0.045em;
+        max-width: 1050px;
+      }
+      .smallprint {
+        font: 500 11px/1.7 var(--mono);
+        color: var(--k-8093ad);
+        margin-top: 14px;
+      }
+      .mini-label {
+        font: 700 11px var(--mono);
+        text-transform: uppercase;
+        letter-spacing: 0.13em;
+        color: var(--cyan);
+        margin-bottom: 12px;
+      }
+      .blue {
+        color: var(--blue) !important;
+      }
+      .cyan {
+        color: var(--cyan) !important;
+      }
+      .green {
+        color: var(--green) !important;
+      }
+      .amber {
+        color: var(--amber) !important;
+      }
+      .purple {
+        color: var(--purple) !important;
+      }
+      .pink {
+        color: var(--pink) !important;
+      }
+      .red {
+        color: var(--red) !important;
+      }
+      .tagline {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+      .tag {
+        border: 1px solid var(--k-334054);
+        background: var(--k-182231);
+        padding: 8px 12px;
+        border-radius: 50px;
+        color: var(--k-afbdd0);
+        font: 500 11px var(--mono);
+      }
+      .kbd {
+        display: inline-block;
+        font: 600 0.9em var(--mono);
+        color: var(--cyan);
+        background: var(--k-0f2128);
+        border: 1px solid var(--k-24464f);
+        border-radius: 6px;
+        padding: 1px 6px;
+      }
+
+      /* ---------- Tarjetas y grillas ---------- */
+      .grid {
+        display: grid;
+        gap: 14px;
+      }
+      .cols2 {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .cols3 {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .cols4 {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+      }
+      .card {
+        position: relative;
+        border: 1px solid var(--stroke);
+        border-radius: 16px;
+        background: linear-gradient(145deg, var(--k-192230), var(--k-141c29));
+        padding: clamp(15px, 1.5vw, 24px);
+        min-width: 0;
+        transition:
+          transform 0.25s,
+          border-color 0.25s,
+          box-shadow 0.25s;
+      }
+      .card:hover {
+        transform: translateY(-3px);
+        border-color: var(--k-4b607e);
+        box-shadow: 0 14px 45px #0003;
+      }
+      .card h3 {
+        font: 650 clamp(15px, 1.4vw, 21px) var(--display);
+        letter-spacing: -0.025em;
+        margin: 10px 0 8px;
+      }
+      .card p {
+        color: var(--k-a7b5c8);
+        font-size: clamp(12px, 0.98vw, 15px);
+        line-height: 1.55;
+        margin: 6px 0;
+      }
+      .card .n {
+        color: var(--cyan);
+        font: 600 11px var(--mono);
+        letter-spacing: 0.04em;
+      }
+      .card .fix {
+        margin-top: 12px;
+        padding-top: 10px;
+        border-top: 1px dashed var(--k-2f3d52);
+        font: 500 11.5px/1.5 var(--mono);
+        color: var(--green);
+      }
+      .card .proof {
+        font: 500 11px/1.5 var(--mono);
+        color: var(--k-8fa3be);
+        margin-top: 6px;
+      }
+      .card .proof:before {
+        content: 'it("';
+        color: var(--k-5f708a);
+      }
+      .card .proof:after {
+        content: '")';
+        color: var(--k-5f708a);
+      }
+      .statement {
+        padding: 18px 24px;
+        border: 1px solid var(--k-2e4056);
+        border-left: 3px solid var(--cyan);
+        border-radius: 10px;
+        background: var(--k-111e2b);
+        color: var(--k-d4e3f3);
+        font-size: clamp(13px, 1.12vw, 17px);
+        line-height: 1.5;
+        margin-top: 20px;
+      }
+      .statement b {
+        color: var(--k-fff);
+      }
+      .iconbox {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 38px;
+        height: 38px;
+        border: 1px solid var(--k-46617d);
+        border-radius: 10px;
+        background: var(--k-223654);
+        color: var(--cyan);
+        font: 700 14px var(--mono);
+      }
+      .livechip {
+        position: absolute;
+        top: 14px;
+        right: 14px;
+        border: 1px solid var(--k-2f5560);
+        background: var(--k-11262c);
+        color: var(--k-bff3f5);
+        border-radius: 999px;
+        padding: 5px 10px;
+        font: 600 10px var(--mono);
+        cursor: pointer;
+        opacity: 0.85;
+        transition: 0.2s;
+      }
+      .livechip:hover {
+        opacity: 1;
+        background: var(--k-1c4650);
+        border-color: var(--cyan);
+      }
+      .person {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .person .who {
+        font: 650 clamp(14px, 1.25vw, 18px) var(--display);
+        letter-spacing: -0.02em;
+      }
+      .person .area {
+        color: var(--k-a7b5c8);
+        font-size: 12.5px;
+        line-height: 1.45;
+      }
+
+      /* ---------- Flujo genérico ---------- */
+      .flow {
+        display: flex;
+        align-items: stretch;
+        gap: 0;
+      }
+      .flow .node {
+        flex: 1;
+        min-width: 0;
+        background: var(--k-1a2637);
+        border: 1px solid var(--stroke-2);
+        border-radius: 13px;
+        padding: 16px 12px;
+        text-align: center;
+        font: 600 clamp(11px, 0.98vw, 15px) var(--display);
+        position: relative;
+      }
+      .flow .node small {
+        display: block;
+        margin-top: 7px;
+        color: var(--k-96aac3);
+        font: 500 clamp(9px, 0.76vw, 11.5px)/1.45 var(--mono);
+      }
+      .flow .node .k {
+        display: block;
+        font: 700 10px var(--mono);
+        color: var(--cyan);
+        margin-bottom: 6px;
+        letter-spacing: 0.06em;
+      }
+      .flow .node.end {
+        background: var(--k-123e38);
+        border-color: var(--k-3f9f86);
+      }
+      .flow .link {
+        flex: 0 0 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        position: relative;
+      }
+      .flow .link:before {
+        content: '';
+        position: absolute;
+        left: 3px;
+        right: 7px;
+        top: 50%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--k-2f5b72), var(--cyan));
+      }
+      .flow .link:after {
+        content: '';
+        position: absolute;
+        right: 2px;
+        top: calc(50% - 5px);
+        border: 5px solid transparent;
+        border-left: 7px solid var(--cyan);
+        border-right: 0;
+      }
+      .flow .link i {
+        position: absolute;
+        top: calc(50% - 3px);
+        left: 2px;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--k-fff);
+        box-shadow: 0 0 10px var(--cyan);
+        animation: travel 2.4s linear infinite;
+        animation-delay: calc(var(--d, 0) * 0.4s);
+      }
+      @keyframes travel {
+        from {
+          left: 0;
+          opacity: 0;
+        }
+        15% {
+          opacity: 1;
+        }
+        85% {
+          opacity: 1;
+        }
+        to {
+          left: calc(100% - 8px);
+          opacity: 0;
+        }
+      }
+
+      /* ---------- Arquitectura ---------- */
+      .arch {
+        display: grid;
+        grid-template-columns: 1fr 48px 1.45fr 48px 1fr;
+        align-items: stretch;
+        gap: 0;
+      }
+      .layer {
+        border: 1px solid var(--stroke-2);
+        border-radius: 16px;
+        background: linear-gradient(160deg, var(--k-182940), var(--k-131d2c));
+        padding: 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 9px;
+        transition: 0.3s;
+        cursor: pointer;
+        min-width: 0;
+      }
+      .layer:hover {
+        border-color: var(--k-5a7ea6);
+      }
+      .layer .lt {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .layer .lt b {
+        font: 700 clamp(14px, 1.3vw, 19px) var(--display);
+        letter-spacing: -0.02em;
+      }
+      .layer .lt span {
+        font: 600 10px var(--mono);
+        color: var(--dim);
+      }
+      .chip {
+        display: inline-flex;
+        align-items: center;
+        border: 1px solid var(--k-33465f);
+        background: var(--k-1a2a3e);
+        border-radius: 8px;
+        padding: 6px 9px;
+        font: 500 11px var(--mono);
+        color: var(--k-cfe0f3);
+        transition: 0.3s;
+      }
+      .chips {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+      .chain {
+        display: grid;
+        grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+        align-items: stretch;
+        gap: 4px;
+      }
+      .chain .chip {
+        flex-direction: column;
+        justify-content: center;
+        padding: 8px 4px;
+        min-width: 0;
+        text-align: center;
+        font-weight: 600;
+      }
+      .chain .chip small {
+        display: block;
+        font: 500 9.5px/1.2 var(--mono);
+        color: var(--k-7f93ae);
+        margin-top: 4px;
+      }
+      .chain em {
+        font-style: normal;
+        color: var(--cyan);
+        font: 700 13px var(--mono);
+        align-self: center;
+      }
+      .wire {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        position: relative;
+      }
+      .wire:before {
+        content: '';
+        position: absolute;
+        left: 4px;
+        right: 4px;
+        top: 50%;
+        height: 2px;
+        background: linear-gradient(90deg, var(--k-2f5b72), var(--cyan));
+      }
+      .wire i {
+        position: absolute;
+        top: calc(50% - 3px);
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--k-fff);
+        box-shadow: 0 0 10px var(--cyan);
+        animation: travel 2.2s linear infinite;
+      }
+      .wire small {
+        position: relative;
+        top: -16px;
+        font: 600 9px var(--mono);
+        color: var(--dim);
+        text-align: center;
+        line-height: 1.2;
+      }
+      .shared-row {
+        display: grid;
+        grid-template-columns: 1fr 48px 1.45fr 48px 1fr;
+        margin-top: 0;
+      }
+      .uplinks {
+        grid-column: 1/4;
+        display: grid;
+        grid-template-columns: 1fr 48px 1.45fr;
+        height: 26px;
+      }
+      .uplinks span {
+        position: relative;
+      }
+      .uplinks span:before {
+        content: '';
+        position: absolute;
+        left: 50%;
+        top: 0;
+        bottom: 0;
+        border-left: 2px dashed var(--k-3f9f86);
+      }
+      .uplinks span:nth-child(2) {
+        visibility: hidden;
+      }
+      .uplinks span:after {
+        content: '';
+        position: absolute;
+        left: calc(50% - 5px);
+        top: -2px;
+        border: 5px solid transparent;
+        border-bottom: 7px solid var(--k-62dcb2);
+        border-top: 0;
+      }
+      .shared {
+        grid-column: 1/4;
+        border: 1px solid var(--k-3f9f86);
+        border-radius: 14px;
+        background: var(--k-123230);
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+        cursor: pointer;
+        transition: 0.3s;
+      }
+      .shared b {
+        font: 700 14px var(--mono);
+        color: var(--k-bff5df);
+      }
+      .lens {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 16px 0 0;
+      }
+      .lens .action {
+        padding: 9px 13px;
+        font-size: 11.5px;
+      }
+      .lens .action i {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 7px;
+        vertical-align: 1px;
+      }
+      .arch-explain {
+        margin-top: 14px;
+        min-height: 56px;
+      }
+      [data-lens] .hl {
+        transition: 0.3s;
+      }
+      .arch-wrap.lensing .hl {
+        opacity: 0.28;
+        filter: saturate(0.4);
+      }
+      .arch-wrap.lensing .hl.on {
+        opacity: 1;
+        filter: none;
+        box-shadow:
+          0 0 0 2px var(--lc),
+          0 0 26px -6px var(--lc);
+        border-color: var(--lc);
+      }
+
+      /* ---------- Permisos ---------- */
+      .matrix {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0 6px;
+        text-align: left;
+        font-size: clamp(12px, 1.05vw, 15px);
+      }
+      .matrix th {
+        padding: 6px 14px;
+        color: var(--k-8f9fb5);
+        font: 700 11px var(--mono);
+      }
+      .matrix th:not(:first-child),
+      .matrix td:not(:first-child) {
+        text-align: center;
+        width: 14%;
+      }
+      .matrix td {
+        padding: 10px 14px;
+        background: var(--k-1b2637);
+        border-top: 1px solid var(--k-2a3b52);
+        border-bottom: 1px solid var(--k-2a3b52);
+        transition: 0.25s;
+      }
+      .matrix td:first-child {
+        border-radius: 10px 0 0 10px;
+        border-left: 1px solid var(--k-2a3b52);
+      }
+      .matrix td:last-child {
+        border-radius: 0 10px 10px 0;
+        border-right: 1px solid var(--k-2a3b52);
+      }
+      .matrix td code {
+        font-size: 10.5px;
+        color: var(--k-7f93ae);
+        margin-left: 8px;
+      }
+      .tick {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        height: 24px;
+        width: 24px;
+        background: var(--k-18533d);
+        color: var(--k-8aefbf);
+        font-size: 13px;
+      }
+      .no {
+        color: var(--k-75849b);
+      }
+      .matrix tr.focus td {
+        background: var(--k-233956);
+        border-color: var(--k-47739b);
+      }
+      .perm-code {
+        font: 500 clamp(11px, 0.95vw, 13.5px)/1.6 var(--mono);
+        background: var(--k-0d1520);
+        border: 1px solid var(--k-263449);
+        border-radius: 12px;
+        padding: 14px 16px;
+        color: var(--k-b9c8dc);
+        white-space: pre;
+        overflow: auto;
+      }
+      .perm-code .c {
+        color: var(--k-5f7390);
+      }
+      .perm-code .k {
+        color: var(--pink);
+      }
+      .perm-code .f {
+        color: var(--cyan);
+      }
+      .perm-code .s {
+        color: var(--amber);
+      }
+
+      /* ---------- Pirámide ---------- */
+      .pyramid {
+        display: flex;
+        align-items: center;
+        flex-direction: column;
+        gap: 8px;
+        justify-content: center;
+      }
+      .tier {
+        clip-path: polygon(11% 0, 89% 0, 100% 100%, 0 100%);
+        padding: 15px 16px 13px;
+        text-align: center;
+        color: var(--k-091321);
+        font: 750 clamp(13px, 1.2vw, 18px) var(--display);
+        transition: transform 0.2s;
+      }
+      .tier:hover {
+        transform: scale(1.04);
+      }
+      .tier b {
+        font: 700 clamp(18px, 1.7vw, 26px) var(--display);
+        display: block;
+        letter-spacing: -0.03em;
+      }
+      .tier small {
+        display: block;
+        font: 600 10.5px 'DM Sans';
+        margin-top: 3px;
+        opacity: 0.85;
+      }
+      .tier.t1 {
+        background: var(--k-b19aff);
+        width: 62%;
+      }
+      .tier.t2 {
+        background: var(--k-62dcb2);
+        width: 81%;
+      }
+      .tier.t3 {
+        background: var(--k-75a7ff);
+        width: 100%;
+      }
+      .counter-card {
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 8px;
+        background: var(--k-0e1826);
+        border: 1px solid var(--k-35465d);
+        border-radius: 16px;
+        padding: 20px 26px;
+      }
+      .counter-card strong {
+        font: 700 clamp(50px, 6.5vw, 96px)/1 var(--display);
+        color: var(--cyan);
+        letter-spacing: -0.07em;
+      }
+      .counter-card span {
+        font-size: clamp(13px, 1.1vw, 16px);
+        color: var(--k-aabbd0);
+        line-height: 1.5;
+      }
+
+      /* ---------- Simulador de concurrencia ---------- */
+      .sim {
+        display: grid;
+        grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+        gap: 16px;
+        align-items: start;
+      }
+      .lanes {
+        border: 1px solid var(--k-2b405a);
+        background: radial-gradient(circle at 50% 0%, var(--k-1d2c42), var(--k-111a27) 70%);
+        border-radius: 16px;
+        padding: 14px;
+        position: relative;
+      }
+      .lane-head {
+        display: grid;
+        grid-template-columns: 1fr 1.15fr 1fr;
+        gap: 10px;
+        margin-bottom: 8px;
+      }
+      .lane-head div {
+        text-align: center;
+        font: 700 11px var(--mono);
+        padding: 9px;
+        border-radius: 9px;
+        border: 1px solid var(--k-34465f);
+        background: var(--k-16243a);
+      }
+      .lane-head .a {
+        color: var(--blue);
+      }
+      .lane-head .db {
+        color: var(--green);
+      }
+      .lane-head .b {
+        color: var(--pink);
+      }
+      .lane-body {
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        min-height: 300px;
+      }
+      .lane-body:before,
+      .lane-body:after {
+        content: '';
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        border-left: 1px dashed var(--k-2f3f55);
+      }
+      .lane-body:before {
+        left: 16.6%;
+      }
+      .lane-body:after {
+        left: 83.4%;
+      }
+      .ev {
+        display: grid;
+        grid-template-columns: 1fr 1.15fr 1fr;
+        gap: 10px;
+        align-items: center;
+        opacity: 0;
+        transform: translateY(8px);
+        transition:
+          opacity 0.45s var(--ease),
+          transform 0.45s var(--ease);
+      }
+      .ev.show {
+        opacity: 1;
+        transform: none;
+      }
+      .ev .cell {
+        font: 500 clamp(10px, 0.86vw, 12.5px)/1.4 var(--mono);
+        padding: 8px 10px;
+        border-radius: 9px;
+        min-height: 20px;
+      }
+      .ev .act-a {
+        background: var(--k-18304f);
+        border: 1px solid var(--k-3b6aa3);
+        color: var(--k-dbe8ff);
+      }
+      .ev .act-b {
+        background: var(--k-3a1f35);
+        border: 1px solid var(--k-9a4f80);
+        color: var(--k-ffe3f3);
+      }
+      .ev .dbst {
+        background: var(--k-10302b);
+        border: 1px solid var(--k-2e7e69);
+        color: var(--k-d5fff0);
+        text-align: center;
+      }
+      .ev .dbst.lock {
+        background: var(--k-3a3014);
+        border-color: var(--k-a8873a);
+        color: var(--k-ffefc4);
+      }
+      .ev .dbst.bad {
+        background: var(--k-3d1820);
+        border-color: var(--k-a34556);
+        color: var(--k-ffd9df);
+      }
+      .ev .wait {
+        color: var(--amber);
+        font-style: italic;
+      }
+      .ev .arrow-r:after {
+        content: ' →';
+        color: var(--k-5d7ea8);
+      }
+      .ev .arrow-l:before {
+        content: '← ';
+        color: var(--k-a36b90);
+      }
+      .sim-side {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+      .log {
+        border: 1px solid var(--k-2b405a);
+        border-radius: 14px;
+        background: var(--k-0e1724);
+        padding: 14px;
+      }
+      .log table {
+        width: 100%;
+        border-collapse: collapse;
+        font: 500 12px var(--mono);
+      }
+      .log th {
+        color: var(--k-7f93ae);
+        text-align: left;
+        font-weight: 600;
+        padding: 4px 6px;
+        border-bottom: 1px solid var(--k-263449);
+      }
+      .log td {
+        padding: 7px 6px;
+        border-bottom: 1px solid var(--k-1b2738);
+        color: var(--k-d4e3f3);
+      }
+      .log tr.new td {
+        animation: flash 1s;
+      }
+      @keyframes flash {
+        from {
+          background: var(--k-244a5a);
+        }
+      }
+      .verdict {
+        border-radius: 12px;
+        padding: 12px 14px;
+        font-size: 13.5px;
+        line-height: 1.5;
+        border: 1px solid;
+        opacity: 0;
+        transition: 0.4s;
+      }
+      .verdict.show {
+        opacity: 1;
+      }
+      .verdict.good {
+        background: var(--k-10302b);
+        border-color: var(--k-3f9f86);
+        color: var(--k-d5fff0);
+      }
+      .verdict.bad {
+        background: var(--k-3a1a22);
+        border-color: var(--k-a34556);
+        color: var(--k-ffdce2);
+      }
+      .sim-controls {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin-bottom: 12px;
+        align-items: center;
+      }
+      .seg {
+        display: inline-flex;
+        border: 1px solid var(--k-344158);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .seg button {
+        border: 0;
+        background: var(--k-1b2533);
+        padding: 9px 13px;
+        font: 650 11.5px 'DM Sans';
+        cursor: pointer;
+        color: var(--k-cfd9ea);
+      }
+      .seg button.on {
+        background: var(--k-245360);
+        color: var(--k-fff);
+      }
+
+      /* ---------- Despliegue ---------- */
+      .deploy {
+        display: grid;
+        grid-template-columns: 0.8fr 36px 1.15fr 36px 1.05fr 36px 1.05fr;
+        align-items: stretch;
+      }
+      .dnode {
+        border: 1px solid var(--stroke-2);
+        border-radius: 16px;
+        background: linear-gradient(160deg, var(--k-182940), var(--k-131d2c));
+        padding: 15px;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+      }
+      .dnode .vend {
+        font: 700 10px var(--mono);
+        letter-spacing: 0.12em;
+        color: var(--dim);
+      }
+      .dnode b {
+        font: 700 clamp(15px, 1.35vw, 20px) var(--display);
+        letter-spacing: -0.02em;
+      }
+      .dnode p {
+        margin: 0;
+        color: var(--k-a7b5c8);
+        font-size: 12.5px;
+        line-height: 1.45;
+      }
+      .dnode .meta {
+        margin-top: auto;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 5px;
+      }
+      .dnode .meta span {
+        font: 500 10px var(--mono);
+        color: var(--k-9fb2ca);
+        border: 1px solid var(--k-2f415a);
+        border-radius: 6px;
+        padding: 3px 6px;
+        background: var(--k-15202f);
+      }
+      .dnode.vercel {
+        border-color: var(--k-5d6b80);
+      }
+      .dnode.render {
+        border-color: var(--k-5a64b8);
+      }
+      .dnode.supa {
+        border-color: var(--k-3f9f86);
+      }
+      .status {
+        display: flex;
+        align-items: center;
+        gap: 7px;
+        font: 600 10.5px var(--mono);
+        color: var(--k-b8c6d8);
+        border-top: 1px dashed var(--k-2f3d52);
+        padding-top: 8px;
+        margin-top: 4px;
+      }
+      .under {
+        display: grid;
+        grid-template-columns: 0.8fr 36px 1.15fr 36px 1.05fr 36px 1.05fr;
+        margin-top: 10px;
+      }
+      .pinger {
+        grid-column: 3/6;
+        border: 1px dashed var(--k-4b5e78);
+        border-radius: 12px;
+        padding: 10px 14px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        font-size: 12.5px;
+        color: var(--k-b5c3d6);
+        background: var(--k-111a27);
+      }
+      .pinger b {
+        font: 700 12px var(--mono);
+        color: var(--amber);
+      }
+      .compare {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 14px;
+      }
+      .path {
+        border: 1px solid var(--stroke-2);
+        border-radius: 16px;
+        padding: 16px;
+        background: var(--k-141e2c);
+        transition: 0.35s;
+      }
+      .path.dim {
+        opacity: 0.38;
+        filter: saturate(0.3);
+      }
+      .path h3 {
+        margin: 0 0 12px;
+        font: 650 17px var(--display);
+      }
+      .hop {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        flex-wrap: wrap;
+        font: 500 11.5px var(--mono);
+        margin-bottom: 12px;
+      }
+      .hop span {
+        border: 1px solid var(--k-33465f);
+        background: var(--k-1a2a3e);
+        border-radius: 8px;
+        padding: 6px 8px;
+      }
+      .hop em {
+        font-style: normal;
+        color: var(--cyan);
+      }
+      .cookie {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 12.5px;
+        line-height: 1.5;
+      }
+      .cookie.bad {
+        background: var(--k-3a1a22);
+        border: 1px solid var(--k-a34556);
+        color: var(--k-ffdce2);
+      }
+      .cookie.good {
+        background: var(--k-10302b);
+        border: 1px solid var(--k-3f9f86);
+        color: var(--k-d5fff0);
+      }
+      .browsers {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+        margin-top: 10px;
+      }
+      .browsers span {
+        font: 600 10.5px var(--mono);
+        border-radius: 6px;
+        padding: 4px 8px;
+        border: 1px solid;
+      }
+      .browsers .x {
+        color: var(--k-ffb3c0);
+        border-color: var(--k-7d3445);
+        background: var(--k-2a141a);
+      }
+      .browsers .v {
+        color: var(--k-a8f0d4);
+        border-color: var(--k-2e7e69);
+        background: var(--k-0f2722);
+      }
+      .snippet {
+        font: 500 12px/1.65 var(--mono);
+        background: var(--k-0d1520);
+        border: 1px solid var(--k-263449);
+        border-radius: 12px;
+        padding: 12px 14px;
+        color: var(--k-b9c8dc);
+        white-space: pre;
+        overflow: auto;
+        margin-top: 14px;
+      }
+      .snippet .k {
+        color: var(--pink);
+      }
+      .snippet .s {
+        color: var(--amber);
+      }
+      .snippet .c {
+        color: var(--k-5f7390);
+      }
+
+      /* ---------- Demo y navegador embebido ---------- */
+      .demo {
+        display: grid;
+        grid-template-columns: minmax(230px, 0.62fr) minmax(0, 1.9fr);
+        gap: 16px;
+        flex: 1;
+        min-height: 0;
+      }
+      .demo-slide {
+        justify-content: flex-start;
+      }
+      .demo-slide .slidehead {
+        margin-bottom: 12px;
+      }
+      .demo-slide .slidehead h2 {
+        font-size: clamp(24px, 2.5vw, 40px);
+        margin: 8px 0 0;
+      }
+      .steps {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        overflow: auto;
+        min-height: 0;
+        scrollbar-width: thin;
+      }
+      .step {
+        display: block;
+        flex: none;
+        text-align: left;
+        width: 100%;
+        border: 1px solid var(--stroke);
+        background: var(--k-151f2d);
+        border-radius: 11px;
+        padding: 8px 11px;
+        cursor: pointer;
+        transition: 0.2s;
+      }
+      .step:hover {
+        border-color: var(--k-4b607e);
+        background: var(--k-1a2638);
+      }
+      .step.on {
+        border-color: var(--cyan);
+        background: var(--k-163340);
+      }
+      .step .n {
+        font: 700 10px var(--mono);
+        color: var(--cyan);
+        letter-spacing: 0.05em;
+      }
+      .step b {
+        display: block;
+        font: 650 13px var(--display);
+        margin: 2px 0 1px;
+      }
+      .step span {
+        display: block;
+        font-size: 11px;
+        color: var(--k-9fb0c6);
+        line-height: 1.35;
+      }
+      .creds {
+        border: 1px dashed var(--k-3d5068);
+        border-radius: 12px;
+        padding: 10px 12px;
+        font: 500 11px/1.7 var(--mono);
+        color: var(--k-b5c3d6);
+      }
+      .creds b {
+        color: var(--amber);
+        font-weight: 600;
+      }
+      .slot {
+        border: 1px dashed var(--k-33465f);
+        border-radius: 14px;
+        min-height: 300px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--dim);
+        font: 500 12px var(--mono);
+      }
+
+      .live {
+        position: fixed;
+        z-index: 25;
+        display: flex;
+        flex-direction: column;
+        border: 1px solid var(--k-3a4d68);
+        border-radius: 14px;
+        background: var(--k-0d131d);
+        overflow: hidden;
+        box-shadow: 0 30px 80px #000a;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition:
+          top 0.5s var(--ease),
+          left 0.5s var(--ease),
+          width 0.5s var(--ease),
+          height 0.5s var(--ease),
+          opacity 0.35s,
+          visibility 0.35s;
+      }
+      .live.shown {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+      .live.overlay {
+        z-index: 45;
+      }
+      .backdrop {
+        position: fixed;
+        inset: 0;
+        background: var(--k-05080dcc);
+        backdrop-filter: blur(4px);
+        z-index: 44;
+        opacity: 0;
+        visibility: hidden;
+        transition: 0.3s;
+      }
+      .backdrop.shown {
+        opacity: 1;
+        visibility: visible;
+      }
+      .chrome {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        background: var(--k-161f2c);
+        border-bottom: 1px solid var(--k-2a3850);
+        flex: none;
+      }
+      .lights {
+        display: flex;
+        gap: 6px;
+        flex: none;
+      }
+      .lights i {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ff5f57;
+      }
+      .lights i:nth-child(2) {
+        background: #febc2e;
+      }
+      .lights i:nth-child(3) {
+        background: #28c840;
+      }
+      .urlbar {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        background: var(--k-0c121b);
+        border: 1px solid var(--k-2a3850);
+        border-radius: 8px;
+        padding: 6px 10px;
+        font: 500 11.5px var(--mono);
+        color: var(--k-c9d6e8);
+        overflow: hidden;
+        white-space: nowrap;
+        text-overflow: ellipsis;
+      }
+      .urlbar .lock {
+        color: var(--green);
+      }
+      .urlbar .host {
+        color: var(--k-7f93ae);
+      }
+      .cbtn {
+        flex: none;
+        border: 1px solid var(--k-2f3f57);
+        background: var(--k-1b2533);
+        border-radius: 7px;
+        padding: 5px 9px;
+        font: 600 11px var(--mono);
+        cursor: pointer;
+        color: var(--k-cfd9ea);
+        text-decoration: none;
+      }
+      .cbtn:hover {
+        border-color: var(--cyan);
+      }
+      .env select {
+        background: var(--k-0c121b);
+        border: 1px solid var(--k-2f3f57);
+        border-radius: 7px;
+        color: var(--k-cfd9ea);
+        font: 600 11px var(--mono);
+        padding: 5px 6px;
+      }
+      .live iframe {
+        flex: 1;
+        width: 100%;
+        border: 0;
+        background: white;
+      }
+      .live .hint {
+        position: absolute;
+        left: 12px;
+        right: 12px;
+        bottom: 12px;
+        display: none;
+        gap: 10px;
+        align-items: center;
+        background: var(--k-2a2412f2);
+        border: 1px solid var(--k-8c7230);
+        color: var(--k-ffefc4);
+        border-radius: 10px;
+        padding: 9px 12px;
+        font-size: 12px;
+        line-height: 1.4;
+      }
+      .live.cross .hint {
+        display: flex;
+      }
+      .live .hint button {
+        margin-left: auto;
+      }
+
+      .toast {
+        position: fixed;
+        z-index: 60;
+        right: 30px;
+        bottom: 75px;
+        opacity: 0;
+        transform: translateY(8px);
+        transition: 0.3s;
+        background: var(--k-213b46);
+        border: 1px solid var(--cyan);
+        color: var(--k-fff);
+        border-radius: 9px;
+        padding: 12px 16px;
+        font-size: 12.5px;
+        pointer-events: none;
+        max-width: 420px;
+      }
+      .toast.show {
+        opacity: 1;
+        transform: none;
+      }
+
+      /* ---------- Cierre ---------- */
+      .closing-glow {
+        position: absolute !important;
+        inset: 0;
+        z-index: 0 !important;
+        background: radial-gradient(circle at 50% 40%, var(--k-2f759b30), transparent 45%);
+        pointer-events: none;
+      }
+      .rule {
+        height: 1px;
+        background: linear-gradient(90deg, var(--cyan), transparent);
+        margin: 18px 0;
+      }
+      .timeline-steps {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+      }
+      .timeline-steps .card {
+        border-top: 3px solid var(--blue);
+      }
+      .timeline-steps .card:nth-child(2) {
+        border-top-color: var(--green);
+      }
+      .timeline-steps .card:nth-child(3) {
+        border-top-color: var(--purple);
+      }
+      .timeline-steps .card:nth-child(4) {
+        border-top-color: var(--amber);
+      }
+
+      /* ---------- Responsive ---------- */
+      @media (max-width: 1180px) {
+        :root {
+          --sidebar: 190px;
+        }
+        .arch,
+        .shared-row {
+          grid-template-columns: 1fr 30px 1.45fr 30px 1fr;
+        }
+        .uplinks {
+          grid-template-columns: 1fr 30px 1.45fr;
+        }
+        .deploy,
+        .under {
+          grid-template-columns: 0.8fr 24px 1.15fr 24px 1.05fr 24px 1.05fr;
+        }
+      }
+      @media (max-width: 1050px) {
+        .slide {
+          padding: 30px;
+        }
+        .cols4 {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .sim {
+          grid-template-columns: 1fr;
+        }
+        .demo {
+          flex: none;
+          grid-template-columns: 1fr;
+          grid-template-rows: auto 62vh;
+        }
+        .steps {
+          flex-direction: row;
+          overflow-x: auto;
+          overflow-y: hidden;
+          padding-bottom: 4px;
+          min-height: auto;
+        }
+        .step {
+          min-width: 180px;
+        }
+        .creds {
+          flex: none;
+          min-width: 220px;
+        }
+      }
+      @media (max-width: 820px) {
+        aside {
+          display: none;
+        }
+        .stage {
+          left: 10px;
+          right: 10px;
+          top: 64px;
+          bottom: 60px;
+        }
+        .slide {
+          padding: 22px 16px;
+          justify-content: flex-start;
+        }
+        .headline {
+          font-size: 42px;
+        }
+        .cols3,
+        .cols2,
+        .cols4,
+        .compare,
+        .timeline-steps {
+          grid-template-columns: 1fr;
+        }
+        .flow {
+          flex-direction: column;
+        }
+        .flow .link {
+          flex-basis: 22px;
+          transform: rotate(90deg);
+        }
+        .arch,
+        .deploy {
+          grid-template-columns: 1fr;
+        }
+        .arch .wire,
+        .deploy .wire {
+          height: 34px;
+        }
+        .wire:before {
+          left: 50%;
+          right: auto;
+          top: 4px;
+          bottom: 4px;
+          width: 2px;
+          height: auto;
+        }
+        .wire i {
+          display: none;
+        }
+        .wire small {
+          top: 0;
+          left: 30px;
+          position: absolute;
+        }
+        .shared-row,
+        .under {
+          grid-template-columns: 1fr;
+        }
+        .uplinks {
+          display: none;
+        }
+        .shared,
+        .pinger {
+          grid-column: 1;
+        }
+        .top {
+          padding: 0 13px;
+        }
+        .hide-small,
+        .brand > span:last-child,
+        #full {
+          display: none;
+        }
+        .live-toggle {
+          white-space: nowrap;
+        }
+        .matrix th,
+        .matrix td {
+          padding: 8px 6px;
+        }
+        .matrix td code {
+          display: none;
+        }
+        .grid {
+          gap: 10px;
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *:before,
+        *:after {
+          animation: none !important;
+          transition: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="topline" class="topline"></div>
+    <header class="top">
+      <div class="brand">
+        <span class="brandmark">MIRA</span
+        ><span>Pruebas de Software <span style="color: var(--k-63768e)">/ INF331</span></span>
+      </div>
+      <div class="top-right">
+        <span class="hide-small">UTFSM · 2026-2</span>
+        <button
+          class="theme-toggle"
+          id="theme-toggle"
+          title="Cambiar a modo claro"
+          aria-label="Cambiar a modo claro"
+        >
+          <span class="moon">☾</span><span class="sun">☀</span>
+        </button>
+        <button
+          class="live-toggle"
+          id="live-toggle"
+          aria-pressed="false"
+          title="Abrir la aplicación en vivo"
+        >
+          <span class="pulse" id="pulse"></span><span>App en vivo</span>
+        </button>
+        <span id="counter">01 / 17</span>
+      </div>
+    </header>
+
+    <aside>
+      <div class="label">CONTENIDO</div>
+      <div id="chapters" class="chapters"></div>
+      <div class="aside-foot">
+        <b>Equipo MIRA</b><br />Benjamín Olguín<br />Isaías Carte<br />Mauro Castillo<br />Diego
+        Espinoza
+      </div>
+    </aside>
+
+    <main class="stage" id="stage">
+      <div class="spotlight" id="spotlight"></div>
+
+      <!-- 01 · Portada -->
+      <section class="slide active" data-ch="0">
+        <div class="eyebrow reveal">ENTREGA 1 · OCTUBRE 2026</div>
+        <h1 class="headline reveal" style="--i: 1; font-size: clamp(70px, 11vw, 156px)">
+          MI<span class="pink">R</span>A<span class="cyan">.</span>
+        </h1>
+        <div class="quote reveal" style="--i: 2">
+          Gestión de proyectos<br /><span class="cyan">que puedes verificar.</span>
+        </div>
+        <p class="sub reveal" style="--i: 3; margin-top: 22px">
+          Scrum y Kanban para equipos de software: proyectos, backlog, tablero, roles por proyecto y
+          un historial de cada cambio, respaldado por pruebas automatizadas en tres niveles.
+        </p>
+        <div class="tagline reveal" style="--i: 4">
+          <span class="tag">Vitest</span><span class="tag">React Testing Library</span
+          ><span class="tag">Supertest</span><span class="tag">MSW</span
+          ><span class="tag">PostgreSQL 16</span>
+        </div>
+        <p class="smallprint reveal" style="--i: 5; margin-top: 26px">
+          Benjamín Olguín · Isaías Carte · Mauro Castillo · Diego Espinoza
+        </p>
+      </section>
+
+      <!-- 02 · Problema -->
+      <section class="slide" data-ch="0">
+        <div class="slidehead reveal">
+          <div class="eyebrow">01 / EL PROBLEMA</div>
+          <h2>Del trabajo disperso a una <span class="cyan">vista confiable.</span></h2>
+          <p>
+            No basta con ordenar tareas: también hay que saber quién puede hacer qué y qué cambió.
+          </p>
+        </div>
+        <div class="grid cols3">
+          <div class="card reveal" style="--i: 1">
+            <span class="iconbox">01</span>
+            <h3>Trabajo fragmentado</h3>
+            <p>Backlog, responsables y avance repartidos entre planillas, chats y memoria.</p>
+          </div>
+          <div class="card reveal" style="--i: 2">
+            <span class="iconbox">02</span>
+            <h3>Permisos ambiguos</h3>
+            <p>No todos deben poder editar el proyecto, mover tarjetas o administrar el equipo.</p>
+          </div>
+          <div class="card reveal" style="--i: 3">
+            <span class="iconbox">03</span>
+            <h3>Cambios sin rastro</h3>
+            <p>
+              Sin un historial atómico no se puede reconstruir qué pasó, quién lo hizo ni desde qué
+              valor.
+            </p>
+          </div>
+        </div>
+        <div class="statement reveal" style="--i: 4">
+          <b>El recorrido MIRA:</b> Proyecto → Equipo → Backlog → Elemento de trabajo → Tablero →
+          Comentarios e historial
+        </div>
+      </section>
+
+      <!-- 03 · Proceso -->
+      <section class="slide" data-ch="1">
+        <div class="slidehead reveal">
+          <div class="eyebrow">02 / PROCESO DE DESARROLLO</div>
+          <h2>De una historia a <span class="cyan">evidencia.</span></h2>
+          <p>
+            GitFlow con un ítem de Jira por rama. El ID <code class="cyan">MIR-n</code> recorre toda
+            la cadena, y un hook rechaza el commit que no lo lleva.
+          </p>
+        </div>
+        <div class="flow reveal" style="--i: 1">
+          <div class="node">
+            <span class="k">JIRA</span>Historia<small>criterios Dado / Cuando / Entonces</small>
+          </div>
+          <div class="link"><i style="--d: 0"></i></div>
+          <div class="node">
+            <span class="k">RAMA</span>feature/MIR-n<small>siempre desde develop</small>
+          </div>
+          <div class="link"><i style="--d: 1"></i></div>
+          <div class="node">
+            <span class="k">COMMIT</span>tipo(scope): MIR-n<small>commitlint + lint-staged</small>
+          </div>
+          <div class="link"><i style="--d: 2"></i></div>
+          <div class="node">
+            <span class="k">PULL REQUEST</span>Review cruzado<small
+              >plantilla · 1 aprobación · CI verde</small
+            >
+          </div>
+          <div class="link"><i style="--d: 3"></i></div>
+          <div class="node">
+            <span class="k">DEVELOP</span>Integración<small>trabajo del equipo</small>
+          </div>
+          <div class="link"><i style="--d: 4"></i></div>
+          <div class="node end">
+            <span class="k">MAIN</span>Release<small>v1.0-entrega1 · lo que se despliega</small>
+          </div>
+        </div>
+        <div class="grid cols4" style="margin-top: 20px">
+          <div class="card reveal person" style="--i: 2">
+            <div class="n blue">LÍDER · INFRA</div>
+            <div class="who">Benjamín Olguín</div>
+            <div class="area">Cuenta, proyectos, infraestructura y entrega</div>
+          </div>
+          <div class="card reveal person" style="--i: 3">
+            <div class="n green">BACKLOG</div>
+            <div class="who">Isaías Carte</div>
+            <div class="area">Elementos de trabajo: CRUD, búsqueda y filtros</div>
+          </div>
+          <div class="card reveal person" style="--i: 4">
+            <div class="n amber">TABLERO · UX</div>
+            <div class="who">Mauro Castillo</div>
+            <div class="area">Tablero Kanban, arrastre y diseño responsive</div>
+          </div>
+          <div class="card reveal person" style="--i: 5">
+            <div class="n purple">EQUIPO</div>
+            <div class="who">Diego Espinoza</div>
+            <div class="area">Miembros, permisos y colaboración</div>
+          </div>
+        </div>
+        <p class="smallprint reveal" style="--i: 6">
+          DEFINICIÓN DE HECHO · PR integrado en develop · pruebas en el nivel correcto · CI verde ·
+          ítem de Jira actualizado
+        </p>
+      </section>
+
+      <!-- 04 · Producto -->
+      <section class="slide" data-ch="1">
+        <div class="slidehead reveal">
+          <div class="eyebrow">03 / PRODUCTO</div>
+          <h2>Un solo recorrido.<br /><span class="cyan">Seis capacidades.</span></h2>
+          <p>
+            El MVP cubre el CRUD completo sobre los elementos de trabajo y lo rodea de proyectos,
+            equipo y trazabilidad.
+          </p>
+        </div>
+        <div class="grid cols3">
+          <div class="card reveal" style="--i: 1">
+            <button class="livechip" data-route="/login">● ver en vivo</button>
+            <div class="n">01 / ACCESO</div>
+            <h3>Autenticación</h3>
+            <p>
+              Registro, login, logout y sesión persistente en una cookie <code>httpOnly</code> de 7
+              días.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 2">
+            <button class="livechip" data-route="/proyectos">● ver en vivo</button>
+            <div class="n">02 / GESTIÓN</div>
+            <h3>Proyectos</h3>
+            <p>
+              Crear (clave única, 409 si se repite), listar, ver, editar, eliminar y panel de
+              resumen.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 3">
+            <button class="livechip" data-route="@miembros">● ver en vivo</button>
+            <div class="n">03 / EQUIPO</div>
+            <h3>Miembros y roles</h3>
+            <p>
+              Invitar por correo, cambiar el rol y quitar miembros. El rol vive en cada proyecto.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 4">
+            <div class="n">04 / PLANIFICAR</div>
+            <h3>Elementos de trabajo</h3>
+            <p>
+              Crear, listar con paginación, buscar y filtrar, ver detalle, editar, asignar
+              responsable y eliminar. Cada uno recibe una referencia <code>MIR-n</code>.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 5">
+            <button class="livechip" data-route="@tablero">● ver en vivo</button>
+            <div class="n">05 / FLUJO</div>
+            <h3>Tablero Kanban</h3>
+            <p>
+              Por hacer · En progreso · En revisión · Hecho. Se mueve con el menú «Mover a…» o
+              arrastrando, también con teclado; cada tarjeta abre su detalle.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 6">
+            <div class="n">06 / TRAZABILIDAD</div>
+            <h3>Comentarios e historial</h3>
+            <p>
+              Cada cambio escribe una fila en <code>ActivityLog</code>, en la misma transacción, y
+              el detalle del elemento muestra ese historial con el valor anterior y el nuevo.
+            </p>
+          </div>
+        </div>
+        <div class="statement reveal" style="--i: 7">
+          Cada acción relevante pasa por
+          <b>un permiso, una validación Zod compartida y al menos una prueba.</b>
+        </div>
+      </section>
+
+      <!-- 05 · Arquitectura -->
+      <section class="slide" data-ch="2">
+        <div class="slidehead reveal">
+          <div class="eyebrow">04 / ARQUITECTURA</div>
+          <h2>Diseñada para ser <span class="cyan">testeable.</span></h2>
+          <p>
+            Monorepo TypeScript con npm workspaces. Elige un nivel de prueba para ver qué parte del
+            sistema ejercita.
+          </p>
+        </div>
+        <div class="arch-wrap reveal" style="--i: 1" id="arch">
+          <div class="arch">
+            <div class="layer hl" data-part="web">
+              <div class="lt"><b class="blue">WEB</b><span>apps/web</span></div>
+              <div class="chips">
+                <span class="chip">React 18 + Vite 7</span><span class="chip">TanStack Query</span
+                ><span class="chip">React Hook Form</span><span class="chip">Tailwind 4</span
+                ><span class="chip">dnd-kit</span>
+              </div>
+              <p
+                style="margin: 2px 0 0; color: var(--k-94a7bf); font-size: 12px; line-height: 1.45"
+              >
+                Un solo cliente HTTP (<code>api-client</code>) con
+                <code>credentials: 'include'</code> y una forma de error única.
+              </p>
+            </div>
+            <div class="wire">
+              <small>JSON<br />+ cookie</small><i></i>
+            </div>
+            <div class="layer" data-part="api" style="cursor: default">
+              <div class="lt"><b class="green">API</b><span>apps/api · Express</span></div>
+              <div class="chain">
+                <span class="chip hl" data-part="router">router<small>auth + Zod</small></span
+                ><em>›</em>
+                <span class="chip hl" data-part="controller">controller<small>HTTP</small></span
+                ><em>›</em>
+                <span class="chip hl" data-part="service">service<small>reglas</small></span
+                ><em>›</em>
+                <span class="chip hl" data-part="repository"
+                  >repository<small>Prisma + SQL</small></span
+                >
+              </div>
+              <p
+                style="margin: 2px 0 0; color: var(--k-94a7bf); font-size: 12px; line-height: 1.45"
+              >
+                El <b style="color: var(--k-fff)">service</b> recibe el repositorio por parámetro y
+                lanza errores de dominio: no conoce Express ni Prisma.
+              </p>
+            </div>
+            <div class="wire"><small>Prisma 6</small><i style="animation-delay: 0.6s"></i></div>
+            <div class="layer hl" data-part="db">
+              <div class="lt"><b class="amber">DATOS</b><span>PostgreSQL 16</span></div>
+              <div class="chips">
+                <span class="chip">migraciones versionadas</span><span class="chip">enums</span
+                ><span class="chip">FK + índices</span><span class="chip">ActivityLog</span>
+              </div>
+              <p
+                style="margin: 2px 0 0; color: var(--k-94a7bf); font-size: 12px; line-height: 1.45"
+              >
+                Dos bases en Docker: <code>dev</code> (5442) y <code>test</code> (5443, en RAM con
+                tmpfs).
+              </p>
+            </div>
+          </div>
+          <div class="shared-row">
+            <div class="uplinks"><span></span><span></span><span></span></div>
+            <div class="shared hl" data-part="shared">
+              <b>@mira/shared</b
+              ><span class="chips"
+                ><span class="chip">esquemas Zod</span><span class="chip">tipos y DTO</span
+                ><span class="chip">etiquetas</span
+                ><span class="chip" style="color: var(--k-bff5df)"
+                  >can(role, permission)</span
+                ></span
+              >
+            </div>
+          </div>
+          <div class="lens">
+            <button class="action" data-lens="unit">
+              <i style="background: var(--blue)"></i>Unitarias
+            </button>
+            <button class="action" data-lens="integration">
+              <i style="background: var(--green)"></i>Integración
+            </button>
+            <button class="action" data-lens="component">
+              <i style="background: var(--purple)"></i>Componente
+            </button>
+            <button class="action" data-lens="none">Ver todo</button>
+          </div>
+          <div class="statement arch-explain" id="arch-explain">
+            <b>Un contrato, dos lados.</b> La misma definición Zod valida el formulario en el
+            navegador y el body en la API, y la misma función <code>can()</code> oculta un botón en
+            la UI y protege la ruta en el servidor.
+          </div>
+        </div>
+      </section>
+
+      <!-- 06 · Permisos -->
+      <section class="slide" data-ch="2">
+        <div class="slidehead reveal">
+          <div class="eyebrow">05 / REGLAS DEL SISTEMA</div>
+          <h2>Los permisos no se <span class="cyan">improvisan.</span></h2>
+          <p>
+            El rol vive en <code>ProjectMember</code>: la misma persona puede ser OWNER en un
+            proyecto y VIEWER en otro. Ningún endpoint decide permisos por su cuenta.
+          </p>
+        </div>
+        <div
+          class="grid"
+          style="grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); align-items: start"
+        >
+          <div>
+            <div class="lens reveal" style="--i: 1; margin: 0 0 10px">
+              <button class="action selected" data-role="OWNER">OWNER · Propietario</button
+              ><button class="action" data-role="MEMBER">MEMBER · Miembro</button
+              ><button class="action" data-role="VIEWER">VIEWER · Observador</button>
+            </div>
+            <table class="matrix reveal" style="--i: 2">
+              <thead>
+                <tr>
+                  <th>ACCIÓN</th>
+                  <th>OWNER</th>
+                  <th>MEMBER</th>
+                  <th>VIEWER</th>
+                </tr>
+              </thead>
+              <tbody id="perm-body"></tbody>
+            </table>
+          </div>
+          <div class="reveal" style="--i: 3">
+            <div class="perm-code">
+              <span class="c">// packages/shared/src/permissions.ts</span>
+              <span class="k">export function</span> <span class="f">can</span>(role, permission) {
+              <span class="k">if</span> (!role) <span class="k">return false</span>;
+              <span class="c">// no miembro</span>
+              <span class="k">return</span> MATRIX[role].has(permission); }
+
+              <span class="c">// API: protege la ruta</span>
+              <span class="c">// Web: oculta el botón que igual fallaría</span>
+            </div>
+            <div class="statement" id="role-explanation" style="margin-top: 12px"></div>
+            <p class="smallprint">
+              El test de tabla declara la matriz esperada de forma independiente: si alguien afloja
+              un permiso, la prueba lo delata en vez de seguirlo.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 07 · Estrategia -->
+      <section class="slide" data-ch="3">
+        <div class="slidehead reveal">
+          <div class="eyebrow">06 / ESTRATEGIA DE PRUEBAS</div>
+          <h2>Tres niveles. <span class="cyan">Tres preguntas.</span></h2>
+          <p>
+            Herramienta declarada:
+            <b style="color: var(--k-fff)">Vitest + React Testing Library</b>. Complementos:
+            Supertest, MSW y PostgreSQL real. Un solo comando, <code>npm test</code>, corre todo.
+          </p>
+        </div>
+        <div class="grid cols2" style="align-items: center">
+          <div class="pyramid reveal" style="--i: 1">
+            <div class="tier t1"><b>298</b>COMPONENTE<small>RTL + user-event + MSW</small></div>
+            <div class="tier t2">
+              <b>212</b>INTEGRACIÓN<small>Supertest + PostgreSQL 16 real</small>
+            </div>
+            <div class="tier t3">
+              <b>262</b>UNITARIAS<small
+                >Vitest + vitest-mock-extended · incluye 107 de @mira/shared</small
+              >
+            </div>
+          </div>
+          <div class="grid cols2">
+            <div class="card reveal" style="--i: 2">
+              <div class="n">01 / DATOS</div>
+              <h3>Deterministas</h3>
+              <p>Factories con overrides; nada aleatorio en una aserción.</p>
+            </div>
+            <div class="card reveal" style="--i: 3">
+              <div class="n">02 / HTTP</div>
+              <h3>Red realista</h3>
+              <p>
+                MSW intercepta en la red: hooks, TanStack Query y <code>api-client</code> se
+                ejecutan de verdad.
+              </p>
+            </div>
+            <div class="card reveal" style="--i: 4">
+              <div class="n">03 / BD</div>
+              <h3>Aislamiento</h3>
+              <p>
+                <code>resetDb</code> antes de cada prueba de integración, sobre una base separada de
+                la de desarrollo.
+              </p>
+            </div>
+            <div class="card reveal" style="--i: 5">
+              <div class="n">04 / UI</div>
+              <h3>Accesibilidad</h3>
+              <p>
+                Se consulta por rol, label y texto visible, como lo haría una persona o un lector de
+                pantalla.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="statement reveal" style="--i: 6">
+          Unitarias: <b>¿la regla es correcta?</b> · Integración:
+          <b>¿la ruta, la cookie y el SQL funcionan juntos?</b> · Componente:
+          <b>¿la UI responde como la usa una persona?</b>
+        </div>
+      </section>
+
+      <!-- 08 · Pruebas que descubrieron -->
+      <section class="slide" data-ch="3">
+        <div class="slidehead reveal">
+          <div class="eyebrow">07 / PRUEBAS QUE CAMBIARON DECISIONES</div>
+          <h2>La prueba no solo verifica.<br /><span class="cyan">También descubre.</span></h2>
+          <p>
+            Seis casos reales del repositorio: el nombre de la prueba y lo que obligó a cambiar.
+          </p>
+        </div>
+        <div class="grid cols3">
+          <div class="card reveal" style="--i: 1">
+            <div class="n cyan">CONCURRENCIA</div>
+            <h3>Referencias sin colisión</h3>
+            <p class="proof">asigna referencias distintas en dos creaciones simultáneas</p>
+            <div class="fix">UPDATE itemCounter + 1 y el INSERT en la misma transacción</div>
+          </div>
+          <div class="card reveal" style="--i: 2">
+            <div class="n pink">ROLLBACK</div>
+            <h3>Historial atómico</h3>
+            <p class="proof">
+              revierte el cambio de estado si PostgreSQL falla al registrar el historial
+            </p>
+            <div class="fix">cambio + ActivityLog: o se guardan los dos o ninguno</div>
+          </div>
+          <div class="card reveal" style="--i: 3">
+            <div class="n purple">TRAZABILIDAD</div>
+            <h3>Ediciones simultáneas</h3>
+            <p class="proof">serializa dos ediciones concurrentes sin fromValue obsoleto</p>
+            <div class="fix">aislamiento Serializable + reintento ante P2034</div>
+          </div>
+          <div class="card reveal" style="--i: 4">
+            <div class="n red">DEADLOCK</div>
+            <h3>Comentar vs. borrar</h3>
+            <p>
+              Un <code>FOR UPDATE</code> en el comentario podía bloquearse contra el borrado del
+              mismo elemento.
+            </p>
+            <div class="fix">FOR KEY SHARE: frena el borrado, no las ediciones</div>
+          </div>
+          <div class="card reveal" style="--i: 5">
+            <div class="n amber">CACHÉ</div>
+            <h3>Tablero sin datos viejos</h3>
+            <p>
+              Editar, borrar o quitar un miembro debe refrescar el tablero de ese proyecto, y no el
+              de otros.
+            </p>
+            <div class="fix">invalidación dirigida por projectId</div>
+          </div>
+          <div class="card reveal" style="--i: 6">
+            <div class="n green">UX</div>
+            <h3>Arrastre optimista</h3>
+            <p class="proof">
+              si el servidor rechaza el cambio, la tarjeta regresa a su columna y se informa
+            </p>
+            <div class="fix">actualización optimista con rollback en TanStack Query</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 09 · Zoom concurrencia -->
+      <section class="slide" data-ch="3">
+        <div class="slidehead reveal" style="margin-bottom: 14px">
+          <div class="eyebrow">08 / ZOOM TÉCNICO</div>
+          <h2>Dos PATCH al mismo tiempo. <span class="cyan">¿Qué dice el historial?</span></h2>
+          <p>
+            Reproduce la prueba <code>dos PATCH concurrentes dejan una bitácora encadenada</code>:
+            el proyecto se llama «Mira»; A lo renombra «Alfa» y B, «Beta».
+          </p>
+        </div>
+        <div class="sim-controls reveal" style="--i: 1">
+          <div class="seg" role="group" aria-label="Modo">
+            <button data-mode="naive">Sin bloqueo</button
+            ><button data-mode="lock" class="on">Con SELECT … FOR UPDATE</button>
+          </div>
+          <button class="action" id="sim-step">Paso siguiente →</button>
+          <button class="action" id="sim-play">▶ Reproducir</button>
+        </div>
+        <div class="sim reveal" style="--i: 2">
+          <div class="lanes">
+            <div class="lane-head">
+              <div class="a">PATCH A · «Alfa»</div>
+              <div class="db">PostgreSQL · fila del proyecto</div>
+              <div class="b">PATCH B · «Beta»</div>
+            </div>
+            <div class="lane-body" id="sim-body"></div>
+          </div>
+          <div class="sim-side">
+            <div class="log">
+              <div class="mini-label">ActivityLog · PROJECT_UPDATED</div>
+              <table>
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>fromValue</th>
+                    <th>toValue</th>
+                  </tr>
+                </thead>
+                <tbody id="sim-log">
+                  <tr>
+                    <td colspan="3" style="color: var(--k-5f7390)">vacío</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="verdict" id="sim-verdict"></div>
+            <p class="smallprint" style="margin: 0">
+              En elementos de trabajo la misma propiedad se protege con aislamiento
+              <code>Serializable</code> y hasta tres intentos; en comentarios, con
+              <code>FOR KEY SHARE</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 10 · CI -->
+      <section class="slide" data-ch="4">
+        <div class="slidehead reveal">
+          <div class="eyebrow">09 / CALIDAD AUTOMÁTICA</div>
+          <h2>Cada Pull Request llega con <span class="cyan">evidencia.</span></h2>
+          <p>
+            Antes del push, los hooks de Husky validan el mensaje y el formato. En GitHub Actions,
+            cada PR a develop o main reproduce el stack completo.
+          </p>
+        </div>
+        <div class="flow reveal" style="--i: 1">
+          <div class="node">
+            <span class="k">01</span>Instalar<small>npm ci · prisma generate</small>
+          </div>
+          <div class="link"><i style="--d: 0"></i></div>
+          <div class="node"><span class="k">02</span>Formato<small>Prettier --check</small></div>
+          <div class="link"><i style="--d: 1"></i></div>
+          <div class="node"><span class="k">03</span>Lint<small>ESLint</small></div>
+          <div class="link"><i style="--d: 2"></i></div>
+          <div class="node"><span class="k">04</span>Tipos<small>tsc --noEmit ×3</small></div>
+          <div class="link"><i style="--d: 3"></i></div>
+          <div class="node">
+            <span class="k">05</span>Migrar<small>migrate deploy · PG 16 efímero</small>
+          </div>
+          <div class="link"><i style="--d: 4"></i></div>
+          <div class="node">
+            <span class="k">06</span>Pruebas<small>las 4 suites + cobertura</small>
+          </div>
+          <div class="link"><i style="--d: 5"></i></div>
+          <div class="node end">
+            <span class="k">07</span>Build<small>web + api · job aparte</small>
+          </div>
+        </div>
+        <div class="grid cols3" style="margin-top: 22px">
+          <div class="counter-card reveal" style="--i: 2; grid-column: span 1">
+            <strong>770+</strong><span>pruebas automatizadas en develop, en un solo reporte.</span>
+          </div>
+          <div class="card reveal" style="--i: 3">
+            <div class="n">DIAGNÓSTICO</div>
+            <h3>Cobertura siempre</h3>
+            <p>
+              El reporte HTML + lcov se sube como artefacto
+              <b style="color: var(--k-fff)">incluso si una suite falla</b> (<code
+                >if: always()</code
+              >): el reporte del fallo es el más útil.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 4">
+            <div class="n">PROTECCIÓN</div>
+            <h3>main no acepta push</h3>
+            <p>
+              Solo entra por PR con el check en verde y una revisión. Mismo motor en local y en CI:
+              <code>postgres:16-alpine</code>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 11 · Despliegue: topología -->
+      <section class="slide" data-ch="4">
+        <div class="slidehead reveal">
+          <div class="eyebrow">10 / DESPLIEGUE</div>
+          <h2>
+            De <code style="font-size: 0.8em">main</code> a internet,
+            <span class="cyan">en capa gratuita.</span>
+          </h2>
+          <p>
+            Tres servicios gestionados, sin una VM que mantener ni apagar. La demo siempre
+            corresponde a un release.
+          </p>
+        </div>
+        <div class="deploy reveal" style="--i: 1">
+          <div class="dnode">
+            <span class="vend">CLIENTE</span><b>Navegador</b>
+            <p>
+              Un solo origen:<br /><code class="cyan" style="font-size: 11px"
+                >mira-pds.vercel.app</code
+              >
+            </p>
+            <div class="meta"><span>HTTPS</span><span>cookie first-party</span></div>
+          </div>
+          <div class="wire"><i></i></div>
+          <div class="dnode vercel">
+            <span class="vend">VERCEL · HOBBY</span><b>Frontend</b>
+            <p>
+              SPA de Vite servida por CDN. Reescribe <code>/api/*</code> hacia Render y todo lo
+              demás a <code>index.html</code>.
+            </p>
+            <div class="meta"><span>apps/web/vercel.json</span><span>preview por PR</span></div>
+            <div class="status">
+              <span class="pulse" data-probe="web"></span
+              ><span data-probe-label="web">comprobando…</span>
+            </div>
+          </div>
+          <div class="wire"><small>/api/*</small><i style="animation-delay: 0.5s"></i></div>
+          <div class="dnode render">
+            <span class="vend">RENDER · FREE · OREGON</span><b>API Express</b>
+            <p>Construye desde GitHub sin Dockerfile. Migra y siembra datos en cada deploy.</p>
+            <div class="meta"><span>render.yaml</span><span>/api/health/live</span></div>
+            <div class="status">
+              <span class="pulse" data-probe="live"></span
+              ><span data-probe-label="live">comprobando…</span>
+            </div>
+          </div>
+          <div class="wire">
+            <small>pooler<br />:6543</small><i style="animation-delay: 1s"></i>
+          </div>
+          <div class="dnode supa">
+            <span class="vend">SUPABASE · FREE · us-west-2</span><b>PostgreSQL</b>
+            <p>Misma región que la API: cada consulta cruza ese tramo. Migraciones de Prisma.</p>
+            <div class="meta"><span>transaction pooler</span><span>SELECT 1</span></div>
+            <div class="status">
+              <span class="pulse" data-probe="db"></span
+              ><span data-probe-label="db">comprobando…</span>
+            </div>
+          </div>
+        </div>
+        <div class="under reveal" style="--i: 2">
+          <div class="pinger">
+            <b>UptimeRobot</b
+            ><span
+              >cada 5 min llama a <code>/api/health</code>: mantiene despierta la API (Render duerme
+              tras 15 min) y evita que Supabase pause el proyecto tras 7 días.</span
+            >
+          </div>
+        </div>
+        <div class="statement reveal" style="--i: 3">
+          <b>Estado en vivo:</b> esta diapositiva consulta los health checks reales al abrirse.
+          <button class="action" id="probe-again" style="padding: 6px 11px; margin-left: 8px">
+            Volver a comprobar
+          </button>
+        </div>
+      </section>
+
+      <!-- 12 · Despliegue: mismo origen -->
+      <section class="slide" data-ch="4">
+        <div class="slidehead reveal">
+          <div class="eyebrow">11 / LA DECISIÓN QUE NO SE VE</div>
+          <h2>Un rewrite que salva <span class="cyan">el login en Safari.</span></h2>
+          <p>
+            <code>vercel.app</code> y <code>onrender.com</code> están en la Public Suffix List: si
+            el navegador hablara directo con Render, la cookie de sesión sería de terceros.
+          </p>
+        </div>
+        <div class="lens reveal" style="--i: 1; margin: 0 0 12px">
+          <button class="action" data-path="direct">Llamada directa a Render</button
+          ><button class="action selected" data-path="rewrite">Rewrite /api en Vercel (D13)</button>
+        </div>
+        <div class="compare reveal" style="--i: 2">
+          <div class="path dim" id="path-direct">
+            <h3 class="red">✗ Cross-site</h3>
+            <div class="hop">
+              <span>mira-pds.vercel.app</span><em>→</em><span>mira-api-2epf.onrender.com</span>
+            </div>
+            <div class="cookie bad">
+              🍪
+              <span
+                >Cookie de terceros con <code>SameSite=None</code>. El login parece funcionar y
+                luego todo responde <b>401</b>.</span
+              >
+            </div>
+            <div class="browsers">
+              <span class="x">Safari ITP · bloquea</span
+              ><span class="x">Chrome incógnito · bloquea</span
+              ><span class="x">Firefox · particiona</span>
+            </div>
+          </div>
+          <div class="path" id="path-rewrite">
+            <h3 class="green">✓ Mismo origen</h3>
+            <div class="hop">
+              <span>mira-pds.vercel.app/api/*</span><em>→ Vercel reenvía →</em><span>Render</span>
+            </div>
+            <div class="cookie good">
+              🍪
+              <span
+                >Cookie first-party <code>HttpOnly; Secure; SameSite=Lax</code>. Además,
+                <b>Lax</b> impide que otro sitio dispare peticiones con la sesión (CSRF).</span
+              >
+            </div>
+            <div class="browsers">
+              <span class="v">Safari</span><span class="v">Chrome incógnito</span
+              ><span class="v">Firefox</span>
+            </div>
+          </div>
+        </div>
+        <div class="snippet reveal" style="--i: 3">
+          <span class="c"
+            >// apps/web/vercel.json — sin cambiar una línea del código de autenticación</span
+          >
+          { <span class="k">"rewrites"</span>: [ { <span class="k">"source"</span>:
+          <span class="s">"/api/:path*"</span>, <span class="k">"destination"</span>:
+          <span class="s">"https://mira-api-2epf.onrender.com/api/:path*"</span> }, {
+          <span class="k">"source"</span>: <span class="s">"/(.*)"</span>,
+          <span class="k">"destination"</span>: <span class="s">"/index.html"</span> } ] }
+        </div>
+      </section>
+
+      <!-- 13 · Despliegue: infraestructura como código -->
+      <section class="slide" data-ch="4">
+        <div class="slidehead reveal">
+          <div class="eyebrow">12 / INFRAESTRUCTURA COMO CÓDIGO</div>
+          <h2>Un deploy que <span class="cyan">no puede romper la demo.</span></h2>
+          <p>
+            Todo lo que no es secreto vive en <code>render.yaml</code> y <code>vercel.json</code>,
+            versionado y revisado en un PR. Así construye Render cada push a main:
+          </p>
+        </div>
+        <div class="flow reveal" style="--i: 1">
+          <div class="node">
+            <span class="k">01</span>npm ci<small>--include=dev · monorepo completo</small>
+          </div>
+          <div class="link"><i style="--d: 0"></i></div>
+          <div class="node"><span class="k">02</span>Build API<small>tsup</small></div>
+          <div class="link"><i style="--d: 1"></i></div>
+          <div class="node">
+            <span class="k">03</span>Migrar<small>prisma migrate deploy</small>
+          </div>
+          <div class="link"><i style="--d: 2"></i></div>
+          <div class="node">
+            <span class="k">04</span>Seed<small>idempotente · usuarios demo</small>
+          </div>
+          <div class="link"><i style="--d: 3"></i></div>
+          <div class="node"><span class="k">05</span>Health<small>/api/health/live</small></div>
+          <div class="link"><i style="--d: 4"></i></div>
+          <div class="node end">
+            <span class="k">06</span>Tráfico<small>recién ahí cambia la versión</small>
+          </div>
+        </div>
+        <p class="smallprint reveal" style="--i: 2">
+          SI UNA MIGRACIÓN FALLA → FALLA EL BUILD → LA VERSIÓN ANTERIOR SIGUE ATENDIENDO
+        </p>
+        <div class="grid cols4" style="margin-top: 14px">
+          <div class="card reveal" style="--i: 3">
+            <div class="n">LIVENESS VS. SALUD</div>
+            <h3>Dos health checks</h3>
+            <p>
+              Render mira <code>/live</code>, sin base: un parpadeo de Supabase no reinicia una API
+              sana. El pinger mira <code>/api/health</code>: <code>SELECT 1</code> con tope de 2 s y
+              503 si no responde.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 4">
+            <div class="n">MIGRACIONES</div>
+            <h3>Expand / contract</h3>
+            <p>
+              Corren contra producción mientras la versión anterior atiende. Borrar una columna toma
+              dos releases.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 5">
+            <div class="n">SECRETOS</div>
+            <h3>Fuera del repo</h3>
+            <p>
+              <code>sync: false</code> para las URLs de la base; <code>JWT_SECRET</code> lo genera
+              Render. <code>buildFilter</code>: un cambio solo del front no redespliega la API.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 6">
+            <div class="n">IPv6</div>
+            <h3>Lo que costó aprender</h3>
+            <p>
+              La conexión directa de Supabase es solo IPv6 y Render no sale por IPv6: las
+              migraciones usan el <b style="color: var(--k-fff)">session pooler</b>.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 14 · Demo en vivo -->
+      <section class="slide demo-slide" data-ch="4" data-demo>
+        <div class="slidehead reveal">
+          <div class="eyebrow">13 / DEMO EN VIVO</div>
+          <h2>Un recorrido, <span class="cyan">no seis pantallas.</span></h2>
+        </div>
+        <div class="demo reveal" style="--i: 1">
+          <div class="steps" id="steps">
+            <button class="step" data-route="/login">
+              <span class="n">01 · SESIÓN</span><b>Entrar como OWNER</b
+              ><span>ada@mira.dev · la cookie sobrevive al F5</span>
+            </button>
+            <button class="step" data-route="/proyectos/nuevo">
+              <span class="n">02 · PROYECTO</span><b>Crear y validar</b
+              ><span>Zod en el formulario · clave repetida → 409</span>
+            </button>
+            <button class="step" data-route="@resumen">
+              <span class="n">03 · RESUMEN</span><b>Panel del proyecto</b
+              ><span>conteos por estado y actividad</span>
+            </button>
+            <button class="step" data-route="@tablero">
+              <span class="n">04 · TABLERO</span><b>Mover tarjetas</b
+              ><span>mover, abrir el detalle: responsable e historial</span>
+            </button>
+            <button class="step" data-route="@miembros">
+              <span class="n">05 · EQUIPO</span><b>Roles por proyecto</b
+              ><span>invitar · cambiar rol · quitar</span>
+            </button>
+            <button
+              class="step"
+              data-route="/login"
+              data-note="Cierra sesión y entra como grace@mira.dev"
+            >
+              <span class="n">06 · VIEWER</span><b>Lo que no se ofrece</b
+              ><span>grace@mira.dev: sin botones de escritura</span>
+            </button>
+            <div class="creds">
+              Contraseña de los tres: <b>demo1234</b><br />ada@ OWNER · alan@ MEMBER · grace@ VIEWER
+            </div>
+          </div>
+          <div class="slot" id="demo-slot">cargando la aplicación…</div>
+        </div>
+      </section>
+
+      <!-- 15 · Reflexión -->
+      <section class="slide" data-ch="5">
+        <div class="slidehead reveal">
+          <div class="eyebrow">14 / REFLEXIÓN</div>
+          <h2>Las pruebas cambiaron <span class="cyan">cómo construimos.</span></h2>
+          <p>
+            La arquitectura y la forma de integrar evolucionaron a partir de los defectos
+            encontrados.
+          </p>
+        </div>
+        <div class="grid cols2">
+          <div class="card reveal" style="--i: 1">
+            <div class="n">01</div>
+            <h3>Diseñar para probar</h3>
+            <p>
+              Repositorios inyectables y contratos compartidos permiten probar cada regla en
+              milisegundos, sin base de datos.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 2">
+            <div class="n">02</div>
+            <h3>Integrar también es probar</h3>
+            <p>
+              Una feature correcta puede romper otra por caché, rutas o archivos compartidos. Por
+              eso hay pruebas de invalidación entre vistas.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 3">
+            <div class="n">03</div>
+            <h3>La concurrencia no se ve en una demo</h3>
+            <p>
+              Solo aparece con dos peticiones simultáneas. Las pruebas encontraron lecturas
+              obsoletas y hasta un deadlock antes que un usuario.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 4">
+            <div class="n">04</div>
+            <h3>Desplegar también tiene pruebas</h3>
+            <p>
+              Los health checks están cubiertos por integración, y el build se detiene si una
+              migración no aplica.
+            </p>
+          </div>
+        </div>
+        <div class="statement reveal" style="--i: 5">
+          Probar temprano nos obligó a
+          <b>hacer explícitas reglas que habrían quedado implícitas.</b>
+        </div>
+      </section>
+
+      <!-- 16 · Roadmap -->
+      <section class="slide" data-ch="5">
+        <div class="slidehead reveal">
+          <div class="eyebrow">15 / HOJA DE RUTA</div>
+          <h2>Una base preparada para <span class="cyan">evolucionar.</span></h2>
+          <p>
+            El esquema ya lo anticipa: <code>WorkItem.sprintId</code> y
+            <code>Project.organizationId</code> existen como campos opcionales.
+          </p>
+        </div>
+        <div class="timeline-steps">
+          <div class="card reveal" style="--i: 1">
+            <div class="n blue">ENTREGA 1</div>
+            <h3>Base estable</h3>
+            <p>
+              MVP con CRUD · CI en cada PR · despliegue · release <code>v1.0-entrega1</code> · Wiki
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 2">
+            <div class="n green">ENTREGA 2</div>
+            <h3>CI/CD con Jenkins</h3>
+            <p>
+              Pipeline de build y despliegue con avisos en Slack. Actions queda como verificación
+              rápida de PR.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 3">
+            <div class="n purple">ENTREGA 3</div>
+            <h3>Pruebas E2E</h3>
+            <p>
+              Pruebas de interfaz en navegador, integradas al pipeline con evidencia y
+              notificaciones.
+            </p>
+          </div>
+          <div class="card reveal" style="--i: 4">
+            <div class="n amber">NUEVOS REQUISITOS</div>
+            <h3>Más flexibilidad</h3>
+            <p>Sprints · columnas configurables por proyecto · organizaciones y multi-equipo.</p>
+          </div>
+        </div>
+        <div class="rule reveal" style="--i: 5"></div>
+        <div class="quote reveal" style="--i: 6">
+          MIRA no solo organiza trabajo.<br /><span class="cyan"
+            >Convierte reglas, permisos y cambios en comportamiento verificable.</span
+          >
+        </div>
+      </section>
+
+      <!-- 17 · Cierre -->
+      <section class="slide" data-ch="6">
+        <div class="closing-glow"></div>
+        <div class="eyebrow reveal">GRACIAS</div>
+        <h2 class="headline reveal" style="--i: 1">
+          ¿Qué quieren<br /><span class="cyan">revisar</span> con<br />más detalle?
+        </h2>
+        <div class="tagline reveal" style="--i: 2">
+          <span class="tag">Arquitectura</span><span class="tag">Pruebas</span
+          ><span class="tag">Concurrencia</span><span class="tag">Permisos</span
+          ><span class="tag">Despliegue</span><span class="tag">Demo</span>
+        </div>
+        <p class="sub reveal" style="--i: 3; margin-top: 24px">
+          Benjamín Olguín · Isaías Carte · Mauro Castillo · Diego Espinoza
+        </p>
+        <p class="smallprint reveal" style="--i: 4">
+          <a
+            href="https://mira-pds.vercel.app"
+            target="_blank"
+            rel="noopener"
+            style="color: var(--cyan)"
+            >mira-pds.vercel.app ↗</a
+          >
+          &nbsp;·&nbsp; ada@mira.dev / demo1234
+        </p>
+      </section>
+    </main>
+
+    <!-- Navegador embebido: un único iframe que conserva la sesión entre diapositivas -->
+    <div class="backdrop" id="backdrop"></div>
+    <div class="live" id="live" aria-label="Aplicación MIRA en vivo">
+      <div class="chrome">
+        <div class="lights"><i></i><i></i><i></i></div>
+        <button class="cbtn" id="live-back" title="Volver al inicio de la app">⌂</button>
+        <div class="urlbar">
+          <span class="lock">🔒</span
+          ><span id="live-url"><span class="host">mira-pds.vercel.app</span>/login</span>
+        </div>
+        <label class="env"
+          ><select id="live-env" aria-label="Ambiente">
+            <option value="prod">Producción</option>
+            <option value="local">Local :5173</option>
+          </select></label
+        >
+        <button class="cbtn" id="live-reload" title="Recargar">↻</button>
+        <a class="cbtn" id="live-open" target="_blank" rel="noopener" title="Abrir en una pestaña"
+          >↗</a
+        >
+        <button class="cbtn" id="live-close" title="Cerrar">✕</button>
+      </div>
+      <iframe id="live-frame" title="MIRA" allow="clipboard-write"></iframe>
+      <div class="hint">
+        La presentación y la app están en sitios distintos, así que el navegador no guardará la
+        sesión dentro del marco. Para la demo, abre esta presentación desde la misma app (ver nota)
+        o usa ↗.<button class="cbtn" id="hint-close">Entendido</button>
+      </div>
+    </div>
+
+    <div class="footer">
+      <div class="nav">
+        <button id="prev">← Anterior</button><button id="next">Siguiente →</button>
+      </div>
+      <button class="action" id="full">⛶ Pantalla completa</button>
+    </div>
+    <div id="toast" class="toast" role="status"></div>
+
+    <script>
+      (() => {
+        const $ = (s, el = document) => el.querySelector(s);
+        const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+        const slides = $$('.slide');
+        const chapterTitles = [
+          'Qué es MIRA',
+          'Proceso y producto',
+          'Arquitectura y permisos',
+          'Las pruebas',
+          'Calidad, despliegue y demo',
+          'Aprendizajes y futuro',
+          'Preguntas',
+        ];
+        const chaptersEl = $('#chapters');
+        let current = 0;
+
+        function toast(msg, ms = 2200) {
+          const el = $('#toast');
+          el.textContent = msg;
+          el.classList.add('show');
+          clearTimeout(toast.t);
+          toast.t = setTimeout(() => el.classList.remove('show'), ms);
+        }
+
+        /* ---------- Tema claro / oscuro ---------- */
+        function setTheme(theme) {
+          if (theme === 'light') document.documentElement.dataset.theme = 'light';
+          else delete document.documentElement.dataset.theme;
+          const next = theme === 'light' ? 'oscuro' : 'claro';
+          $('#theme-toggle').title = `Cambiar a modo ${next}`;
+          $('#theme-toggle').setAttribute('aria-label', `Cambiar a modo ${next}`);
+          try {
+            localStorage.setItem('mira-theme', theme);
+          } catch {
+            /* sin almacenamiento */
+          }
+        }
+        const toggleTheme = () =>
+          setTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+        $('#theme-toggle').onclick = toggleTheme;
+        setTheme(document.documentElement.dataset.theme === 'light' ? 'light' : 'dark');
+
+        /* ---------- Índice lateral ---------- */
+        chapterTitles.forEach((title, ch) => {
+          const count = slides.filter((s) => +s.dataset.ch === ch).length;
+          const btn = document.createElement('button');
+          btn.className = 'chapter';
+          btn.dataset.ch = ch;
+          btn.innerHTML = `<strong><span class="dot">${ch + 1}</span>${title}</strong><div class="chap-progress">${'<i></i>'.repeat(count)}</div>`;
+          btn.addEventListener('click', () => go(slides.findIndex((s) => +s.dataset.ch === ch)));
+          chaptersEl.append(btn);
+        });
+
+        /* ---------- Navegación ---------- */
+        function go(n) {
+          if (n < 0 || n >= slides.length) return;
+          current = n;
+          slides.forEach((s, i) => {
+            s.classList.toggle('active', i === n);
+            s.setAttribute('aria-hidden', i === n ? 'false' : 'true');
+            if (i === n) s.scrollTop = 0;
+          });
+          $('#counter').textContent = String(n + 1).padStart(2, '0') + ' / ' + slides.length;
+          $('#topline').style.width = ((n + 1) / slides.length) * 100 + '%';
+          $('#prev').disabled = n === 0;
+          $('#next').disabled = n === slides.length - 1;
+          $$('.chapter', chaptersEl).forEach((b) => {
+            const ch = +b.dataset.ch;
+            b.classList.toggle('active', ch === +slides[n].dataset.ch);
+            const offset = slides.findIndex((s) => +s.dataset.ch === ch);
+            $$('i', b).forEach((dot, j) => dot.classList.toggle('on', offset + j <= n));
+          });
+          $('.chapter.active', chaptersEl)?.scrollIntoView({
+            block: 'nearest',
+            behavior: 'smooth',
+          });
+          history.replaceState(null, '', '#slide-' + (n + 1));
+          onSlide(slides[n]);
+        }
+
+        $('#prev').onclick = () => go(current - 1);
+        $('#next').onclick = () => go(current + 1);
+        $('#full').onclick = () =>
+          document.fullscreenElement
+            ? document.exitFullscreen?.()
+            : document.documentElement.requestFullscreen?.();
+
+        window.addEventListener('keydown', (e) => {
+          if (e.target.closest('input,textarea,select')) return;
+          if (e.key === 'Escape' && live.overlay) return closeOverlay();
+          if (live.overlay) return;
+          if (e.target.closest('button') && (e.key === ' ' || e.key === 'Enter')) return;
+          if (['ArrowRight', 'PageDown', ' '].includes(e.key)) {
+            e.preventDefault();
+            go(current + 1);
+          } else if (['ArrowLeft', 'PageUp'].includes(e.key)) {
+            e.preventDefault();
+            go(current - 1);
+          } else if (e.key === 'Home') go(0);
+          else if (e.key === 'End') go(slides.length - 1);
+          else if (e.key.toLowerCase() === 'f') {
+            document.body.classList.toggle('focus');
+            setTimeout(layoutLive, 30);
+          } else if (e.key.toLowerCase() === 'l') toggleOverlay();
+          else if (e.key.toLowerCase() === 't') toggleTheme();
+        });
+
+        const stage = $('#stage');
+        const spot = $('#spotlight');
+        stage.addEventListener('pointermove', (e) => {
+          const r = stage.getBoundingClientRect();
+          spot.style.left = e.clientX - r.left + 'px';
+          spot.style.top = e.clientY - r.top + 'px';
+        });
+
+        /* ---------- Arquitectura: lentes por nivel de prueba ---------- */
+        const lenses = {
+          unit: {
+            color: 'var(--blue)',
+            parts: ['service', 'shared'],
+            text: '<b>Unitarias · 262.</b> El service se prueba con un repositorio doble (<code>vitest-mock-extended</code>), y <code>@mira/shared</code> con tests de tabla: la matriz completa rol × permiso y cada esquema Zod. Sin Docker, en milisegundos.',
+          },
+          integration: {
+            color: 'var(--green)',
+            parts: ['router', 'controller', 'service', 'repository', 'db'],
+            text: '<b>Integración · 212.</b> Supertest atraviesa la API completa contra un PostgreSQL 16 real: rutas, códigos de estado, cookies, SQL, restricciones, transacciones y concurrencia.',
+          },
+          component: {
+            color: 'var(--purple)',
+            parts: ['web', 'shared'],
+            text: '<b>Componente · 298.</b> React Testing Library renderiza la UI real con TanStack Query y <code>api-client</code>; MSW contesta en la red. Se prueban formularios, carga, errores y accesibilidad.',
+          },
+        };
+        const arch = $('#arch');
+        const archDefault = $('#arch-explain').innerHTML;
+        $$('[data-lens]').forEach((btn) =>
+          btn.addEventListener('click', () => {
+            const key = btn.dataset.lens;
+            $$('[data-lens]').forEach((b) =>
+              b.classList.toggle('selected', b === btn && key !== 'none'),
+            );
+            const lens = lenses[key];
+            arch.classList.toggle('lensing', !!lens);
+            $$('.hl', arch).forEach((el) => {
+              el.classList.toggle('on', !!lens && lens.parts.includes(el.dataset.part));
+              el.style.setProperty('--lc', lens ? lens.color : 'transparent');
+            });
+            $('#arch-explain').innerHTML = lens ? lens.text : archDefault;
+            $('#arch-explain').style.borderLeftColor = lens ? lens.color : '';
+          }),
+        );
+
+        /* ---------- Permisos (espejo de packages/shared/src/permissions.ts) ---------- */
+        const ROLES = ['OWNER', 'MEMBER', 'VIEWER'];
+        const PERMS = [
+          ['Ver proyecto, tablero y elementos', 'project:view', [1, 1, 1]],
+          ['Crear y editar elementos', 'work-item:create', [1, 1, 0]],
+          ['Mover tarjetas de estado', 'work-item:change-status', [1, 1, 0]],
+          ['Eliminar elementos', 'work-item:delete', [1, 1, 0]],
+          ['Comentar', 'comment:create', [1, 1, 0]],
+          ['Editar y eliminar el proyecto', 'project:update', [1, 0, 0]],
+          ['Invitar, cambiar rol y quitar miembros', 'member:*', [1, 0, 0]],
+        ];
+        const roleText = {
+          OWNER: '<b>OWNER</b> · administra el proyecto, su equipo y su contenido.',
+          MEMBER:
+            '<b>MEMBER</b> · trabaja: crea, edita, mueve y comenta. No toca el proyecto ni el equipo.',
+          VIEWER:
+            '<b>VIEWER</b> · solo lee. Ni siquiera comenta: comentar es participar, y eso es de miembros.',
+        };
+        const permBody = $('#perm-body');
+        permBody.innerHTML = PERMS.map(
+          ([label, code]) =>
+            `<tr><td>${label}<code>${code}</code></td><td></td><td></td><td></td></tr>`,
+        ).join('');
+        function showRole(role) {
+          const ri = ROLES.indexOf(role);
+          $$('[data-role]').forEach((b) => b.classList.toggle('selected', b.dataset.role === role));
+          $$('tr', permBody).forEach((row, i) => {
+            [...row.cells].slice(1).forEach((cell, j) => {
+              cell.innerHTML = PERMS[i][2][j]
+                ? '<span class="tick">✓</span>'
+                : '<span class="no">—</span>';
+              cell.style.opacity = j === ri ? '1' : '.4';
+            });
+            row.classList.toggle('focus', PERMS[i][2][ri] === 1);
+          });
+          $('#role-explanation').innerHTML = roleText[role];
+        }
+        $$('[data-role]').forEach((b) => (b.onclick = () => showRole(b.dataset.role)));
+        showRole('OWNER');
+
+        /* ---------- Simulador de concurrencia ---------- */
+        const SCENARIOS = {
+          lock: {
+            events: [
+              { a: 'BEGIN · SELECT … FOR UPDATE', db: '🔒 fila tomada por A', dbc: 'lock' },
+              {
+                b: 'BEGIN · SELECT … FOR UPDATE',
+                db: 'B espera el bloqueo…',
+                dbc: 'lock',
+                wait: 'b',
+              },
+              { a: 'lee name = «Mira»', db: 'name = Mira' },
+              {
+                a: 'UPDATE «Alfa» + log',
+                db: 'name = Alfa (sin confirmar)',
+                log: ['Mira', 'Alfa'],
+              },
+              { a: 'COMMIT', db: '🔓 libera · name = Alfa' },
+              { b: 'lee name = «Alfa»', db: '🔒 fila tomada por B', dbc: 'lock' },
+              { b: 'UPDATE «Beta» + log · COMMIT', db: '🔓 name = Beta', log: ['Alfa', 'Beta'] },
+            ],
+            verdict: [
+              'good',
+              '<b>Bitácora encadenada.</b> Mira → Alfa → Beta: el fromValue de cada fila es el toValue de la anterior y coincide con el estado final. Es lo que exige la prueba.',
+            ],
+          },
+          naive: {
+            events: [
+              { a: 'BEGIN · lee name = «Mira»', db: 'name = Mira' },
+              { b: 'BEGIN · lee name = «Mira»', db: 'name = Mira' },
+              { a: 'UPDATE «Alfa» + log · COMMIT', db: 'name = Alfa', log: ['Mira', 'Alfa'] },
+              {
+                b: 'UPDATE «Beta» + log · COMMIT',
+                db: 'name = Beta',
+                dbc: 'bad',
+                log: ['Mira', 'Beta'],
+                bad: true,
+              },
+            ],
+            verdict: [
+              'bad',
+              '<b>El historial miente.</b> Las dos filas dicen «desde Mira»: el paso Alfa → Beta nunca quedó registrado. La prueba falla con exactamente este caso.',
+            ],
+          },
+        };
+        let simMode = 'lock',
+          simIdx = 0,
+          simTimer = null;
+        const simBody = $('#sim-body'),
+          simLog = $('#sim-log'),
+          simVerdict = $('#sim-verdict');
+        function simReset() {
+          clearInterval(simTimer);
+          simTimer = null;
+          simIdx = 0;
+          $('#sim-play').textContent = '▶ Reproducir';
+          const sc = SCENARIOS[simMode];
+          simBody.innerHTML = sc.events
+            .map(
+              (e) => `<div class="ev">
+      <div class="cell ${e.a ? 'act-a arrow-r' : ''}">${e.a || ''}</div>
+      <div class="cell dbst ${e.dbc || ''}">${e.db}</div>
+      <div class="cell ${e.b ? 'act-b arrow-l' : ''} ${e.wait === 'b' ? 'wait' : ''}">${e.b || ''}</div></div>`,
+            )
+            .join('');
+          simLog.innerHTML = '<tr><td colspan="3" style="color:var(--k-5f7390)">vacío</td></tr>';
+          simVerdict.className = 'verdict';
+          simVerdict.innerHTML = '';
+          $('#sim-step').disabled = false;
+        }
+        function simStep() {
+          const sc = SCENARIOS[simMode];
+          if (simIdx >= sc.events.length) return false;
+          const ev = sc.events[simIdx];
+          simBody.children[simIdx].classList.add('show');
+          if (ev.log) {
+            if (!simLog.querySelector('tr.row')) simLog.innerHTML = '';
+            const n = simLog.querySelectorAll('tr').length + 1;
+            simLog.insertAdjacentHTML(
+              'beforeend',
+              `<tr class="row new"><td>${n}</td><td class="${ev.bad ? 'red' : ''}">${ev.log[0]}</td><td>${ev.log[1]}</td></tr>`,
+            );
+          }
+          simIdx++;
+          if (simIdx === sc.events.length) {
+            simVerdict.className = 'verdict show ' + sc.verdict[0];
+            simVerdict.innerHTML = sc.verdict[1];
+            $('#sim-step').disabled = true;
+            clearInterval(simTimer);
+            simTimer = null;
+            $('#sim-play').textContent = '↺ Repetir';
+          }
+          return true;
+        }
+        $$('[data-mode]').forEach(
+          (b) =>
+            (b.onclick = () => {
+              simMode = b.dataset.mode;
+              $$('[data-mode]').forEach((x) => x.classList.toggle('on', x === b));
+              simReset();
+            }),
+        );
+        $('#sim-step').onclick = simStep;
+        $('#sim-play').onclick = () => {
+          if (simTimer) {
+            clearInterval(simTimer);
+            simTimer = null;
+            $('#sim-play').textContent = '▶ Reproducir';
+            return;
+          }
+          if (simIdx >= SCENARIOS[simMode].events.length) simReset();
+          $('#sim-play').textContent = '❚❚ Pausa';
+          simStep();
+          simTimer = setInterval(simStep, 1100);
+        };
+        simReset();
+
+        /* ---------- Mismo origen: comparación ---------- */
+        $$('[data-path]').forEach(
+          (b) =>
+            (b.onclick = () => {
+              $$('[data-path]').forEach((x) => x.classList.toggle('selected', x === b));
+              $('#path-direct').classList.toggle('dim', b.dataset.path !== 'direct');
+              $('#path-rewrite').classList.toggle('dim', b.dataset.path !== 'rewrite');
+            }),
+        );
+
+        /* ---------- App en vivo ---------- */
+        const PROD = 'https://mira-pds.vercel.app';
+        const LOCAL = 'http://localhost:5173';
+        const params = new URLSearchParams(location.search);
+        // Si la presentación se sirve desde la propia app (apps/web/public), el
+        // iframe es del mismo origen: la cookie de sesión funciona y además podemos
+        // leer la ruta actual y resolver el id del proyecto MIR para los atajos.
+        const servedFromApp = location.origin === PROD || location.origin === LOCAL;
+        let appBase = params.get('app') || (servedFromApp ? location.origin : PROD);
+
+        const LOCAL_API = 'http://localhost:3000';
+        const apiUrl = (path) => (appBase === LOCAL ? LOCAL_API : appBase) + path;
+        const live = {
+          el: $('#live'),
+          frame: $('#live-frame'),
+          overlay: false,
+          loaded: false,
+          path: '/login',
+          projectId: null,
+        };
+        const isSameOrigin = () => new URL(appBase).origin === location.origin;
+        const isSameSite = () => {
+          try {
+            const a = new URL(appBase),
+              b = location;
+            if (b.protocol === 'file:') return false;
+            const site = (h) =>
+              h === 'localhost' || /^[\d.]+$/.test(h) ? h : h.split('.').slice(-3).join('.');
+            return site(a.hostname) === site(b.hostname);
+          } catch {
+            return false;
+          }
+        };
+        $('#live-env').value = appBase === LOCAL ? 'local' : 'prod';
+
+        function renderUrl(path) {
+          const host = new URL(appBase).host;
+          $('#live-url').innerHTML = `<span class="host">${host}</span>${path}`;
+          $('#live-open').href = appBase + path;
+        }
+        function loadLive(path) {
+          live.path = path;
+          live.loaded = true;
+          live.frame.src = appBase + path;
+          renderUrl(path);
+          live.el.classList.toggle('cross', !isSameSite() && !sessionStorageGet('hint-ok'));
+        }
+        function sessionStorageGet(k) {
+          try {
+            return sessionStorage.getItem(k);
+          } catch {
+            return null;
+          }
+        }
+        function sessionStorageSet(k, v) {
+          try {
+            sessionStorage.setItem(k, v);
+          } catch {
+            /* sin almacenamiento */
+          }
+        }
+
+        async function resolveRoute(route) {
+          if (!route.startsWith('@')) return route;
+          const sub =
+            { '@resumen': '', '@tablero': '/tablero', '@miembros': '/miembros' }[route] ?? '';
+          if (!live.projectId && isSameOrigin()) {
+            try {
+              const res = await fetch(apiUrl('/api/projects'), { credentials: 'include' });
+              if (res.ok) {
+                const { projects } = await res.json();
+                const p = projects.find((x) => x.key === 'MIR') || projects[0];
+                live.projectId = p?.id || null;
+              }
+            } catch {
+              /* sin sesión todavía */
+            }
+          }
+          if (live.projectId) return `/proyectos/${live.projectId}${sub}`;
+          toast('Abre «Plataforma Mira» desde la lista de proyectos de la app.');
+          return '/proyectos';
+        }
+        async function navigateLive(route, note) {
+          const path = await resolveRoute(route);
+          loadLive(path);
+          if (note) toast(note, 3000);
+        }
+
+        // Mientras la app sea del mismo origen, la barra de direcciones sigue la navegación real.
+        setInterval(() => {
+          if (!live.loaded || !isSameOrigin()) return;
+          try {
+            const loc = live.frame.contentWindow.location;
+            const path = loc.pathname + loc.search;
+            if (path !== live.path) {
+              live.path = path;
+              renderUrl(path);
+            }
+            const m = path.match(/^\/proyectos\/([^/]+)/);
+            if (m && m[1] !== 'nuevo') live.projectId = m[1];
+          } catch {
+            /* otro origen */
+          }
+        }, 800);
+
+        function rectOf(el) {
+          return el.getBoundingClientRect();
+        }
+        function place(r) {
+          Object.assign(live.el.style, {
+            top: r.top + 'px',
+            left: r.left + 'px',
+            width: r.width + 'px',
+            height: r.height + 'px',
+          });
+        }
+        function layoutLive() {
+          const slide = slides[current];
+          if (live.overlay) {
+            const r = rectOf(stage);
+            place({
+              top: r.top + 10,
+              left: r.left + 10,
+              width: r.width - 20,
+              height: r.height - 20,
+            });
+            live.el.classList.add('shown', 'overlay');
+            $('#backdrop').classList.add('shown');
+            return;
+          }
+          $('#backdrop').classList.remove('shown');
+          live.el.classList.remove('overlay');
+          if (slide.hasAttribute('data-demo')) {
+            const slot = $('#demo-slot');
+            const r = rectOf(slot);
+            // La diapositiva entra con un desplazamiento de 24 px; se compensa para que el marco no salte.
+            const stageR = rectOf(stage);
+            place({
+              top: Math.max(r.top, stageR.top),
+              left: r.left,
+              width: r.width,
+              height: Math.min(r.height, stageR.bottom - Math.max(r.top, stageR.top)),
+            });
+            live.el.classList.add('shown');
+          } else {
+            live.el.classList.remove('shown');
+          }
+        }
+        function openOverlay(route) {
+          live.overlay = true;
+          $('#live-toggle').setAttribute('aria-pressed', 'true');
+          if (route) navigateLive(route);
+          else if (!live.loaded) loadLive(live.path);
+          layoutLive();
+        }
+        function closeOverlay() {
+          live.overlay = false;
+          $('#live-toggle').setAttribute('aria-pressed', 'false');
+          layoutLive();
+        }
+        function toggleOverlay() {
+          live.overlay ? closeOverlay() : openOverlay();
+        }
+
+        function onSlide(slide) {
+          if (live.overlay) {
+            live.overlay = false;
+            $('#live-toggle').setAttribute('aria-pressed', 'false');
+          }
+          if (slide.hasAttribute('data-demo') && !live.loaded) loadLive(live.path);
+          if ($('[data-probe]', slide)) probeAll();
+          layoutLive();
+          setTimeout(layoutLive, 600); // tras la transición de entrada
+        }
+
+        $('#live-toggle').onclick = toggleOverlay;
+        $('#backdrop').onclick = closeOverlay;
+        $('#live-close').onclick = () => (live.overlay ? closeOverlay() : go(current + 1));
+        $('#live-reload').onclick = () => loadLive(live.path);
+        $('#live-back').onclick = () => loadLive('/proyectos');
+        $('#hint-close').onclick = () => {
+          live.el.classList.remove('cross');
+          sessionStorageSet('hint-ok', '1');
+        };
+        $('#live-env').onchange = (e) => {
+          appBase = e.target.value === 'local' ? LOCAL : PROD;
+          live.projectId = null;
+          loadLive(live.path);
+          probeAll();
+        };
+        $$('.livechip').forEach((b) => (b.onclick = () => openOverlay(b.dataset.route)));
+        $$('.step').forEach(
+          (b) =>
+            (b.onclick = () => {
+              $$('.step').forEach((x) => x.classList.toggle('on', x === b));
+              navigateLive(b.dataset.route, b.dataset.note);
+            }),
+        );
+        window.addEventListener('resize', layoutLive);
+        stage.addEventListener(
+          'scroll',
+          () => {
+            if (!slides[current].hasAttribute('data-demo')) return;
+            // Al hacer scroll el marco sigue al hueco sin la animación de reubicación.
+            live.el.style.transition = 'none';
+            layoutLive();
+            clearTimeout(layoutLive.t);
+            layoutLive.t = setTimeout(() => (live.el.style.transition = ''), 150);
+          },
+          true,
+        );
+        // El hueco de la demo cambia de tamaño con la ventana, el modo foco y las fuentes.
+        // Y se mueve mientras la diapositiva entra: se reubica al terminar cada animación.
+        stage.addEventListener(
+          'animationend',
+          (e) => e.target.closest('[data-demo]') && layoutLive(),
+        );
+        stage.addEventListener(
+          'transitionend',
+          (e) => e.target.hasAttribute?.('data-demo') && layoutLive(),
+        );
+        if ('ResizeObserver' in window)
+          new ResizeObserver(() => layoutLive()).observe($('#demo-slot'));
+        document.addEventListener('fullscreenchange', () => setTimeout(layoutLive, 120));
+
+        /* ---------- Health checks en vivo ---------- */
+        async function probe(path) {
+          const t0 = performance.now();
+          const ctrl = new AbortController();
+          const timer = setTimeout(() => ctrl.abort(), 70000); // Render puede tardar 30-60 s en despertar
+          try {
+            if (isSameOrigin()) {
+              const url = path.startsWith('/api') ? apiUrl(path) : appBase + path;
+              const res = await fetch(url, {
+                cache: 'no-store',
+                credentials: 'include',
+                signal: ctrl.signal,
+              });
+              let body = null;
+              try {
+                body = await res.clone().json();
+              } catch {
+                /* HTML */
+              }
+              return { ok: res.ok, ms: performance.now() - t0, body, status: res.status };
+            }
+            // Desde otro origen la respuesta es opaca: solo sabemos que contestó y cuánto tardó.
+            await fetch(appBase + path, {
+              mode: 'no-cors',
+              cache: 'no-store',
+              signal: ctrl.signal,
+            });
+            return { ok: true, ms: performance.now() - t0, opaque: true };
+          } catch {
+            return { ok: false, ms: performance.now() - t0 };
+          } finally {
+            clearTimeout(timer);
+          }
+        }
+        function setProbe(key, state, label) {
+          $$(`[data-probe="${key}"]`).forEach((p) => (p.className = 'pulse ' + state));
+          $$(`[data-probe-label="${key}"]`).forEach((l) => (l.innerHTML = label));
+        }
+        let probing = false;
+        async function probeAll() {
+          if (probing) return;
+          probing = true;
+          const fmt = (r) => Math.round(r.ms) + ' ms';
+          const same = isSameOrigin();
+          setProbe('web', 'warn', 'comprobando…');
+          if (same) {
+            ['live', 'db'].forEach((k) => setProbe(k, 'warn', 'comprobando…'));
+            const slow = setTimeout(
+              () => ['live', 'db'].forEach((k) => setProbe(k, 'warn', 'despertando la API…')),
+              4000,
+            );
+            const [web, liveR, db] = await Promise.all([
+              probe('/'),
+              probe('/api/health/live'),
+              probe('/api/health'),
+            ]);
+            clearTimeout(slow);
+            setProbe(
+              'web',
+              web.ok ? 'ok' : 'err',
+              web.ok ? `en línea · ${fmt(web)}` : 'sin respuesta',
+            );
+            setProbe(
+              'live',
+              liveR.ok ? 'ok' : 'err',
+              liveR.ok
+                ? `en línea · ${fmt(liveR)}`
+                : `sin respuesta${liveR.status ? ' · HTTP ' + liveR.status : ''}`,
+            );
+            // Antes de MIR-27, /api/health no informaba la base: basta con que responda.
+            const dbOk = db.ok && (db.body?.db ?? 'ok') === 'ok';
+            setProbe(
+              'db',
+              dbOk ? 'ok' : 'err',
+              dbOk
+                ? `${db.body?.db ? 'db: ok' : 'en línea'} · ${fmt(db)}`
+                : `base no responde${db.status ? ' · HTTP ' + db.status : ''}`,
+            );
+            setTopPulse(web.ok && liveR.ok);
+          } else {
+            // Desde otro origen, helmet (Cross-Origin-Resource-Policy) impide leer la
+            // API. La petición igual sale y despierta a Render; el detalle se abre aparte.
+            fetch(apiUrl('/api/health'), { mode: 'no-cors', cache: 'no-store' }).catch(() => {});
+            const link = (path) =>
+              `<a href="${apiUrl(path)}" target="_blank" rel="noopener" style="color:var(--cyan)">abrir ${path} ↗</a>`;
+            setProbe('live', '', link('/api/health/live'));
+            setProbe('db', '', link('/api/health'));
+            const web = await probe('/');
+            setProbe(
+              'web',
+              web.ok ? 'ok' : 'err',
+              web.ok ? `en línea · ${fmt(web)}` : 'sin respuesta',
+            );
+            setTopPulse(web.ok);
+          }
+          probing = false;
+        }
+        function setTopPulse(ok) {
+          $('#pulse').className = 'pulse ' + (ok ? 'ok' : 'err');
+          $('#live-toggle').title = ok
+            ? 'La aplicación responde · abrir en vivo (L)'
+            : 'La aplicación no responde';
+        }
+        $('#probe-again').onclick = probeAll;
+
+        /* ---------- Inicio ---------- */
+        const start = Number(location.hash.replace('#slide-', '')) - 1;
+        go(Number.isInteger(start) && start >= 0 && start < slides.length ? start : 0);
+        probeAll(); // también despierta la API de Render antes de la demo
+      })();
+    </script>
+  </body>
+</html>

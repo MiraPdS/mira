@@ -1,5 +1,14 @@
 import { http, HttpResponse } from 'msw';
-import type { ApiError, AuthResponse, PublicUser } from '@mira/shared';
+import type {
+  ApiError,
+  AuthResponse,
+  CommentDto,
+  ListProjectsResponse,
+  ProjectDto,
+  ProjectResponse,
+  PublicUser,
+  WorkItemActivityResponse,
+} from '@mira/shared';
 
 /**
  * Handlers por defecto de MSW.
@@ -21,6 +30,20 @@ export const USUARIO_DE_PRUEBA: PublicUser = {
   email: 'ada@mira.dev',
   createdAt: '2026-01-01T00:00:00.000Z',
 };
+
+/** ProjectDto valido para los tests; se ajusta con `overrides`. */
+export function proyectoDePrueba(overrides: Partial<ProjectDto> = {}): ProjectDto {
+  return {
+    id: 'project_1',
+    name: 'Mira',
+    key: 'MIR',
+    description: null,
+    createdAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    myRole: 'OWNER',
+    ...overrides,
+  };
+}
 
 /** Construye un error con la MISMA forma que produce el errorHandler de Express. */
 export function apiError(
@@ -49,4 +72,31 @@ export const handlers = [
   // Por defecto NO hay sesion: los tests que necesiten un usuario autenticado
   // lo declaran explicitamente. Es mas seguro que asumir sesion iniciada.
   http.get(`${BASE_URL}/auth/me`, () => apiError(401, 'UNAUTHORIZED', 'Debes iniciar sesion')),
+
+  // Usuario sin proyectos: el caso mas simple. Quien necesite una lista la
+  // declara con server.use(...).
+  http.get(`${BASE_URL}/projects`, () => HttpResponse.json<ListProjectsResponse>({ projects: [] })),
+
+  // MIR-7: proyecto propio (OWNER). El PATCH devuelve el proyecto con los cambios.
+  http.get(`${BASE_URL}/projects/:projectId`, ({ params }) =>
+    HttpResponse.json<ProjectResponse>({
+      project: proyectoDePrueba({ id: String(params.projectId) }),
+    }),
+  ),
+  http.patch(`${BASE_URL}/projects/:projectId`, async ({ params, request }) => {
+    const cambios = (await request.json()) as Partial<ProjectDto>;
+    return HttpResponse.json<ProjectResponse>({
+      project: proyectoDePrueba({ id: String(params.projectId), ...cambios }),
+    });
+  }),
+  // MIR-21: elemento sin comentarios. Sin este handler la consulta falla y su
+  // alerta se suma a las de la pantalla; quien necesite comentarios los
+  // declara con server.use(...).
+  http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/comments`, () =>
+    HttpResponse.json<{ comments: CommentDto[] }>({ comments: [] }),
+  ),
+  // MIR-22: elemento sin historial, por la misma razon.
+  http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/activity`, () =>
+    HttpResponse.json<WorkItemActivityResponse>({ data: [], truncated: false }),
+  ),
 ];
