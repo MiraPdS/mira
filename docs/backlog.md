@@ -517,10 +517,13 @@ mutación de MIR-19.
 
 **Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 5
 
-- Frontend desplegado en Vercel con `VITE_API_URL` apuntando a la API.
-- API desplegada en Render o Fly.io, conectada al PostgreSQL de Supabase.
+- Frontend desplegado en Vercel con `VITE_API_URL=/api`, reenviado a la API
+  por el rewrite de `apps/web/vercel.json`.
+- API desplegada en Render, conectada al PostgreSQL de Supabase.
 - Migraciones aplicadas con `prisma migrate deploy`.
-- CORS configurado con el origen exacto de producción y cookies cross-site funcionando.
+- Cookies de sesión funcionando en Chrome, incógnito y Safari (mismo origen vía
+  rewrite, ver D13); `CORS_ORIGIN` igual fijado al origen exacto de producción.
+- `/api/health` verifica la base y un pinger externo lo llama cada 10 minutos.
 
 ---
 

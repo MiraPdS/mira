@@ -196,10 +196,12 @@ despliegue, y Actions queda como verificación rápida de PR.
 
 ---
 
-## D12 — Despliegue en Vercel, Render/Fly y Supabase
+## D12 — Despliegue en Vercel, Render y Supabase
 
-**Decisión.** Frontend en Vercel, API en Render o Fly.io, base de datos en
-Supabase.
+**Decisión.** Frontend en Vercel, API en Render, base de datos en Supabase.
+Se evaluó Fly.io para la API y se eligió Render en `MIR-27`: Fly ya no tiene
+capa gratuita real y pide tarjeta, mientras que Render construye desde GitHub
+sin Dockerfile y sin medio de pago.
 
 **Por qué.** Todo en capa gratuita, con HTTPS y dominio automáticos, sin una
 máquina virtual que mantener ni apagar los fines de semana (el propio enunciado
@@ -211,7 +213,34 @@ enunciado y da buen material para explicar infraestructura, pero consume
 créditos y exige Nginx, certificados y mantención.
 
 **Consecuencia.** Hay que documentar el arranque en frío de la capa gratuita de
-Render, porque afecta la primera petición de una demostración.
+Render, porque afecta la primera petición de una demostración. Se mitiga con un
+pinger externo contra `/api/health` (ver [despliegue.md](./despliegue.md)).
+
+---
+
+## D13 — Mismo origen mediante rewrite de Vercel
+
+**Decisión.** El navegador nunca llama a Render directamente. El frontend usa
+`VITE_API_URL=/api` y `apps/web/vercel.json` reescribe `/api/:path*` hacia la
+API en Render. Para el navegador, web y API son el mismo origen.
+
+**Por qué.** `vercel.app` y `onrender.com` están en la Public Suffix List, así
+que con llamadas directas la cookie de sesión (D3) sería una cookie **de
+terceros**. Safari (ITP) las bloquea, el modo incógnito de Chrome también, y
+Firefox las particiona: el login parecería funcionar y luego todo respondería
+401. Con el rewrite la cookie es first-party y funciona en todos los
+navegadores, sin cambiar una línea del código de autenticación.
+
+**Descartado.** Cookies cross-site con `SameSite=None` y CORS (lo que pedía
+originalmente `MIR-27`): depende de una política de los navegadores que ya
+excluye a Safari. Dominio propio compartido (`app.` y `api.` del mismo
+dominio): resuelve lo mismo pero cuesta dinero y configuración de DNS.
+
+**Consecuencia.** La URL de Render queda escrita en `vercel.json`. CORS deja de
+intervenir en producción, pero `CORS_ORIGIN` se fija igual al origen exacto de
+Vercel como red de seguridad. Las previews de Vercel también funcionan (cada
+una es su propio origen), aunque usan la misma API y la misma base que
+producción.
 
 ---
 
