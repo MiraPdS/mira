@@ -12,7 +12,7 @@ Navegador ──► Vercel (apps/web)  ──/api/*──►  Render (apps/api) 
 | --- | --- | --- | --- |
 | Frontend | Vercel | Hobby | [`apps/web/vercel.json`](../apps/web/vercel.json) |
 | API | Render, región `oregon` | Free | [`render.yaml`](../render.yaml) |
-| Base de datos | Supabase, región `us-west-1` | Free | migraciones de Prisma |
+| Base de datos | Supabase, región `us-west-2` (Oregon) | Free | migraciones de Prisma |
 | Pinger | UptimeRobot | Free | — |
 
 Las tres apps despliegan **la rama `main`**: la demo siempre corresponde a un
@@ -44,22 +44,28 @@ Unos 20 minutos. Hazlo en este orden: cada paso necesita un dato del anterior.
 
 ### 1. Supabase
 
-1. New project, región **West US (North California)** (`us-west-1`).
+1. New project, región **West US (Oregon)** (`us-west-2`), la misma de Render.
    Guarda la contraseña de la base en tu gestor de contraseñas.
-2. Connect → copia la cadena del **Transaction pooler** (→ `DATABASE_URL`) y
-   la del **Session pooler** (→ `DIRECT_URL`), reemplazando `[YOUR-PASSWORD]`.
+2. Connect → ORMs → Prisma: copia la cadena del **Transaction pooler**
+   (→ `DATABASE_URL`) y la del **Session pooler** (→ `DIRECT_URL`),
+   reemplazando `[YOUR-PASSWORD]`. Copia **solo la URL**: sin comillas, sin
+   `DATABASE_URL=` delante y sin espacios (si no, `P1013 The scheme is not
+   recognized`). Una contraseña con `@ # / ? %` hay que codificarla; más fácil
+   usar una alfanumérica.
 3. Settings → Team: invita al resto del equipo.
 
 ### 2. Render
 
-1. New → **Blueprint** → conecta `MiraPdS/mira`. Render lee `render.yaml`.
+1. New → **Blueprint** → conecta GitHub (instala la app de Render en la
+   organización `MiraPdS`, solo el repo `mira`) → elige `MiraPdS/mira` y la
+   rama `main`. Render lee `render.yaml`.
 2. Pega `DATABASE_URL` y `DIRECT_URL` cuando las pida. En `CORS_ORIGIN` pon por
    ahora `https://mira.vercel.app`; se corrige en el paso 4.
 3. Espera el primer deploy. En el log del build deben aparecer
    `migrate deploy` (migraciones aplicadas) y el seed sin errores.
-4. Anota la URL del servicio. Si no es exactamente
-   `https://mira-api.onrender.com` (el nombre estaba tomado), **actualiza el
-   `destination` de `apps/web/vercel.json`** en un PR.
+4. Anota la URL del servicio. Render agrega un sufijo si el nombre está tomado
+   (la actual es `https://mira-api-2epf.onrender.com`). Si cambia, **actualiza
+   el `destination` de `apps/web/vercel.json`** en un PR.
 5. Comprueba: `https://<servicio>.onrender.com/api/health` →
    `{"status":"ok","db":"ok",...}`.
 
@@ -82,9 +88,17 @@ Unos 20 minutos. Hazlo en este orden: cada paso necesita un dato del anterior.
 
 ### Desplegar una rama que aún no está en `main`
 
-Para probar antes de un release: en Render, Manual Deploy → *Deploy a specific
-commit*; en Vercel, `vercel deploy` desde la rama (queda como preview). No
-cambies la rama de producción.
+Para probar antes de un release: en Render, `mira-api` → Settings → Build &
+Deploy → Branch, cambia a la rama y haz Manual Deploy; en Vercel,
+`vercel deploy` desde la rama (queda como preview). Al terminar, vuelve la rama
+de Render a `main` (una sincronización del Blueprint también la devuelve, porque
+`render.yaml` fija `branch: main`).
+
+El Blueprint `mira` se creó leyendo `render.yaml` desde
+`feature/MIR-27-despliegue-demo`, porque en ese momento el archivo aún no
+existía en `main`. Cuando `main` lo tenga (release de MIR-28), apunta el
+Blueprint a `main`; si Render no permite cambiarle la rama, bórralo
+conservando el servicio y vuelve a crearlo desde `main`.
 
 ---
 

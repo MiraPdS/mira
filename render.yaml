@@ -10,7 +10,8 @@ services:
     name: mira-api
     runtime: node
     plan: free
-    # Cerca de Supabase us-west-1: cada consulta cruza este tramo.
+    # Misma region que Supabase (West US Oregon, us-west-2): cada consulta
+    # cruza este tramo.
     region: oregon
     # Produccion = codigo liberado. Los cambios llegan a main solo via release.
     branch: main
