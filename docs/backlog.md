@@ -378,7 +378,7 @@ los items, por eso una columna vacía siempre existe.
 
 ---
 
-### MIR-19 · Cambiar el estado desde el menú de la tarjeta
+### MIR-19 · Cambiar el estado desde el menú de la tarjeta — ✅ implementado
 
 > Como miembro
 > quiero cambiar el estado de una tarjeta desde un menú
@@ -396,9 +396,19 @@ los items, por eso una columna vacía siempre existe.
 **Notas.** Este es el camino determinista que usarán las pruebas E2E de la
 Entrega 3. Debe existir **antes** que MIR-20.
 
+`PATCH /api/projects/:projectId/work-items/:workItemId/status` recibe
+`{ status }` (estricto: otro campo responde 422) y devuelve `{ item }`. El
+cambio de estado y su `ITEM_STATUS_CHANGED` (`field: "status"`, `fromValue`,
+`toValue`) se escriben en la misma transacción; mover al mismo estado responde
+200 sin registrar historial. VIEWER recibe 403 y el no miembro 404, igual que
+en el detalle. En el tablero, cada tarjeta tiene el botón **Mover a…** (menú
+accesible con teclado) solo si `can(rol, 'work-item:change-status')`; la
+mutación `useMoveWorkItem` es optimista y, si la API falla, devuelve la
+tarjeta a su columna y muestra el error. MIR-20 debe reutilizarla.
+
 ---
 
-### MIR-20 · Arrastrar y soltar tarjetas
+### MIR-20 · Arrastrar y soltar tarjetas — ✅ implementado
 
 > Como miembro
 > quiero arrastrar una tarjeta a otra columna
@@ -415,6 +425,19 @@ Entrega 3. Debe existir **antes** que MIR-20.
 
 **Notas.** dnd-kit con `PointerSensor` y `KeyboardSensor`. Reutiliza la misma
 mutación de MIR-19.
+
+Cada columna es un destino (`useDroppable` con su estado como id) y cada
+tarjeta un arrastrable que lleva el item en `data`; al soltar en otra columna se
+llama a `useMoveWorkItem`, así que la actualización optimista, el rollback y el
+mensaje de error son los mismos del menú. Con ratón se toma la tarjeta desde
+cualquier punto (distancia mínima de 5 px, para que un clic no sea un arrastre);
+con teclado, desde el asa **Arrastrar MIR-n**: Espacio o Enter la toma, las
+flechas izquierda y derecha saltan a la columna vecina (`coordinateGetter`
+propio en `boardDnd.ts`), Espacio o Enter la suelta y Escape cancela. Los
+anuncios para lectores de pantalla están en español. Sin
+`can(rol, 'work-item:change-status')` el arrastrable queda deshabilitado y no
+hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
+`getBoundingClientRect` porque jsdom no lo calcula.
 
 ---
 

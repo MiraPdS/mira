@@ -5,6 +5,8 @@ import type {
   ProjectDto,
   ProjectMemberDto,
   ProjectResponse,
+  ProjectSummaryDto,
+  ProjectSummaryResponse,
   UpdateProjectInput,
 } from '@mira/shared';
 import { api } from '@/lib/api-client';
@@ -73,4 +75,10 @@ export const projectApi = {
 
   removeMember: (projectId: string, userId: string) =>
     api.delete<void>(`/projects/${projectId}/members/${userId}`),
+
+  /** MIR-23: conteos del proyecto y su actividad reciente. */
+  getSummary: async (projectId: string): Promise<ProjectSummaryDto> => {
+    const { summary } = await api.get<ProjectSummaryResponse>(`/projects/${projectId}/summary`);
+    return summary;
+  },
 };

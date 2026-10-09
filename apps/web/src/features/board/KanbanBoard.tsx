@@ -1,7 +1,32 @@
-import { BOARD_STATUSES, STATUS_LABELS, type WorkItemDto } from '@mira/shared';
+import {
+  BOARD_STATUSES,
+  can,
+  STATUS_LABELS,
+  type WorkItemDto,
+  type WorkItemStatus,
+} from '@mira/shared';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import { useCurrentUser } from '@/features/auth/useAuth';
+import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
-import { useBoard } from './useBoard';
+import {
+  anuncios,
+  columnaDestino,
+  detectarColumna,
+  instrucciones,
+  saltarDeColumna,
+  type CardDragData,
+} from './boardDnd';
+import { useBoard, useMoveWorkItem } from './useBoard';
 import { WorkItemCard } from './WorkItemCard';
 
 export interface KanbanBoardProps {
@@ -11,6 +36,8 @@ export interface KanbanBoardProps {
 interface BoardColumnProps {
   status: (typeof BOARD_STATUSES)[number];
   items: WorkItemDto[];
+  /** Ausente cuando el usuario no puede mover tarjetas. */
+  onMove?: (item: WorkItemDto, status: WorkItemStatus) => void;
 }
 
 /**
@@ -20,14 +47,20 @@ interface BoardColumnProps {
  * destino al que MIR-19 (menu "Mover a...") y MIR-20 (arrastre) llevan las
  * tarjetas, asi que no puede desaparecer cuando se queda sin items.
  */
-function BoardColumn({ status, items }: BoardColumnProps) {
+function BoardColumn({ status, items, onMove }: BoardColumnProps) {
   const label = STATUS_LABELS[status];
   const headingId = `columna-${status}`;
+  // Toda la columna (titulo incluido) recibe tarjetas, no solo la lista.
+  const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
     <section
+      ref={setNodeRef}
       aria-labelledby={headingId}
-      className="flex w-72 shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3"
+      className={cn(
+        'flex w-72 shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3 transition-colors',
+        isOver && 'bg-sky-100 ring-2 ring-sky-300',
+      )}
     >
       <h3 id={headingId} className="flex items-center justify-between text-sm font-semibold">
         <span className="text-slate-800">{label}</span>
@@ -47,7 +80,11 @@ function BoardColumn({ status, items }: BoardColumnProps) {
           )}
         >
           {items.map((item) => (
-            <WorkItemCard key={item.id} item={item} />
+            <WorkItemCard
+              key={item.id}
+              item={item}
+              onMove={onMove ? (destino) => onMove(item, destino) : undefined}
+            />
           ))}
         </ul>
         {items.length === 0 ? (
@@ -69,6 +106,30 @@ function BoardColumn({ status, items }: BoardColumnProps) {
  */
 export function KanbanBoard({ projectId }: KanbanBoardProps) {
   const board = useBoard(projectId);
+  const move = useMoveWorkItem(projectId);
+
+  // Mismo criterio que la API (can() compartido): mientras el rol no se
+  // conozca, o si falla su consulta, el menu no se ofrece.
+  const { data: currentUser, isError: userError } = useCurrentUser();
+  const { data: members, isError: membersError } = useProjectMembers(projectId);
+  const role = members?.members.find((member) => member.user.id === currentUser?.id)?.role;
+  const canMove = !userError && !membersError && can(role, 'work-item:change-status');
+
+  // La distancia minima evita que un clic (en "Mover a..." o en la tarjeta)
+  // se interprete como un arrastre.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: saltarDeColumna }),
+  );
+
+  // Misma mutacion optimista que el menu (MIR-19): si la API falla, la
+  // tarjeta vuelve a su columna y aparece el mismo mensaje de error.
+  const soltar = ({ active, over }: DragEndEvent) => {
+    const item = (active.data.current as CardDragData | undefined)?.item;
+    const destino = columnaDestino(over?.id);
+    if (!canMove || !item || !destino || destino === item.status) return;
+    move.mutate({ item, status: destino });
+  };
 
   if (board.isPending) {
     return (
@@ -99,24 +160,40 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
         Tablero
       </h2>
 
+      {move.isError ? (
+        <p role="alert" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+          No se pudo mover {move.variables.item.reference}: {move.error.message}
+        </p>
+      ) : null}
+
       {/* Region enfocable: en 375 px las columnas se desplazan dentro de ella
           (tambien con teclado) sin ensanchar la pagina. `relative` es
           necesario: sin el, los textos sr-only (absolutos) de las columnas
           fuera de vista se posicionan contra el documento y lo ensanchan. */}
-      <div
-        role="region"
-        aria-label="Columnas del tablero"
-        tabIndex={0}
-        className="relative mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400"
+      <DndContext
+        sensors={sensors}
+        collisionDetection={detectarColumna}
+        onDragEnd={soltar}
+        accessibility={{ announcements: anuncios, screenReaderInstructions: instrucciones }}
       >
-        {BOARD_STATUSES.map((status) => (
-          <BoardColumn
-            key={status}
-            status={status}
-            items={items.filter((item) => item.status === status)}
-          />
-        ))}
-      </div>
+        <div
+          role="region"
+          aria-label="Columnas del tablero"
+          tabIndex={0}
+          className="relative mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400"
+        >
+          {BOARD_STATUSES.map((status) => (
+            <BoardColumn
+              key={status}
+              status={status}
+              items={items.filter((item) => item.status === status)}
+              onMove={
+                canMove ? (item, destino) => move.mutate({ item, status: destino }) : undefined
+              }
+            />
+          ))}
+        </div>
+      </DndContext>
     </section>
   );
 }

@@ -4,6 +4,7 @@ import {
   type CreateProjectInput,
   type ProjectDto,
   type ProjectRole,
+  type ProjectSummaryDto,
   type UpdateProjectInput,
 } from '@mira/shared';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
@@ -191,6 +192,31 @@ export function createProjectsService(repo: ProjectsRepository) {
       // El repositorio verifica dentro de la transaccion
       // que no se elimine al ultimo OWNER.
       await repo.removeMemberWithActivity(projectId, userId, actorId);
+    },
+
+    // MIR-23: Resumen estadistico y actividad reciente del proyecto.
+    async getProjectSummary(projectId: string, actorId: string): Promise<ProjectSummaryDto> {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'project:view')) {
+        throw new ForbiddenError('No perteneces a este proyecto', 'PROJECT_ACCESS_DENIED');
+      }
+
+      const summary = await repo.getProjectSummary(projectId);
+
+      return {
+        ...summary,
+        recentActivity: summary.recentActivity.map((activity) => ({
+          id: activity.id,
+          action: activity.action,
+          workItemId: activity.workItemId,
+          actor: activity.actor,
+          field: activity.field,
+          fromValue: activity.fromValue,
+          toValue: activity.toValue,
+          createdAt: activity.createdAt.toISOString(),
+        })),
+      };
     },
   };
 }

@@ -1,5 +1,11 @@
 import { z } from 'zod';
-import { PROJECT_ROLES } from '../domain.js';
+import {
+  ACTIVITY_ACTIONS,
+  PROJECT_ROLES,
+  WORK_ITEM_PRIORITIES,
+  WORK_ITEM_STATUSES,
+  WORK_ITEM_TYPES,
+} from '../domain.js';
 import { emailSchema, publicUserSchema } from './auth.js';
 
 /** Clave corta del proyecto: prefijo de las tarjetas, estilo MIR-12. */
@@ -85,3 +91,49 @@ export const projectResponseSchema = z.object({
   project: projectSchema,
 });
 export type ProjectResponse = z.infer<typeof projectResponseSchema>;
+
+/**
+ * Conteo por cada valor de un enum. Se arma como objeto (y no con z.record)
+ * para que el tipo exija TODAS las claves: un proyecto vacio responde ceros,
+ * no claves ausentes.
+ */
+function conteoPor<const T extends readonly [string, ...string[]]>(valores: T) {
+  return z.object(
+    Object.fromEntries(valores.map((valor) => [valor, z.number().int().nonnegative()])) as {
+      [K in T[number]]: z.ZodNumber;
+    },
+  );
+}
+
+/** MIR-23: una entrada de la actividad reciente del proyecto. */
+export const projectActivitySchema = z.object({
+  id: z.string(),
+  action: z.enum(ACTIVITY_ACTIONS),
+  workItemId: z.string().nullable(),
+  actor: z.object({ id: z.string(), name: z.string() }),
+  field: z.string().nullable(),
+  /**
+   * Valores legibles: cuando el campo guarda un usuario (responsable o
+   * miembro), el backend ya los entrega como nombre, nunca como id.
+   */
+  fromValue: z.string().nullable(),
+  toValue: z.string().nullable(),
+  createdAt: z.string().datetime(),
+});
+export type ProjectActivityDto = z.infer<typeof projectActivitySchema>;
+
+/** MIR-23: resumen del proyecto (conteos y actividad reciente). */
+export const projectSummarySchema = z.object({
+  total: z.number().int().nonnegative(),
+  byStatus: conteoPor(WORK_ITEM_STATUSES),
+  byType: conteoPor(WORK_ITEM_TYPES),
+  byPriority: conteoPor(WORK_ITEM_PRIORITIES),
+  recentActivity: z.array(projectActivitySchema),
+});
+export type ProjectSummaryDto = z.infer<typeof projectSummarySchema>;
+
+/** Respuesta de GET /api/projects/:projectId/summary. */
+export const projectSummaryResponseSchema = z.object({
+  summary: projectSummarySchema,
+});
+export type ProjectSummaryResponse = z.infer<typeof projectSummaryResponseSchema>;

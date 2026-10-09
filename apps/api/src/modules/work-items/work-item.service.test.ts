@@ -492,6 +492,109 @@ describe('workItemService', () => {
     });
   });
 
+  describe('changeStatus', () => {
+    it.each(['OWNER', 'MEMBER'] as const)(
+      '%s mueve el item y delega el cambio atomico con estado anterior y nuevo',
+      async (role) => {
+        repo.findMemberRole.mockResolvedValue(role);
+        repo.findByIdInProject.mockResolvedValue(itemDePrueba({ status: 'TODO' }));
+        repo.changeStatusAtomically.mockResolvedValue(itemDePrueba({ status: 'IN_PROGRESS' }));
+
+        const result = await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', {
+          status: 'IN_PROGRESS',
+        });
+
+        expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+        expect(repo.findByIdInProject).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+        expect(repo.changeStatusAtomically).toHaveBeenCalledTimes(1);
+        expect(repo.changeStatusAtomically).toHaveBeenCalledWith({
+          projectId: PROJECT_ID,
+          workItemId: 'item_1',
+          actorId: ACTOR_ID,
+          fromStatus: 'TODO',
+          toStatus: 'IN_PROGRESS',
+        });
+        expect(result).toEqual(toWorkItemDto(itemDePrueba({ status: 'IN_PROGRESS' })));
+      },
+    );
+
+    it('lee el estado vigente y mueve mediante el repository de la misma transaccion', async () => {
+      const transactionRepo = mock<WorkItemRepository>();
+      transactionRepo.findMemberRole.mockResolvedValue('MEMBER');
+      transactionRepo.findByIdInProject.mockResolvedValue(itemDePrueba({ status: 'IN_REVIEW' }));
+      transactionRepo.changeStatusAtomically.mockResolvedValue(itemDePrueba({ status: 'DONE' }));
+      repo.withTransaction.mockImplementation(async (operation) => operation(transactionRepo));
+
+      await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' });
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
+      expect(transactionRepo.changeStatusAtomically).toHaveBeenCalledWith(
+        expect.objectContaining({ fromStatus: 'IN_REVIEW', toStatus: 'DONE' }),
+      );
+    });
+
+    it('rechaza VIEWER con ForbiddenError sin buscar ni mover el item', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+
+      await expect(
+        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
+    });
+
+    it('oculta al no miembro con NotFoundError como en el detalle', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(
+        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
+    });
+
+    it.each(['item inexistente', 'item de otro proyecto'])(
+      'rechaza %s con NotFoundError sin mover ni registrar actividad',
+      async () => {
+        repo.findMemberRole.mockResolvedValue('MEMBER');
+        repo.findByIdInProject.mockResolvedValue(null);
+
+        await expect(
+          service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+        ).rejects.toBeInstanceOf(NotFoundError);
+
+        expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
+      },
+    );
+
+    it('no escribe ni registra historial si el estado no cambia', async () => {
+      const item = itemDePrueba({ status: 'IN_REVIEW' });
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(item);
+
+      const result = await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', {
+        status: 'IN_REVIEW',
+      });
+
+      expect(result).toEqual(toWorkItemDto(item));
+      expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
+    });
+
+    it('propaga un fallo de persistencia sin informar exito', async () => {
+      const error = new Error('No se pudo mover el item');
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba({ status: 'TODO' }));
+      repo.changeStatusAtomically.mockRejectedValue(error);
+
+      await expect(
+        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+      ).rejects.toBe(error);
+    });
+  });
+
   describe('getById', () => {
     it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)(
       '%s puede ver un elemento de trabajo',

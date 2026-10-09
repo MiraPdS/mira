@@ -9,6 +9,7 @@ import type {
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import { boardKeys } from '@/features/board/useBoard';
+import { projectKeys } from '@/features/projects/useProjects';
 import {
   createComment,
   createWorkItem,
@@ -51,10 +52,8 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) => queryKey[0] === 'work-items' && queryKey.includes(projectId),
       });
-
-      await queryClient.invalidateQueries({
-        queryKey: boardKeys.project(projectId),
-      });
+      await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
 
       // Evita conservar comentarios de un elemento eliminado.
       queryClient.removeQueries({
@@ -76,6 +75,7 @@ export function useCreateWorkItem(projectId: string) {
     mutationFn: (input) => createWorkItem(projectId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -135,6 +135,7 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
       // paginas del proyecto actualizado, sin invalidar otros proyectos.
       void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -159,6 +160,9 @@ export function useCreateComment(projectId: string, workItemId: string) {
         queryKey: commentsQueryKey(projectId, workItemId),
         exact: true,
       });
+
+      // MIR-23: el comentario deja una actividad COMMENT_ADDED en el resumen.
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }

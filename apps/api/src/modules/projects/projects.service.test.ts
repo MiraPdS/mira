@@ -461,4 +461,68 @@ describe('projectsService', () => {
       expect(repo.addMemberWithActivity).not.toHaveBeenCalled();
     });
   });
+
+  describe('getProjectSummary - MIR-23', () => {
+    const resumenVacio = {
+      total: 0,
+      byStatus: { BACKLOG: 0, TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 },
+      byType: { EPIC: 0, STORY: 0, TASK: 0, BUG: 0 },
+      byPriority: { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 },
+    };
+
+    it('rechaza con 403 a quien no pertenece al proyecto, sin consultar el resumen', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.getProjectSummary('project_1', 'intruso')).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      expect(repo.getProjectSummary).not.toHaveBeenCalled();
+    });
+
+    it('permite el resumen a un VIEWER', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'VIEWER', userId: 'viewer_1' }));
+      repo.getProjectSummary.mockResolvedValue({ ...resumenVacio, recentActivity: [] });
+
+      const result = await service.getProjectSummary('project_1', 'viewer_1');
+
+      expect(result).toEqual({ ...resumenVacio, recentActivity: [] });
+      expect(repo.getProjectSummary).toHaveBeenCalledWith('project_1');
+    });
+
+    it('serializa la fecha de cada actividad como ISO', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba());
+      repo.getProjectSummary.mockResolvedValue({
+        ...resumenVacio,
+        recentActivity: [
+          {
+            id: 'act_1',
+            action: 'MEMBER_ADDED',
+            projectId: 'project_1',
+            workItemId: null,
+            actorId: 'owner_1',
+            actor: { id: 'owner_1', name: 'Ada' },
+            field: 'member',
+            fromValue: null,
+            toValue: 'Grace',
+            createdAt: new Date('2026-10-01T12:00:00.000Z'),
+          },
+        ],
+      });
+
+      const result = await service.getProjectSummary('project_1', 'owner_1');
+
+      expect(result.recentActivity).toEqual([
+        {
+          id: 'act_1',
+          action: 'MEMBER_ADDED',
+          workItemId: null,
+          actor: { id: 'owner_1', name: 'Ada' },
+          field: 'member',
+          fromValue: null,
+          toValue: 'Grace',
+          createdAt: '2026-10-01T12:00:00.000Z',
+        },
+      ]);
+    });
+  });
 });
