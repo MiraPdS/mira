@@ -63,8 +63,8 @@ aplique también a los administradores.
 ## Entrega 1
 
 - **Pruebas y cobertura:** [Evidencias de la Entrega 1](Evidencias-Entrega-1.md)
-  — 788 pruebas, todas pasan; 97,0 % de líneas. Congeladas desde el
-  [run de CI 37905529077](https://github.com/MiraPdS/mira/actions/runs/37905529077) del commit `8fa2c93`.
+  — 794 pruebas, todas pasan; 97,0 % de líneas. Congeladas desde el
+  [run de CI 37910246418](https://github.com/MiraPdS/mira/actions/runs/37910246418) del commit `1c94e87`.
 - **Release y tag:** [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1).
 - **Trazabilidad, PRs representativos, uso de IA y defectos:** en
   [Entrega 1](Entrega-1.md#evidencia).
