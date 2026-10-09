@@ -1018,6 +1018,42 @@ describe('GET /api/projects/:projectId/board', () => {
     ]);
   });
 
+  it('devuelve todos los items, mas que una pagina del backlog, en orden estable', async () => {
+    const owner = await createUser({ email: 'owner@mira.test' });
+    const { project } = await createProject({ owner, key: 'MIR' });
+    const columnas = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
+    const base = Date.parse('2026-01-01T00:00:00.000Z');
+    // 101 supera el pageSize maximo del backlog (100). Position y createdAt se
+    // repiten a proposito para que cada criterio de desempate entre en juego, y
+    // los ids decrecen para que el orden no coincida con el de insercion.
+    const total = 101;
+    for (let i = 0; i < total; i += 1) {
+      await createWorkItem({
+        project,
+        createdBy: owner,
+        id: `item_${String(total - i).padStart(3, '0')}`,
+        status: columnas[i % columnas.length],
+        position: (i * 7) % 5,
+        createdAt: new Date(base + (i % 3) * 1000),
+      });
+    }
+    const esperado = (await prisma.workItem.findMany({ where: { projectId: project.id } }))
+      .sort(
+        (a, b) =>
+          a.position - b.position ||
+          a.createdAt.getTime() - b.createdAt.getTime() ||
+          (a.id < b.id ? -1 : 1),
+      )
+      .map((item) => item.id);
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
+
+    expect(res.status).toBe(200);
+    expect(res.body.items).toHaveLength(total);
+    expect(res.body.items.map((item: { id: string }) => item.id)).toEqual(esperado);
+  });
+
   it('incluye el responsable y no mezcla items de otros proyectos', async () => {
     const owner = await createUser({ email: 'owner@mira.test' });
     const assignee = await createUser({ email: 'grace@mira.test', name: 'Grace Hopper' });

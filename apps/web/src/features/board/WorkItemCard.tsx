@@ -28,7 +28,7 @@ export function WorkItemCard({ item }: WorkItemCardProps) {
         className="rounded-md border border-slate-200 bg-white p-3 shadow-sm"
       >
         <p className="font-mono text-xs text-slate-500">{item.reference}</p>
-        <h4 id={titleId} className="mt-1 text-sm font-medium break-words text-slate-900">
+        <h4 id={titleId} className="mt-1 text-sm font-medium wrap-anywhere text-slate-900">
           {item.title}
         </h4>
 

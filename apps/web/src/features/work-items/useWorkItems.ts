@@ -15,6 +15,7 @@ import {
   normalizeWorkItemListFilters,
   type WorkItemListFilters,
 } from './work-items.api';
+import { boardKeys } from '@/features/board/useBoard';
 
 export function useDeleteWorkItem(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
@@ -32,6 +33,7 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) => queryKey[0] === 'work-items' && queryKey.includes(projectId),
       });
+      await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
     },
   });
 }
@@ -40,10 +42,18 @@ export const workItemKeys = {
   backlog: (projectId: string) => ['work-items', 'backlog', projectId] as const,
 };
 
-/** Mutacion de creacion desacoplada de rutas, listas y navegacion. */
+/**
+ * Mutacion de creacion desacoplada de rutas, listas y navegacion. Un item puede
+ * nacer directamente en una columna (p. ej. TODO), asi que refresca el tablero.
+ */
 export function useCreateWorkItem(projectId: string) {
+  const queryClient = useQueryClient();
+
   return useMutation<WorkItemDto, Error, CreateWorkItemInput>({
     mutationFn: (input) => createWorkItem(projectId, input),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+    },
   });
 }
 
@@ -89,7 +99,7 @@ export function useWorkItem(projectId: string, workItemId: string) {
   });
 }
 
-/** Actualiza el detalle confirmado por el servidor y refresca su backlog. */
+/** Actualiza el detalle confirmado por el servidor y refresca su backlog y tablero. */
 export function useUpdateWorkItem(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
 
@@ -100,6 +110,7 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
       // El backlog tiene una query por pagina. El prefijo alcanza todas las
       // paginas del proyecto actualizado, sin invalidar otros proyectos.
       void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
+      void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
     },
   });
 }

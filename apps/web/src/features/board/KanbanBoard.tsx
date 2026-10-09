@@ -42,7 +42,7 @@ function BoardColumn({ status, items }: BoardColumnProps) {
           aria-label={`Tarjetas de ${label}`}
           data-status={status}
           className={cn(
-            'flex min-h-24 flex-1 flex-col gap-2 rounded-md',
+            'flex min-h-24 min-w-0 flex-1 flex-col gap-2 rounded-md',
             items.length === 0 && 'border-2 border-dashed border-slate-300',
           )}
         >
