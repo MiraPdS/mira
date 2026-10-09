@@ -220,10 +220,13 @@ export function createWorkItemService(repo: WorkItemRepository) {
       if (role === null) throw new NotFoundError('Elemento de trabajo');
       if (!can(role, 'work-item:view')) throw new ForbiddenError();
 
-      const workItem = await repo.findByIdInProject(projectId, workItemId);
+      // Independientes: la existencia del item y su historial van en paralelo.
+      const [workItem, { activities, truncated }] = await Promise.all([
+        repo.findByIdInProject(projectId, workItemId),
+        repo.listActivity(projectId, workItemId),
+      ]);
       if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
-      const { activities, truncated } = await repo.listActivity(projectId, workItemId);
       return { data: activities.map(toActivityDto), truncated };
     },
 

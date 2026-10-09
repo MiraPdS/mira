@@ -157,3 +157,12 @@ describe('describeActivity nunca filtra nombres de columnas ni valores crudos', 
     }
   });
 });
+
+it('no resuelve campos ni valores por el prototipo', () => {
+  expect(describeActivity(entrada('ITEM_UPDATED', 'constructor', 'a', 'b'), 'item')).toBe(
+    'actualizó el ítem',
+  );
+  expect(describeActivity(entrada('ITEM_UPDATED', 'priority', 'toString', 'HIGH'), 'item')).toBe(
+    'cambió la prioridad de toString a Alta',
+  );
+});

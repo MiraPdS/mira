@@ -749,12 +749,11 @@ describe('workItemService', () => {
     it('responde NotFoundError si el item no existe en el proyecto', async () => {
       repo.findMemberRole.mockResolvedValue('VIEWER');
       repo.findByIdInProject.mockResolvedValue(null);
+      repo.listActivity.mockResolvedValue({ activities: [], truncated: false });
 
       await expect(
         service.activity(PROJECT_ID, ACTOR_ID, 'item_inexistente'),
       ).rejects.toBeInstanceOf(NotFoundError);
-
-      expect(repo.listActivity).not.toHaveBeenCalled();
     });
   });
 

@@ -15,7 +15,8 @@ export const activitySchema = z.object({
   field: z.string().nullable(),
   /**
    * Valores legibles: cuando el campo guarda un usuario (responsable o
-   * miembro), el backend ya los entrega como nombre, nunca como id.
+   * miembro), el backend ya los entrega como nombre, nunca como id ("Usuario
+   * eliminado" si ya no existe; null significa sin valor).
    */
   fromValue: z.string().nullable(),
   toValue: z.string().nullable(),

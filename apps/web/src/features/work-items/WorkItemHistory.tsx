@@ -3,12 +3,8 @@ import { ACTIVITY_LIST_LIMIT } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { describeActivity } from '@/features/activity/describeActivity';
 import { ApiRequestError } from '@/lib/api-client';
+import { fechaLegible } from '@/lib/dates';
 import { useWorkItemActivity } from './useWorkItems';
-
-const dateFormatter = new Intl.DateTimeFormat('es-CL', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 
 export interface WorkItemHistoryProps {
   projectId: string;
@@ -60,7 +56,7 @@ export function WorkItemHistory({ projectId, workItemId }: WorkItemHistoryProps)
                   {describeActivity(activity, 'item')}
                 </p>
                 <time dateTime={activity.createdAt} className="mt-1 block text-xs text-slate-500">
-                  {dateFormatter.format(new Date(activity.createdAt))}
+                  {fechaLegible(activity.createdAt)}
                 </time>
               </li>
             ))}

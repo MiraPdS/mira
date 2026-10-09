@@ -10,8 +10,6 @@ import {
   sessionCookie,
 } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
-import { createWorkItemRepository } from './work-item.repository.js';
-import { createWorkItemService } from './work-item.service.js';
 
 /**
  * NIVEL 2 de la piramide: integracion (MIR-22).
@@ -160,6 +158,31 @@ describe('GET /api/projects/:projectId/work-items/:workItemId/activity', () => {
     expect(res.body.data[0]).toMatchObject({ fromValue: null, toValue: 'Grace' });
   });
 
+  it('nombra al usuario que ya no existe en vez de entregar null', async () => {
+    const owner = await createUser();
+    const { project } = await createProject({ owner });
+    const workItem = await createWorkItem({ project, createdBy: owner });
+
+    await prisma.activityLog.create({
+      data: {
+        projectId: project.id,
+        workItemId: workItem.id,
+        actorId: owner.id,
+        action: 'ITEM_ASSIGNED',
+        field: 'assigneeId',
+        fromValue: null,
+        toValue: 'usuario_borrado',
+      },
+    });
+
+    const res = await request(app)
+      .get(rutaDelHistorial(project.id, workItem.id))
+      .set('Cookie', sessionCookie(owner));
+
+    // null queda reservado para "sin responsable".
+    expect(res.body.data[0]).toMatchObject({ fromValue: null, toValue: 'Usuario eliminado' });
+  });
+
   it.each([
     [ACTIVITY_LIST_LIMIT, ACTIVITY_LIST_LIMIT, false],
     [ACTIVITY_LIST_LIMIT + 1, ACTIVITY_LIST_LIMIT, true],
@@ -260,28 +283,33 @@ describe('MIR-22: una edicion revertida no deja historial huerfano', () => {
     });
 
     // El trigger deja pasar la entrada de `title` y hace fallar la de
-    // `priority`.  Trigger y funcion son DDL transaccional: desaparecen al
-    // revertir, junto con todo lo que la edicion alcanzo a escribir.
-    await expect(
-      prisma.$transaction(async (tx) => {
-        await tx.$executeRaw`
-          CREATE FUNCTION mir22_reject_priority() RETURNS trigger LANGUAGE plpgsql AS
-          $$ BEGIN
-            IF NEW.field = 'priority' THEN RAISE EXCEPTION 'MIR22_ACTIVITY_BLOCKED'; END IF;
-            RETURN NEW;
-          END; $$
-        `;
-        await tx.$executeRaw`
-          CREATE TRIGGER mir22_reject_priority BEFORE INSERT ON activity_log
-          FOR EACH ROW EXECUTE FUNCTION mir22_reject_priority()
-        `;
-        const service = createWorkItemService(createWorkItemRepository(tx));
-        await service.update(project.id, owner.id, workItem.id, {
-          title: 'Titulo que debe revertirse',
-          priority: 'HIGH',
-        });
-      }),
-    ).rejects.toThrow('MIR22_ACTIVITY_BLOCKED');
+    // `priority`.  Se instala FUERA de cualquier transaccion y el PATCH va por
+    // HTTP: asi la atomicidad que se prueba es la del codigo de produccion,
+    // no la de una transaccion abierta por el test.  La suite de integracion
+    // corre en serie, por lo que el trigger no afecta a otros archivos.
+    await prisma.$executeRaw`
+      CREATE FUNCTION mir22_reject_priority() RETURNS trigger LANGUAGE plpgsql AS
+      $$ BEGIN
+        IF NEW.field = 'priority' THEN RAISE EXCEPTION 'MIR22_ACTIVITY_BLOCKED'; END IF;
+        RETURN NEW;
+      END; $$
+    `;
+    try {
+      await prisma.$executeRaw`
+        CREATE TRIGGER mir22_reject_priority BEFORE INSERT ON activity_log
+        FOR EACH ROW EXECUTE FUNCTION mir22_reject_priority()
+      `;
+
+      const res = await request(app)
+        .patch(`/api/projects/${project.id}/work-items/${workItem.id}`)
+        .set('Cookie', sessionCookie(owner))
+        .send({ title: 'Titulo que debe revertirse', priority: 'HIGH' });
+
+      expect(res.status).toBe(500);
+    } finally {
+      await prisma.$executeRaw`DROP TRIGGER IF EXISTS mir22_reject_priority ON activity_log`;
+      await prisma.$executeRaw`DROP FUNCTION IF EXISTS mir22_reject_priority()`;
+    }
 
     expect(await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).toMatchObject({
       title: 'Titulo original',

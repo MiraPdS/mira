@@ -22,8 +22,9 @@ const ENUM_FIELDS: Record<string, { noun: string; labels: Record<string, string>
   priority: { noun: 'la prioridad', labels: PRIORITY_LABELS },
 };
 
+// Object.hasOwn: un campo como "constructor" no debe resolverse por el prototipo.
 function label(labels: Record<string, string>, value: string): string {
-  return labels[value] ?? value;
+  return Object.hasOwn(labels, value) ? labels[value]! : value;
 }
 
 /** Fecha limite como dia calendario: se lee en UTC para que no se corra un dia. */
@@ -98,7 +99,7 @@ function describeItemField(
   ofItem: string,
   inProject: boolean,
 ): string | null {
-  if (field && field in ENUM_FIELDS) {
+  if (field && Object.hasOwn(ENUM_FIELDS, field)) {
     const { noun, labels } = ENUM_FIELDS[field]!;
     if (fromValue && toValue) {
       return `cambió ${noun}${ofItem} de ${label(labels, fromValue)} a ${label(labels, toValue)}`;

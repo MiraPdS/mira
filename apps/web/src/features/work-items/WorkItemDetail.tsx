@@ -11,6 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
+import { fechaLegible } from '@/lib/dates';
 import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
 import { WorkItemEditForm } from './WorkItemEditForm';
 import { WorkItemHistory } from './WorkItemHistory';
@@ -21,18 +22,10 @@ export interface WorkItemDetailProps {
   onDeleted?: () => void;
 }
 
-const dateFormatter = new Intl.DateTimeFormat('es-CL', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 const calendarDateFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'long',
   timeZone: 'UTC',
 });
-
-function fechaLegible(isoDate: string): string {
-  return dateFormatter.format(new Date(isoDate));
-}
 
 function ElementoNoEncontrado() {
   return (
