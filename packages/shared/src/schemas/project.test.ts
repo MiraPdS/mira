@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createProjectSchema, projectKeySchema } from './project.js';
+import { createProjectSchema, projectKeySchema, updateProjectSchema } from './project.js';
 
 describe('projectKeySchema', () => {
   it.each([
@@ -34,5 +34,37 @@ describe('createProjectSchema', () => {
 
   it('rechaza un cuerpo sin clave', () => {
     expect(createProjectSchema.safeParse({ name: 'Mira' }).success).toBe(false);
+  });
+
+  it.each(['', '   '])('normaliza la descripcion %j a null', (description) => {
+    expect(createProjectSchema.parse({ ...valido, description }).description).toBeNull();
+  });
+});
+
+describe('updateProjectSchema', () => {
+  it('acepta solo el nombre', () => {
+    expect(updateProjectSchema.parse({ name: '  Mira 2 ' })).toEqual({ name: 'Mira 2' });
+  });
+
+  it('acepta description null para vaciarla', () => {
+    expect(updateProjectSchema.parse({ description: null })).toEqual({ description: null });
+  });
+
+  it.each(['', '   '])('normaliza la descripcion %j a null', (description) => {
+    expect(updateProjectSchema.parse({ description })).toEqual({ description: null });
+  });
+
+  it('rechaza la clave: es inmutable', () => {
+    expect(updateProjectSchema.safeParse({ key: 'NUEVA' }).success).toBe(false);
+  });
+
+  it('rechaza campos desconocidos', () => {
+    expect(updateProjectSchema.safeParse({ name: 'Mira', color: 'rojo' }).success).toBe(false);
+  });
+
+  it('rechaza un cuerpo vacio', () => {
+    const result = updateProjectSchema.safeParse({});
+    expect(result.success).toBe(false);
+    expect(result.error?.issues[0]?.message).toBe('Debes enviar al menos un campo');
   });
 });
