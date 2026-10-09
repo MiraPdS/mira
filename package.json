@@ -32,7 +32,7 @@
     "db:reset": "npm run db:reset -w @mira/api",
     "db:migrate": "npm run db:migrate -w @mira/api",
     "db:seed": "npm run db:seed -w @mira/api",
-    "prepare": "husky || true"
+    "prepare": "husky || exit 0"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",

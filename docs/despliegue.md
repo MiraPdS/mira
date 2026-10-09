@@ -137,7 +137,8 @@ conservando el servicio y vuelve a crearlo desde `main`.
   la versión anterior. Si una migración se aplicó pero un paso posterior falló,
   la base queda adelantada respecto del código: por eso las migraciones
   destructivas se hacen en dos releases.
-- **`prepare: "husky || true"`.** El `|| true` es a propósito: sin él,
-  `npm install` en Vercel falla con `husky: command not found`.
+- **`prepare: "husky || exit 0"`.** El `|| exit 0` es a propósito: sin él,
+  `npm install` en Vercel falla con `husky: command not found`. Se usa
+  `exit 0` y no `true` porque `true` no existe en `cmd` de Windows.
 - **Nunca apuntes tu `.env` local a Supabase.** `npm run db:reset` borraría la
   demo.
