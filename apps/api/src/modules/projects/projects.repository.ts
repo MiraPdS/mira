@@ -100,6 +100,12 @@ export interface ProjectsRepository {
 
   removeMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<void>;
 
+  /**
+   * MIR-8: elimina el proyecto. Miembros, items, comentarios y bitacora caen
+   * en cascada por las FK del esquema. Devuelve false si ya no existia.
+   */
+  deleteById(projectId: string): Promise<boolean>;
+
   /** MIR-23: conteos por estado, tipo y prioridad, y la actividad reciente. */
   getProjectSummary(projectId: string): Promise<ProjectSummaryData>;
 }
@@ -497,6 +503,12 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         byPriority,
         recentActivity,
       };
+    },
+
+    // MIR-8: deleteMany no falla si otra peticion lo borro primero (P2025).
+    async deleteById(projectId) {
+      const { count } = await db.project.deleteMany({ where: { id: projectId } });
+      return count > 0;
     },
   };
 }

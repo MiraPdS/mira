@@ -82,6 +82,29 @@ export function useUpdateProject(projectId: string) {
 }
 
 /**
+ * MIR-8: elimina el proyecto. Lo quita de la lista al instante y marca como
+ * obsoleto todo lo que cuelga de el SIN refetch: la pantalla que lo muestra
+ * sigue montada hasta navegar, y volver a pedirlo daria 403.
+ */
+export function useDeleteProject(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, ApiRequestError, void>({
+    mutationFn: () => projectApi.remove(projectId),
+    onSuccess: async () => {
+      queryClient.setQueryData<ProjectDto[]>(projectKeys.all, (proyectos) =>
+        proyectos?.filter((proyecto) => proyecto.id !== projectId),
+      );
+
+      const proyecto = projectKeys.detail(projectId);
+      await queryClient.cancelQueries({ queryKey: proyecto });
+      await queryClient.invalidateQueries({ queryKey: proyecto, refetchType: 'none' });
+      await queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+    },
+  });
+}
+
+/**
  * Obtiene los integrantes de un proyecto.
  */
 export function useProjectMembers(projectId: string) {

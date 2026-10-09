@@ -217,3 +217,82 @@ describe('ProjectSettingsPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('No tienes acceso a este proyecto');
   });
 });
+
+describe('ProjectSettingsPage - eliminar proyecto (MIR-8)', () => {
+  /** Registra los DELETE recibidos; responde 204 salvo que se indique otra cosa. */
+  function capturarDelete(
+    respuesta: () => Response = () => new HttpResponse(null, { status: 204 }),
+  ) {
+    const pedidos: string[] = [];
+    server.use(
+      http.delete(`${BASE_URL}/projects/:projectId`, ({ params }) => {
+        pedidos.push(String(params.projectId));
+        return respuesta();
+      }),
+    );
+    return pedidos;
+  }
+
+  function renderConLista() {
+    return renderConProviders(
+      <Routes>
+        <Route path="/proyectos" element={<h1>Mis proyectos</h1>} />
+        <Route path="/proyectos/:projectId/configuracion" element={<ProjectSettingsPage />} />
+      </Routes>,
+      { route: '/proyectos/project_1/configuracion' },
+    );
+  }
+
+  it.each(['MEMBER', 'VIEWER'] as const)('un %s no ve "Eliminar proyecto"', async (myRole) => {
+    conProyecto({ myRole });
+    renderConLista();
+
+    expect(await screen.findByText('Mira')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Eliminar proyecto' })).not.toBeInTheDocument();
+  });
+
+  it('CA4: cancelar el dialogo no elimina nada', async () => {
+    conProyecto();
+    const pedidos = capturarDelete();
+    const { user } = renderConLista();
+
+    await user.click(await screen.findByRole('button', { name: 'Eliminar proyecto' }));
+    const dialogo = screen.getByRole('dialog', { name: 'Eliminar proyecto' });
+    expect(dialogo).toHaveTextContent('Esta acción no se puede deshacer.');
+
+    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(pedidos).toEqual([]);
+    expect(screen.getByRole('heading', { name: 'Configuracion del proyecto' })).toBeInTheDocument();
+  });
+
+  it('CA1: al confirmar elimina el proyecto y vuelve a la lista', async () => {
+    conProyecto();
+    const pedidos = capturarDelete();
+    const { user } = renderConLista();
+
+    await user.click(await screen.findByRole('button', { name: 'Eliminar proyecto' }));
+    await user.click(screen.getByRole('button', { name: 'Eliminar' }));
+
+    expect(await screen.findByRole('heading', { name: 'Mis proyectos' })).toBeInTheDocument();
+    expect(pedidos).toEqual(['project_1']);
+  });
+
+  it('un 403 al confirmar avisa y no sale de la pagina', async () => {
+    conProyecto();
+    capturarDelete(() =>
+      apiError(403, 'OWNER_REQUIRED', 'Solo el propietario puede eliminar el proyecto'),
+    );
+    const { user } = renderConLista();
+
+    await user.click(await screen.findByRole('button', { name: 'Eliminar proyecto' }));
+    await user.click(screen.getByRole('button', { name: 'Eliminar' }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Ya no tienes permisos para eliminar este proyecto.',
+    );
+    expect(screen.getByRole('dialog', { name: 'Eliminar proyecto' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Mis proyectos' })).not.toBeInTheDocument();
+  });
+});

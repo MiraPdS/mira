@@ -65,6 +65,9 @@ export const projectApi = {
     return project;
   },
 
+  /** MIR-8: elimina el proyecto. Solo el OWNER; 403 para el resto. */
+  remove: (projectId: string) => api.delete<void>(`/projects/${projectId}`),
+
   addMember: (projectId: string, input: AddMemberInput) =>
     api.post<AddMemberResponse>(`/projects/${projectId}/members`, input),
 

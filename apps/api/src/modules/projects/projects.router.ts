@@ -29,6 +29,9 @@ export function createProjectsRouter(): Router {
   router.get('/:projectId', controller.get);
   router.patch('/:projectId', validateBody(updateProjectSchema), controller.update);
 
+  // MIR-8: eliminar un proyecto (solo OWNER).
+  router.delete('/:projectId', controller.delete);
+
   // MIR-9: Listar miembros e invitar usuarios.
   router.get('/:projectId/members', controller.listMembers);
   router.post('/:projectId/members', validateBody(addMemberSchema), controller.addMember);

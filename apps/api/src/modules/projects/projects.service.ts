@@ -109,6 +109,24 @@ export function createProjectsService(repo: ProjectsRepository) {
       return toProjectDto(project, 'OWNER');
     },
 
+    /**
+     * MIR-8: solo el OWNER elimina. Quien no es miembro recibe el mismo 403
+     * que en getById, exista o no el proyecto.
+     */
+    async delete(projectId: string, actorId: string): Promise<void> {
+      const membership = await repo.findMember(projectId, actorId);
+
+      if (!can(membership?.role, 'project:delete')) {
+        throw new ForbiddenError(
+          'Solo el propietario puede eliminar el proyecto',
+          'OWNER_REQUIRED',
+        );
+      }
+
+      const deleted = await repo.deleteById(projectId);
+      if (!deleted) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+    },
+
     // MIR-9: Listar miembros del proyecto.
     async getMembers(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);

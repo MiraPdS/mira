@@ -290,6 +290,41 @@ describe('projectsService', () => {
     });
   });
 
+  describe('delete - MIR-8', () => {
+    it('el OWNER elimina el proyecto', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
+      repo.deleteById.mockResolvedValue(true);
+
+      await expect(service.delete('project_1', 'owner_1')).resolves.toBeUndefined();
+
+      expect(repo.deleteById).toHaveBeenCalledExactlyOnceWith('project_1');
+    });
+
+    it.each(['MEMBER', 'VIEWER'] as const)('rechaza con 403 a un %s sin borrar', async (role) => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role, userId: 'user_2' }));
+
+      await expect(service.delete('project_1', 'user_2')).rejects.toMatchObject({
+        status: 403,
+        code: 'OWNER_REQUIRED',
+      });
+      expect(repo.deleteById).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a quien no es miembro', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.delete('project_1', 'intruso')).rejects.toBeInstanceOf(ForbiddenError);
+      expect(repo.deleteById).not.toHaveBeenCalled();
+    });
+
+    it('responde 404 si el proyecto ya fue eliminado por otra peticion', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
+      repo.deleteById.mockResolvedValue(false);
+
+      await expect(service.delete('project_1', 'owner_1')).rejects.toBeInstanceOf(NotFoundError);
+    });
+  });
+
   describe('update - MIR-7', () => {
     beforeEach(() => {
       repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));

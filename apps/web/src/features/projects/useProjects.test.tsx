@@ -5,6 +5,7 @@ import type { ReactNode } from 'react';
 import {
   useAddMember,
   useChangeMemberRole,
+  useDeleteProject,
   useRemoveMember,
   useUpdateProject,
   projectKeys,
@@ -15,6 +16,7 @@ vi.mock('./project.api', () => ({
   projectApi: {
     addMember: vi.fn(),
     changeMemberRole: vi.fn(),
+    remove: vi.fn(),
     removeMember: vi.fn(),
     update: vi.fn(),
   },
@@ -194,6 +196,48 @@ describe('useUpdateProject - MIR-7 + MIR-23', () => {
     });
 
     expect(queryClient.getQueryState(projectKeys.summary(projectId))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(projectKeys.summary('project_2'))?.isInvalidated).toBe(false);
+  });
+});
+
+describe('useDeleteProject - MIR-8', () => {
+  it('quita el proyecto de la lista y no vuelve a pedir su detalle', async () => {
+    const queryClient = createTestClient();
+    const proyecto = (id: string) => ({
+      id,
+      name: id,
+      key: id.toUpperCase(),
+      description: null,
+      createdAt: '2026-10-08T12:00:00.000Z',
+      updatedAt: '2026-10-08T12:00:00.000Z',
+      myRole: 'OWNER' as const,
+    });
+
+    queryClient.setQueryData(projectKeys.all, [proyecto('project_1'), proyecto('project_2')]);
+    queryClient.setQueryData(projectKeys.detail('project_1'), proyecto('project_1'));
+    queryClient.setQueryData(projectKeys.summary('project_1'), { total: 3 });
+    queryClient.setQueryData(projectKeys.summary('project_2'), { total: 5 });
+
+    vi.mocked(projectApi.remove).mockResolvedValue(undefined);
+
+    const { result } = renderHook(() => useDeleteProject('project_1'), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    result.current.mutate();
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(projectApi.remove).toHaveBeenCalledWith('project_1');
+    expect(
+      queryClient.getQueryData<Array<{ id: string }>>(projectKeys.all)?.map((p) => p.id),
+    ).toEqual(['project_2']);
+
+    // Lo que cuelga del proyecto eliminado queda obsoleto; lo de otros proyectos no.
+    expect(queryClient.getQueryState(projectKeys.detail('project_1'))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(projectKeys.summary('project_1'))?.isInvalidated).toBe(true);
     expect(queryClient.getQueryState(projectKeys.summary('project_2'))?.isInvalidated).toBe(false);
   });
 });
