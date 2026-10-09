@@ -88,10 +88,17 @@ export async function createWorkItem(options: {
   estimate?: WorkItem['estimate'];
   dueDate?: WorkItem['dueDate'];
   assigneeId?: string | null;
+  /** Para probar el orden del tablero; por defecto los asigna la base. */
+  id?: string;
+  position?: number;
+  createdAt?: Date;
 }): Promise<WorkItem> {
   const n = siguiente();
   return prisma.workItem.create({
     data: {
+      id: options.id,
+      position: options.position,
+      createdAt: options.createdAt,
       reference: `${options.project.key}-${n}`,
       projectId: options.project.id,
       createdById: options.createdBy.id,

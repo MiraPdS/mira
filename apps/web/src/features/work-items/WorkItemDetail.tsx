@@ -5,6 +5,7 @@ import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
 import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
+import { WorkItemEditForm } from './WorkItemEditForm';
 
 export interface WorkItemDetailProps {
   projectId: string;
@@ -15,6 +16,11 @@ export interface WorkItemDetailProps {
 const dateFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'medium',
   timeStyle: 'short',
+});
+
+const calendarDateFormatter = new Intl.DateTimeFormat('es-CL', {
+  dateStyle: 'long',
+  timeZone: 'UTC',
 });
 
 function fechaLegible(isoDate: string): string {
@@ -32,7 +38,9 @@ function ElementoNoEncontrado() {
   );
 }
 
+/** Muestra el detalle de un elemento sin decidir rutas ni navegacion. */
 export function WorkItemDetail(props: WorkItemDetailProps) {
+  // Una nueva identidad no debe heredar confirmación ni resultado de eliminación.
   return (
     <WorkItemDetailContent key={JSON.stringify([props.projectId, props.workItemId])} {...props} />
   );
@@ -47,16 +55,18 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
   const role = members?.members.find((member) => member.user.id === currentUser?.id)?.role;
 
   const canDelete = !userError && !membersError && can(role, 'work-item:delete');
-
+  const canEdit = !userError && !membersError && can(role, 'work-item:update');
   const canComment = !userError && !membersError && can(role, 'comment:create');
 
   const [confirming, setConfirming] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [commentBody, setCommentBody] = useState('');
 
   const dialogRef = useRef<HTMLDialogElement>(null);
   const dialogTitleId = useId();
   const dialogDescriptionId = useId();
   const commentInputId = useId();
+  const commentsTitleId = useId();
 
   const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
 
@@ -70,9 +80,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
   const commentCreation = useCreateComment(projectId, workItemId);
 
   useEffect(() => {
-    if (confirming) {
-      dialogRef.current?.showModal();
-    }
+    if (confirming) dialogRef.current?.showModal();
   }, [confirming]);
 
   function publicarComentario(event: FormEvent<HTMLFormElement>) {
@@ -98,6 +106,8 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     return <p role="status">Elemento eliminado.</p>;
   }
 
+  // En TanStack Query v5 una consulta deshabilitada puede quedar isPending.
+  // Por eso los identificadores vacios se revisan antes de la carga.
   if (!projectId || !workItemId) {
     return <ElementoNoEncontrado />;
   }
@@ -125,6 +135,18 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     );
   }
 
+  // MIR-15: conservar la edicion integrada en develop.
+  if (isEditing && canEdit) {
+    return (
+      <WorkItemEditForm
+        projectId={projectId}
+        item={item}
+        onCancel={() => setIsEditing(false)}
+        onSaved={() => setIsEditing(false)}
+      />
+    );
+  }
+
   return (
     <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
       <header className="border-b border-slate-200 pb-4">
@@ -144,6 +166,8 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             Eliminar elemento
           </Button>
         )}
+
+        {canEdit ? <Button onClick={() => setIsEditing(true)}>Editar</Button> : null}
       </header>
 
       {confirming && (
@@ -154,10 +178,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           className="max-w-lg rounded-lg p-6 backdrop:bg-black/40"
           onCancel={(event) => {
             event.preventDefault();
-
-            if (!deletion.isPending) {
-              setConfirming(false);
-            }
+            if (!deletion.isPending) setConfirming(false);
           }}
         >
           <h3 id={dialogTitleId} className="text-lg font-semibold">
@@ -241,7 +262,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           <dt className="text-sm font-medium text-slate-500">Fecha límite</dt>
           <dd className="mt-1 text-sm text-slate-900">
             {item.dueDate ? (
-              <time dateTime={item.dueDate}>{fechaLegible(item.dueDate)}</time>
+              <time dateTime={item.dueDate}>
+                {calendarDateFormatter.format(new Date(item.dueDate))}
+              </time>
             ) : (
               'Sin fecha límite'
             )}
@@ -263,8 +286,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         </div>
       </dl>
 
-      <section aria-labelledby="comments-title" className="mt-8 border-t border-slate-200 pt-6">
-        <h3 id="comments-title" className="text-lg font-semibold text-slate-900">
+      {/* MIR-21: comentarios del elemento de trabajo. */}
+      <section aria-labelledby={commentsTitleId} className="mt-8 border-t border-slate-200 pt-6">
+        <h3 id={commentsTitleId} className="text-lg font-semibold text-slate-900">
           Comentarios
         </h3>
 
@@ -316,10 +340,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
               value={commentBody}
               onChange={(event) => {
                 setCommentBody(event.target.value);
-
-                if (commentCreation.isError) {
-                  commentCreation.reset();
-                }
+                if (commentCreation.isError) commentCreation.reset();
               }}
               rows={4}
               maxLength={5000}

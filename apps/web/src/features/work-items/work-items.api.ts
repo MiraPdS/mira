@@ -3,6 +3,7 @@ import type {
   CreateCommentInput,
   CreateWorkItemInput,
   Paginated,
+  UpdateWorkItemInput,
   WorkItemDto,
   WorkItemFilters,
 } from '@mira/shared';
@@ -59,17 +60,11 @@ export function listWorkItems(
   pageSize: number,
   filters: WorkItemListFilters = {},
 ): Promise<Paginated<WorkItemDto>> {
-  const query = new URLSearchParams({
-    page: String(page),
-    pageSize: String(pageSize),
-  });
-
+  const query = new URLSearchParams({ page: String(page), pageSize: String(pageSize) });
   const normalizedFilters = normalizeWorkItemListFilters(filters);
 
   for (const [key, value] of Object.entries(normalizedFilters)) {
-    if (value !== undefined && value !== '') {
-      query.set(key, value);
-    }
+    if (value !== undefined && value !== '') query.set(key, value);
   }
 
   return api.get<Paginated<WorkItemDto>>(
@@ -82,7 +77,19 @@ export async function getWorkItem(projectId: string, workItemId: string): Promis
   const { item } = await api.get<WorkItemResponse>(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
   );
+  return item;
+}
 
+/** Actualiza los campos editables de un elemento dentro de su proyecto. */
+export async function updateWorkItem(
+  projectId: string,
+  workItemId: string,
+  input: UpdateWorkItemInput,
+): Promise<WorkItemDto> {
+  const { item } = await api.patch<WorkItemResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}`,
+    input,
+  );
   return item;
 }
 
@@ -91,7 +98,6 @@ export async function getComments(projectId: string, workItemId: string): Promis
   const { comments } = await api.get<CommentsResponse>(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/comments`,
   );
-
   return comments;
 }
 
@@ -105,6 +111,5 @@ export async function createComment(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/comments`,
     input,
   );
-
   return comment;
 }

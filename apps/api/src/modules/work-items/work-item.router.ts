@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { createWorkItemSchema, workItemFiltersSchema } from '@mira/shared';
+import { createWorkItemSchema, updateWorkItemSchema, workItemFiltersSchema } from '@mira/shared';
 import { requireAuth } from '../../middleware/require-auth.js';
 import { validateBody, validateQuery } from '../../middleware/validate.js';
 import { createWorkItemController } from './work-item.controller.js';
@@ -30,7 +30,16 @@ export function createWorkItemRouter(): Router {
     controller.create,
   );
   router.get('/:projectId/work-items/:workItemId', requireAuth, controller.getById);
+  router.patch(
+    '/:projectId/work-items/:workItemId',
+    requireAuth,
+    validateBody(updateWorkItemSchema),
+    controller.update,
+  );
   router.delete('/:projectId/work-items/:workItemId', requireAuth, controller.delete);
+
+  // Tablero Kanban: GET /api/projects/:projectId/board
+  router.get('/:projectId/board', requireAuth, controller.board);
 
   return router;
 }

@@ -1,5 +1,11 @@
 import type { NextFunction, Request, Response } from 'express';
-import type { CreateWorkItemInput, WorkItemDto, WorkItemFilters } from '@mira/shared';
+import type {
+  BoardResponse,
+  CreateWorkItemInput,
+  UpdateWorkItemInput,
+  WorkItemDto,
+  WorkItemFilters,
+} from '@mira/shared';
 import { UnauthorizedError } from '../../lib/errors.js';
 import { validatedQuery } from '../../middleware/validate.js';
 import type { WorkItemService } from './work-item.service.js';
@@ -46,6 +52,22 @@ export function createWorkItemController(service: WorkItemService) {
       }
     },
 
+    async update(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const { item } = await service.update(
+          req.params.projectId!,
+          req.user.id,
+          req.params.workItemId!,
+          req.body as UpdateWorkItemInput,
+        );
+        res.status(200).json({ item } satisfies WorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+
     async delete(req: Request, res: Response, next: NextFunction) {
       try {
         if (!req.user) throw new UnauthorizedError();
@@ -67,6 +89,17 @@ export function createWorkItemController(service: WorkItemService) {
           validatedQuery<WorkItemFilters>(res),
         );
         res.status(200).json(result);
+      } catch (error) {
+        next(error);
+      }
+    },
+
+    async board(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const items = await service.board(req.params.projectId!, req.user.id);
+        res.status(200).json({ items } satisfies BoardResponse);
       } catch (error) {
         next(error);
       }

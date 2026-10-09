@@ -1,7 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AddMemberInput, ProjectDto } from '@mira/shared';
+import type {
+  AddMemberInput,
+  CreateProjectInput,
+  ProjectDto,
+  UpdateProjectInput,
+} from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
+import type { ProjectMemberRole } from './project.api';
+import { boardKeys } from '@/features/board/useBoard';
 
 /**
  * Claves de cache de proyectos. `all` es prefijo de las demas: crear o editar
@@ -9,6 +16,7 @@ import { projectApi } from './project.api';
  */
 export const projectKeys = {
   all: ['projects'] as const,
+  detail: (projectId: string) => ['projects', projectId] as const,
   members: (projectId: string) => ['projects', projectId, 'members'] as const,
 };
 
@@ -17,6 +25,43 @@ export function useProjects() {
   return useQuery<ProjectDto[], ApiRequestError>({
     queryKey: projectKeys.all,
     queryFn: projectApi.list,
+  });
+}
+
+/** Crea un proyecto y refresca la lista para que aparezca con su rol. */
+export function useCreateProject() {
+  const queryClient = useQueryClient();
+
+  return useMutation<ProjectDto, ApiRequestError, CreateProjectInput>({
+    mutationFn: projectApi.create,
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+/** Un proyecto con el rol del usuario en el (MIR-7). */
+export function useProject(projectId: string) {
+  return useQuery<ProjectDto, ApiRequestError>({
+    queryKey: projectKeys.detail(projectId),
+    queryFn: () => projectApi.get(projectId),
+    enabled: Boolean(projectId),
+  });
+}
+
+/**
+ * Edita un proyecto (MIR-7). La respuesta ya es el proyecto actualizado: se
+ * escribe en el detalle y se invalida la lista para que muestre el nombre nuevo.
+ */
+export function useUpdateProject(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<ProjectDto, ApiRequestError, UpdateProjectInput>({
+    mutationFn: (input) => projectApi.update(projectId, input),
+    onSuccess: (project) => {
+      queryClient.setQueryData(projectKeys.detail(projectId), project);
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+    },
   });
 }
 
@@ -43,6 +88,61 @@ export function useAddMember(projectId: string) {
     onSuccess: () => {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Cambia el rol de un miembro.
+ */
+export function useChangeMemberRole(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: ProjectMemberRole }) =>
+      projectApi.changeMemberRole(projectId, userId, role),
+
+    onSuccess: () => {
+      void queryClient.invalidateQueries({
+        queryKey: projectKeys.members(projectId),
+      });
+    },
+  });
+}
+
+/**
+ * Quita un miembro del proyecto.
+ */
+
+/**
+ * Quita un miembro del proyecto.
+ */
+export function useRemoveMember(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (userId: string) => projectApi.removeMember(projectId, userId),
+
+    onSuccess: async () => {
+      // Actualizar la lista de miembros.
+      await queryClient.invalidateQueries({
+        queryKey: projectKeys.members(projectId),
+      });
+
+      // Invalidar las paginas del backlog de este proyecto.
+      await queryClient.invalidateQueries({
+        queryKey: ['work-items', 'backlog', projectId],
+      });
+
+      // Invalidar los detalles de tareas de este proyecto.
+      await queryClient.invalidateQueries({
+        queryKey: ['work-item', projectId],
+      });
+
+      // Invalidar el tablero: sus tarjetas muestran al responsable eliminado.
+      await queryClient.invalidateQueries({
+        queryKey: boardKeys.project(projectId),
       });
     },
   });

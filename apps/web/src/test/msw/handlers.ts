@@ -4,6 +4,7 @@ import type {
   AuthResponse,
   ListProjectsResponse,
   ProjectDto,
+  ProjectResponse,
   PublicUser,
 } from '@mira/shared';
 
@@ -73,4 +74,17 @@ export const handlers = [
   // Usuario sin proyectos: el caso mas simple. Quien necesite una lista la
   // declara con server.use(...).
   http.get(`${BASE_URL}/projects`, () => HttpResponse.json<ListProjectsResponse>({ projects: [] })),
+
+  // MIR-7: proyecto propio (OWNER). El PATCH devuelve el proyecto con los cambios.
+  http.get(`${BASE_URL}/projects/:projectId`, ({ params }) =>
+    HttpResponse.json<ProjectResponse>({
+      project: proyectoDePrueba({ id: String(params.projectId) }),
+    }),
+  ),
+  http.patch(`${BASE_URL}/projects/:projectId`, async ({ params, request }) => {
+    const cambios = (await request.json()) as Partial<ProjectDto>;
+    return HttpResponse.json<ProjectResponse>({
+      project: proyectoDePrueba({ id: String(params.projectId), ...cambios }),
+    });
+  }),
 ];

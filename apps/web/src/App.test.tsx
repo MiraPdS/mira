@@ -1,9 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import type { ApiError, AuthResponse } from '@mira/shared';
+import type {
+  ApiError,
+  AuthResponse,
+  BoardResponse,
+  ListProjectsResponse,
+  ProjectDto,
+} from '@mira/shared';
 import { renderConProviders, screen } from '@/test/render';
 import { server } from '@/test/msw/server';
-import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
+import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { App } from './App';
 
 /**
@@ -44,6 +50,23 @@ describe('App', () => {
     expect(screen.getByLabelText(/contrasena/i)).toBeInTheDocument();
   });
 
+  it('en /proyectos/:projectId/tablero muestra el tablero de ese proyecto', async () => {
+    let proyectoSolicitado: string | undefined;
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/board`, ({ params }) => {
+        proyectoSolicitado = params.projectId as string;
+        return HttpResponse.json<BoardResponse>({ items: [] });
+      }),
+    );
+
+    renderConProviders(<App />, { route: '/proyectos/project_123/tablero' });
+
+    expect(await screen.findByRole('heading', { name: 'Tablero' })).toBeInTheDocument();
+    expect(proyectoSolicitado).toBe('project_123');
+    expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
+  });
+
   it('en /proyectos con sesion muestra la pantalla dentro del layout autenticado', async () => {
     conCookieDeSesion();
     renderConProviders(<App />, { route: '/proyectos' });
@@ -74,5 +97,55 @@ describe('App', () => {
     renderConProviders(<App />, { route: '/login' });
 
     expect(await screen.findByRole('heading', { name: /mis proyectos/i })).toBeInTheDocument();
+  });
+
+  it('MIR-5: crear un proyecto desde la lista lo deja visible con rol Propietario', async () => {
+    conCookieDeSesion();
+    // Servidor en memoria: GET devuelve lo que se haya creado con POST.
+    const proyectos: ProjectDto[] = [];
+    server.use(
+      http.get(`${BASE_URL}/projects`, () =>
+        HttpResponse.json<ListProjectsResponse>({ projects: proyectos }),
+      ),
+      http.post(`${BASE_URL}/projects`, async ({ request }) => {
+        const { name, key } = (await request.json()) as { name: string; key: string };
+        const project = proyectoDePrueba({ id: 'p_nuevo', name, key, myRole: 'OWNER' });
+        proyectos.push(project);
+        return HttpResponse.json({ project }, { status: 201 });
+      }),
+    );
+    const { user } = renderConProviders(<App />, { route: '/proyectos' });
+
+    expect(await screen.findByText(/aun no participas en ningun proyecto/i)).toBeInTheDocument();
+    await user.click(screen.getByRole('link', { name: 'Nuevo proyecto' }));
+
+    await user.type(await screen.findByLabelText(/nombre/i), 'Plataforma Mira');
+    await user.type(screen.getByLabelText(/clave/i), 'mir');
+    await user.click(screen.getByRole('button', { name: /crear proyecto/i }));
+
+    expect(await screen.findByRole('link', { name: 'Plataforma Mira' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_nuevo',
+    );
+    expect(screen.getByRole('heading', { name: /mis proyectos/i })).toBeInTheDocument();
+    expect(screen.getByText('MIR')).toBeInTheDocument();
+    expect(screen.getByText('Propietario')).toBeInTheDocument();
+  });
+
+  it('MIR-7: desde la lista, "Configuracion" abre la pagina del proyecto', async () => {
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects`, () =>
+        HttpResponse.json<ListProjectsResponse>({ projects: [proyectoDePrueba()] }),
+      ),
+    );
+    const { user } = renderConProviders(<App />, { route: '/proyectos' });
+
+    await user.click(await screen.findByRole('link', { name: 'Configuracion de Mira' }));
+
+    expect(
+      await screen.findByRole('heading', { name: /configuracion del proyecto/i }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument();
   });
 });

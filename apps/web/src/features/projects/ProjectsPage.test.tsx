@@ -44,11 +44,31 @@ describe('ProjectsPage', () => {
     expect(alfa.getByText('ALF')).toBeInTheDocument();
     expect(alfa.getByText('Propietario')).toBeInTheDocument();
     expect(alfa.getByText('Primer proyecto')).toBeInTheDocument();
+    expect(alfa.getByRole('link', { name: 'Configuracion de Alfa' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_alfa/configuracion',
+    );
 
     const beta = within(items[1]!);
     expect(beta.getByRole('link', { name: 'Beta' })).toHaveAttribute('href', '/proyectos/p_beta');
     expect(beta.getByText('BET')).toBeInTheDocument();
     expect(beta.getByText('Observador')).toBeInTheDocument();
+  });
+
+  it('MIR-18: cada proyecto ofrece un acceso a su tablero, tambien para VIEWER', async () => {
+    conProyectos([ALFA, BETA]);
+    renderConProviders(<ProjectsPage />, { route: '/proyectos' });
+
+    const items = await screen.findAllByRole('listitem');
+
+    expect(within(items[0]!).getByRole('link', { name: 'Ver tablero de Alfa' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_alfa/tablero',
+    );
+    expect(within(items[1]!).getByRole('link', { name: 'Ver tablero de Beta' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_beta/tablero',
+    );
   });
 
   it('CA3: sin proyectos, muestra un estado vacio que invita a crear el primero', async () => {

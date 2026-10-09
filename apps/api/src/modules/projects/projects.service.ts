@@ -1,7 +1,13 @@
 import type { Project } from '@prisma/client';
-import { can, type CreateProjectInput, type ProjectDto, type ProjectRole } from '@mira/shared';
+import {
+  can,
+  type CreateProjectInput,
+  type ProjectDto,
+  type ProjectRole,
+  type UpdateProjectInput,
+} from '@mira/shared';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
-import type { ProjectsRepository } from './projects.repository.js';
+import type { ProjectFieldChange, ProjectsRepository } from './projects.repository.js';
 
 /** Serializa fechas y adjunta el rol del usuario en el proyecto. */
 export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto {
@@ -16,8 +22,24 @@ export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto 
   };
 }
 
+/**
+ * MIR-7: campos que realmente cambian respecto del estado actual. Un campo
+ * enviado con el mismo valor no cuenta: un PATCH sin cambios no deja bitacora.
+ */
+export function diffProject(current: Project, input: UpdateProjectInput): ProjectFieldChange[] {
+  const changes: ProjectFieldChange[] = [];
+  for (const field of ['name', 'description'] as const) {
+    const toValue = input[field];
+    if (toValue !== undefined && toValue !== current[field]) {
+      changes.push({ field, fromValue: current[field], toValue });
+    }
+  }
+  return changes;
+}
+
 export function createProjectsService(repo: ProjectsRepository) {
   return {
+    // MIR-5: Crear proyecto.
     async create(input: CreateProjectInput, userId: string): Promise<ProjectDto> {
       const existente = await repo.findByKey(input.key);
 
@@ -40,12 +62,53 @@ export function createProjectsService(repo: ProjectsRepository) {
       return toProjectDto(project, 'OWNER');
     },
 
-    /** Proyectos donde el usuario es miembro, cada uno con SU rol. */
+    // MIR-6: Listar proyectos del usuario.
     async listForUser(userId: string): Promise<ProjectDto[]> {
       const memberships = await repo.listMembershipsOf(userId);
-      return memberships.map((m) => toProjectDto(m.project, m.role));
+
+      return memberships.map((membership) => toProjectDto(membership.project, membership.role));
     },
 
+    /** MIR-7: cualquier miembro ve el proyecto con su rol. */
+    async getById(projectId: string, actorId: string): Promise<ProjectDto> {
+      const membership = await repo.findMember(projectId, actorId);
+
+      // Sin membresia da igual si el proyecto existe: mismo 403 en ambos casos.
+      if (!membership || !can(membership.role, 'project:view')) {
+        throw new ForbiddenError('No perteneces a este proyecto', 'PROJECT_ACCESS_DENIED');
+      }
+
+      const project = await repo.findById(projectId);
+      if (!project) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+
+      return toProjectDto(project, membership.role);
+    },
+
+    /**
+     * MIR-7: el OWNER edita nombre y descripcion. Siempre escribe, pero solo
+     * los campos que realmente cambian quedan en la bitacora.
+     */
+    async update(
+      projectId: string,
+      actorId: string,
+      input: UpdateProjectInput,
+    ): Promise<ProjectDto> {
+      const membership = await repo.findMember(projectId, actorId);
+
+      if (!can(membership?.role, 'project:update')) {
+        throw new ForbiddenError('Solo el propietario puede editar el proyecto', 'OWNER_REQUIRED');
+      }
+
+      // El diff se calcula dentro de la transaccion, sobre la fila bloqueada.
+      const project = await repo.updateWithActivity(projectId, input, actorId, (current) =>
+        diffProject(current, input),
+      );
+      if (!project) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+
+      return toProjectDto(project, 'OWNER');
+    },
+
+    // MIR-9: Listar miembros del proyecto.
     async getMembers(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 
@@ -56,6 +119,7 @@ export function createProjectsService(repo: ProjectsRepository) {
       return repo.findMembersByProject(projectId);
     },
 
+    // MIR-9: Invitar miembros.
     async addMember(projectId: string, actorId: string, email: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 
@@ -79,6 +143,54 @@ export function createProjectsService(repo: ProjectsRepository) {
       }
 
       return repo.addMemberWithActivity(projectId, user.id, actorId);
+    },
+
+    // MIR-10: Cambiar rol de un miembro.
+    async changeMemberRole(
+      projectId: string,
+      actorId: string,
+      userId: string,
+      newRole: ProjectRole,
+    ) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:change-role')) {
+        throw new ForbiddenError('No tienes permisos para cambiar roles', 'PERMISSION_DENIED');
+      }
+
+      // No se permite ascender miembros a OWNER.
+      if (newRole === 'OWNER') {
+        throw new ForbiddenError('No puedes asignar el rol de propietario', 'OWNER_PROTECTED');
+      }
+
+      const targetMembership = await repo.findMember(projectId, userId);
+
+      if (!targetMembership) {
+        throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
+      }
+
+      // El repositorio verifica dentro de la transaccion
+      // que no se degrade al ultimo OWNER.
+      return repo.changeMemberRoleWithActivity(projectId, userId, actorId, newRole);
+    },
+
+    // MIR-10: Quitar miembro del proyecto.
+    async removeMember(projectId: string, actorId: string, userId: string) {
+      const actorMembership = await repo.findMember(projectId, actorId);
+
+      if (!can(actorMembership?.role, 'member:remove')) {
+        throw new ForbiddenError('No tienes permisos para quitar miembros', 'PERMISSION_DENIED');
+      }
+
+      const targetMembership = await repo.findMember(projectId, userId);
+
+      if (!targetMembership) {
+        throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
+      }
+
+      // El repositorio verifica dentro de la transaccion
+      // que no se elimine al ultimo OWNER.
+      await repo.removeMemberWithActivity(projectId, userId, actorId);
     },
   };
 }

@@ -131,10 +131,18 @@ de rutas completo.
 
 **Criterios de aceptación**
 
+API:
+
 - **Dado** nombre y clave válidos, **cuando** creo el proyecto, **entonces** recibo 201 y quedo registrado como `OWNER`.
 - **Dado** que la clave ya existe, **cuando** creo el proyecto, **entonces** recibo 409 con un mensaje que indica el conflicto.
 - **Dado** que la clave no cumple el formato (2 a 8 caracteres, empieza con letra, solo alfanuméricos), **cuando** envío, **entonces** recibo 422.
 - **Dado** que no tengo sesión, **cuando** intento crear un proyecto, **entonces** recibo 401.
+
+Web:
+
+- **Dado** que estoy en "Mis proyectos", **cuando** pulso "Nuevo proyecto" y envío nombre y clave válidos, **entonces** vuelvo a la lista y el proyecto aparece con mi rol Propietario.
+- **Dado** que la clave ya existe, **cuando** envío, **entonces** veo el mensaje bajo el campo clave, conservo lo escrito y el campo recibe el foco.
+- **Dado** datos que no cumplen el formato, **cuando** envío, **entonces** veo el error bajo cada campo sin llamar a la API.
 
 ---
 
@@ -167,6 +175,9 @@ de rutas completo.
 - **Dado** que soy OWNER, **cuando** edito nombre o descripción, **entonces** recibo 200 y los cambios persisten.
 - **Dado** que soy MEMBER o VIEWER, **cuando** intento editar, **entonces** recibo 403 y la interfaz **no** muestra el botón de editar.
 - **Dado** que envío un campo desconocido, **cuando** hago PATCH, **entonces** recibo 422.
+- **Dado** que soy miembro, **cuando** abro la configuración del proyecto, **entonces** veo nombre, clave, descripción y mi rol; si no soy miembro recibo 403.
+- **Dado** que envío la clave en el PATCH, **cuando** edito, **entonces** recibo 422: la clave es inmutable.
+- **Dado** que edito como OWNER, **cuando** un campo cambia, **entonces** queda registrado en la bitácora (`PROJECT_UPDATED`) con su valor anterior y nuevo.
 
 ---
 
@@ -344,7 +355,7 @@ de rutas completo.
 
 ## Épica 4 — Tablero Kanban
 
-### MIR-18 · Visualizar el tablero
+### MIR-18 · Visualizar el tablero — ✅ implementado
 
 > Como miembro
 > quiero ver los items en columnas por estado
@@ -358,6 +369,12 @@ de rutas completo.
 - **Dado** una tarjeta, **cuando** la miro, **entonces** muestra referencia, título, tipo, prioridad y responsable.
 - **Dado** una columna sin items, **cuando** abro el tablero, **entonces** la columna se muestra vacía y sigue siendo destino válido.
 - **Dado** que abro el tablero en un teléfono, **cuando** se renderiza, **entonces** las columnas se desplazan horizontalmente sin romper el diseño.
+
+**Notas.** `GET /api/projects/:projectId/board` devuelve `{ items }` sin
+paginar, solo con los estados de `BOARD_STATUSES` (el backlog no aparece);
+cualquier miembro, incluido VIEWER, puede verlo. La pantalla vive en
+`/proyectos/:projectId/tablero`; las columnas salen de `BOARD_STATUSES`, no de
+los items, por eso una columna vacía siempre existe.
 
 ---
 

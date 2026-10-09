@@ -1,11 +1,13 @@
-import type { Prisma, PrismaClient } from '@prisma/client';
-import type {
-  CreateWorkItemInput,
-  ProjectRole,
-  WorkItemFilters,
-  WorkItemPriority,
-  WorkItemStatus,
-  WorkItemType,
+import { Prisma, type PrismaClient } from '@prisma/client';
+import {
+  BOARD_STATUSES,
+  type CreateWorkItemInput,
+  type ProjectRole,
+  type UpdateWorkItemInput,
+  type WorkItemFilters,
+  type WorkItemPriority,
+  type WorkItemStatus,
+  type WorkItemType,
 } from '@mira/shared';
 import { prisma, type Db } from '../../lib/prisma.js';
 
@@ -42,6 +44,23 @@ export interface CreateWorkItemData {
   input: CreateWorkItemInput;
 }
 
+export type UpdateableWorkItemField = keyof UpdateWorkItemInput;
+
+/** Representacion persistible de una actividad ITEM_UPDATED. */
+export interface WorkItemUpdateChange {
+  field: UpdateableWorkItemField;
+  fromValue: string | null;
+  toValue: string | null;
+}
+
+export interface UpdateWorkItemData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  input: UpdateWorkItemInput;
+  changes: WorkItemUpdateChange[];
+}
+
 export interface DeleteWorkItemData {
   projectId: string;
   workItemId: string;
@@ -71,11 +90,15 @@ export interface ListWorkItemsResult {
  * registrar su actividad no puedan separarse.
  */
 export interface WorkItemRepository {
+  withTransaction<T>(operation: (repo: WorkItemRepository) => Promise<T>): Promise<T>;
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   findByIdInProject(projectId: string, workItemId: string): Promise<WorkItemForDto | null>;
   createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
+  updateAtomically(data: UpdateWorkItemData): Promise<WorkItemForDto>;
   deleteAtomically(data: DeleteWorkItemData): Promise<void>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
+  /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
+  listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
 }
 
 const usersForDto = {
@@ -165,6 +188,33 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
   return workItem;
 }
 
+async function updateInTransaction(db: Db, data: UpdateWorkItemData): Promise<WorkItemForDto> {
+  const workItem = await db.workItem.update({
+    where: { id: data.workItemId, projectId: data.projectId },
+    data: data.input,
+    include: {
+      assignee: usersForDto,
+      createdBy: usersForDto,
+    },
+  });
+
+  if (data.changes.length > 0) {
+    await db.activityLog.createMany({
+      data: data.changes.map((change) => ({
+        action: 'ITEM_UPDATED',
+        projectId: data.projectId,
+        workItemId: data.workItemId,
+        actorId: data.actorId,
+        field: change.field,
+        fromValue: change.fromValue,
+        toValue: change.toValue,
+      })),
+    });
+  }
+
+  return workItem;
+}
+
 async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<void> {
   // Se registra mientras el item existe; al borrarlo, la FK SetNull conserva
   // tanto este evento como el historial previo, con su referencia legible.
@@ -184,6 +234,26 @@ async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<vo
 
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
+    async withTransaction(operation) {
+      if (!hasTransaction(db)) return operation(createWorkItemRepository(db));
+      // Un PATCH concurrente debe recalcular cambios sobre la versión vigente,
+      // no guardar un fromValue obsoleto leído antes de otra actualización.
+      for (let attempt = 0; ; attempt += 1) {
+        try {
+          return await db.$transaction((tx) => operation(createWorkItemRepository(tx)), {
+            isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
+          });
+        } catch (error) {
+          if (
+            attempt >= 2 ||
+            !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+            error.code !== 'P2034'
+          )
+            throw error;
+        }
+      }
+    },
+
     async findMemberRole(projectId, userId) {
       const member = await db.projectMember.findUnique({
         where: { userId_projectId: { userId, projectId } },
@@ -208,6 +278,13 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       // que protege contador, item y actividad como una unidad indivisible.
       if (!hasTransaction(db)) return createInTransaction(db, data);
       return db.$transaction((tx) => createInTransaction(tx, data));
+    },
+
+    async updateAtomically(data) {
+      // Item y entradas ITEM_UPDATED son inseparables: si una actividad no se
+      // puede escribir, la actualizacion del item tambien se revierte.
+      if (!hasTransaction(db)) return updateInTransaction(db, data);
+      return db.$transaction((tx) => updateInTransaction(tx, data));
     },
 
     async deleteAtomically(data) {
@@ -235,6 +312,20 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       ]);
 
       return { items, total };
+    },
+
+    async listBoardByProject(projectId) {
+      return db.workItem.findMany({
+        // Usa el indice (projectId, status) del esquema.
+        where: { projectId, status: { in: [...BOARD_STATUSES] } },
+        // position queda listo para el reordenamiento de MIR-20; mientras
+        // tanto todos valen 0 y desempatan la creacion y el id.
+        orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+        include: {
+          createdBy: usersForDto,
+          assignee: usersForDto,
+        },
+      });
     },
   };
 }
