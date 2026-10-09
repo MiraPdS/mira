@@ -1,8 +1,9 @@
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import express from 'express';
 import request from 'supertest';
 import type { Express } from 'express';
 import { prisma } from '../../lib/prisma.js';
-import { DB_CHECK_TIMEOUT_MS } from './health.router.js';
+import { createHealthRouter } from './health.router.js';
 
 /**
  * Health checks del ambiente desplegado (MIR-27): /api/health/live lo usa
@@ -24,6 +25,13 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
+/** App minima con un timeout corto, para no esperar los 2 s reales. */
+function appConTimeoutCorto(): Express {
+  const mini = express();
+  mini.use('/api/health', createHealthRouter({ dbTimeoutMs: 50 }));
+  return mini;
+}
+
 describe('GET /api/health', () => {
   it('responde 200 con la base arriba, sin requerir autenticacion', async () => {
     const res = await request(app).get('/api/health');
@@ -43,19 +51,27 @@ describe('GET /api/health', () => {
     expect(res.body).toMatchObject({ status: 'error', db: 'error' });
   });
 
-  it(
-    'responde 503 cuando la base no contesta a tiempo',
-    async () => {
-      vi.spyOn(console, 'error').mockImplementation(() => {});
-      // Una consulta que nunca resuelve: el timeout es lo unico que la corta.
-      vi.spyOn(prisma, '$queryRaw').mockReturnValueOnce(new Promise(() => {}) as never);
+  it('responde 503 cuando la base no contesta a tiempo', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    // Una consulta que nunca resuelve: el timeout es lo unico que la corta.
+    vi.spyOn(prisma, '$queryRaw').mockReturnValue(new Promise(() => {}) as never);
 
-      const res = await request(app).get('/api/health');
+    const res = await request(appConTimeoutCorto()).get('/api/health');
 
-      expect(res.status).toBe(503);
-    },
-    DB_CHECK_TIMEOUT_MS + 5_000,
-  );
+    expect(res.status).toBe(503);
+  });
+
+  it('no apila otra consulta mientras la anterior sigue colgada', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const queryRaw = vi.spyOn(prisma, '$queryRaw').mockReturnValue(new Promise(() => {}) as never);
+    const mini = appConTimeoutCorto();
+
+    await request(mini).get('/api/health');
+    const res = await request(mini).get('/api/health');
+
+    expect(res.status).toBe(503);
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe('GET /api/health/live', () => {

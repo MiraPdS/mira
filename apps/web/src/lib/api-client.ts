@@ -19,9 +19,10 @@ import type { ApiError } from '@mira/shared';
 
 // En el build de produccion el valor por defecto es '/api' (rewrite de
 // Vercel, D13): si falta VITE_API_URL, el bundle no debe apuntar al
-// localhost de cada visitante.
+// localhost de cada visitante. `||` y no `??`: una variable definida pero
+// vacia en el dashboard tambien debe caer al valor por defecto.
 const BASE_URL =
-  import.meta.env.VITE_API_URL ?? (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
+  import.meta.env.VITE_API_URL || (import.meta.env.PROD ? '/api' : 'http://localhost:3000/api');
 
 export class ApiRequestError extends Error {
   constructor(

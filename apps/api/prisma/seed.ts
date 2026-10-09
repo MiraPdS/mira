@@ -132,10 +132,11 @@ async function main() {
 
   // El contador nunca retrocede: el seed corre en cada deploy de Render (MIR-27)
   // y los items creados en la demo ya consumieron referencias posteriores.
-  // Volver a items.length haria que el siguiente item repita una referencia.
-  await prisma.project.update({
-    where: { id: proyecto.id },
-    data: { itemCounter: Math.max(proyecto.itemCounter, items.length) },
+  // Escritura condicional en la base, no leer-y-escribir: si alguien crea un
+  // item mientras corre el seed, un valor leido antes quedaria obsoleto.
+  await prisma.project.updateMany({
+    where: { id: proyecto.id, itemCounter: { lt: items.length } },
+    data: { itemCounter: items.length },
   });
 
   console.info(

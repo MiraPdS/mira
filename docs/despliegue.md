@@ -137,12 +137,16 @@ conservando el servicio y vuelve a crearlo desde `main`.
   solo tiene datos de demostración.
 - **El seed no resetea.** Corre en cada deploy y recrea lo que se haya borrado,
   pero no revierte ediciones.
-- **Migraciones.** Corren en el build. Si fallan, el deploy falla y sigue viva
-  la versión anterior. Si una migración se aplicó pero un paso posterior falló,
-  la base queda adelantada respecto del código: por eso las migraciones
-  destructivas se hacen en dos releases.
-- **`prepare: "husky || exit 0"`.** El `|| exit 0` es a propósito: sin él,
-  `npm install` en Vercel falla con `husky: command not found`. Se usa
-  `exit 0` y no `true` porque `true` no existe en `cmd` de Windows.
+- **Migraciones: siempre compatibles con la versión anterior.** Corren en el
+  build, contra la base de producción, **mientras la versión anterior sigue
+  atendiendo**. Si fallan, el deploy falla y sigue viva la versión anterior. Si
+  una migración se aplicó pero un paso posterior falló, la base queda
+  adelantada respecto del código. Por eso borrar o renombrar una columna se hace
+  en dos releases (expand/contract): primero el código deja de usarla, después
+  la migración la elimina.
+- **`prepare` usa `.husky/install.mjs`.** Salta la instalación de hooks en CI,
+  Vercel y Render (en Vercel el binario de husky no está disponible al correr
+  `prepare` y `npm install` fallaba con `husky: command not found`). En local
+  corre husky normal, así que un fallo real de los hooks se ve.
 - **Nunca apuntes tu `.env` local a Supabase.** `npm run db:reset` borraría la
   demo.
