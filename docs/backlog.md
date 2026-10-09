@@ -397,7 +397,7 @@ tarjeta a su columna y muestra el error. MIR-20 debe reutilizarla.
 
 ---
 
-### MIR-20 · Arrastrar y soltar tarjetas
+### MIR-20 · Arrastrar y soltar tarjetas — ✅ implementado
 
 > Como miembro
 > quiero arrastrar una tarjeta a otra columna
@@ -414,6 +414,19 @@ tarjeta a su columna y muestra el error. MIR-20 debe reutilizarla.
 
 **Notas.** dnd-kit con `PointerSensor` y `KeyboardSensor`. Reutiliza la misma
 mutación de MIR-19.
+
+Cada columna es un destino (`useDroppable` con su estado como id) y cada
+tarjeta un arrastrable que lleva el item en `data`; al soltar en otra columna se
+llama a `useMoveWorkItem`, así que la actualización optimista, el rollback y el
+mensaje de error son los mismos del menú. Con ratón se toma la tarjeta desde
+cualquier punto (distancia mínima de 5 px, para que un clic no sea un arrastre);
+con teclado, desde el asa **Arrastrar MIR-n**: Espacio o Enter la toma, las
+flechas izquierda y derecha saltan a la columna vecina (`coordinateGetter`
+propio en `boardDnd.ts`), Espacio o Enter la suelta y Escape cancela. Los
+anuncios para lectores de pantalla están en español. Sin
+`can(rol, 'work-item:change-status')` el arrastrable queda deshabilitado y no
+hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
+`getBoundingClientRect` porque jsdom no lo calcula.
 
 ---
 

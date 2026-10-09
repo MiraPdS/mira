@@ -5,10 +5,27 @@ import {
   type WorkItemDto,
   type WorkItemStatus,
 } from '@mira/shared';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
 import { cn } from '@/lib/utils';
+import {
+  anuncios,
+  columnaDestino,
+  detectarColumna,
+  instrucciones,
+  saltarDeColumna,
+  type CardDragData,
+} from './boardDnd';
 import { useBoard, useMoveWorkItem } from './useBoard';
 import { WorkItemCard } from './WorkItemCard';
 
@@ -33,11 +50,17 @@ interface BoardColumnProps {
 function BoardColumn({ status, items, onMove }: BoardColumnProps) {
   const label = STATUS_LABELS[status];
   const headingId = `columna-${status}`;
+  // Toda la columna (titulo incluido) recibe tarjetas, no solo la lista.
+  const { setNodeRef, isOver } = useDroppable({ id: status });
 
   return (
     <section
+      ref={setNodeRef}
       aria-labelledby={headingId}
-      className="flex w-72 shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3"
+      className={cn(
+        'flex w-72 shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3 transition-colors',
+        isOver && 'bg-sky-100 ring-2 ring-sky-300',
+      )}
     >
       <h3 id={headingId} className="flex items-center justify-between text-sm font-semibold">
         <span className="text-slate-800">{label}</span>
@@ -92,6 +115,22 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   const role = members?.members.find((member) => member.user.id === currentUser?.id)?.role;
   const canMove = !userError && !membersError && can(role, 'work-item:change-status');
 
+  // La distancia minima evita que un clic (en "Mover a..." o en la tarjeta)
+  // se interprete como un arrastre.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: saltarDeColumna }),
+  );
+
+  // Misma mutacion optimista que el menu (MIR-19): si la API falla, la
+  // tarjeta vuelve a su columna y aparece el mismo mensaje de error.
+  const soltar = ({ active, over }: DragEndEvent) => {
+    const item = (active.data.current as CardDragData | undefined)?.item;
+    const destino = columnaDestino(over?.id);
+    if (!canMove || !item || !destino || destino === item.status) return;
+    move.mutate({ item, status: destino });
+  };
+
   if (board.isPending) {
     return (
       <p role="status" className="p-6 text-sm text-slate-500">
@@ -131,21 +170,30 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
           (tambien con teclado) sin ensanchar la pagina. `relative` es
           necesario: sin el, los textos sr-only (absolutos) de las columnas
           fuera de vista se posicionan contra el documento y lo ensanchan. */}
-      <div
-        role="region"
-        aria-label="Columnas del tablero"
-        tabIndex={0}
-        className="relative mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400"
+      <DndContext
+        sensors={sensors}
+        collisionDetection={detectarColumna}
+        onDragEnd={soltar}
+        accessibility={{ announcements: anuncios, screenReaderInstructions: instrucciones }}
       >
-        {BOARD_STATUSES.map((status) => (
-          <BoardColumn
-            key={status}
-            status={status}
-            items={items.filter((item) => item.status === status)}
-            onMove={canMove ? (item, destino) => move.mutate({ item, status: destino }) : undefined}
-          />
-        ))}
-      </div>
+        <div
+          role="region"
+          aria-label="Columnas del tablero"
+          tabIndex={0}
+          className="relative mt-4 flex snap-x snap-mandatory gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400"
+        >
+          {BOARD_STATUSES.map((status) => (
+            <BoardColumn
+              key={status}
+              status={status}
+              items={items.filter((item) => item.status === status)}
+              onMove={
+                canMove ? (item, destino) => move.mutate({ item, status: destino }) : undefined
+              }
+            />
+          ))}
+        </div>
+      </DndContext>
     </section>
   );
 }
