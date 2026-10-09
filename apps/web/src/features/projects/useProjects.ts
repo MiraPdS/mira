@@ -3,6 +3,7 @@ import type {
   AddMemberInput,
   CreateProjectInput,
   ProjectDto,
+  ProjectSummaryDto,
   UpdateProjectInput,
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
@@ -18,6 +19,7 @@ export const projectKeys = {
   all: ['projects'] as const,
   detail: (projectId: string) => ['projects', projectId] as const,
   members: (projectId: string) => ['projects', projectId, 'members'] as const,
+  summary: (projectId: string) => ['projects', projectId, 'summary'] as const,
 };
 
 /** Lista de proyectos del usuario. Un 401 lo resuelve el manejador global. */
@@ -50,6 +52,18 @@ export function useProject(projectId: string) {
 }
 
 /**
+ * MIR-23: conteos y actividad reciente del proyecto. Las mutaciones que cambian
+ * items o miembros invalidan `projectKeys.summary`.
+ */
+export function useProjectSummary(projectId: string) {
+  return useQuery<ProjectSummaryDto, ApiRequestError>({
+    queryKey: projectKeys.summary(projectId),
+    queryFn: () => projectApi.getSummary(projectId),
+    enabled: Boolean(projectId),
+  });
+}
+
+/**
  * Edita un proyecto (MIR-7). La respuesta ya es el proyecto actualizado: se
  * escribe en el detalle y se invalida la lista para que muestre el nombre nuevo.
  */
@@ -61,6 +75,8 @@ export function useUpdateProject(projectId: string) {
     onSuccess: (project) => {
       queryClient.setQueryData(projectKeys.detail(projectId), project);
       void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
+      // MIR-23: la edicion deja una actividad PROJECT_UPDATED.
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -89,6 +105,8 @@ export function useAddMember(projectId: string) {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
       });
+      // MIR-23: la actividad reciente registra el cambio de equipo.
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -107,6 +125,8 @@ export function useChangeMemberRole(projectId: string) {
       void queryClient.invalidateQueries({
         queryKey: projectKeys.members(projectId),
       });
+      // MIR-23: la actividad reciente registra el cambio de equipo.
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -144,6 +164,9 @@ export function useRemoveMember(projectId: string) {
       await queryClient.invalidateQueries({
         queryKey: boardKeys.project(projectId),
       });
+
+      // MIR-23: la actividad reciente registra la salida del miembro.
+      await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }

@@ -16,6 +16,7 @@ import {
   type WorkItemListFilters,
 } from './work-items.api';
 import { boardKeys } from '@/features/board/useBoard';
+import { projectKeys } from '@/features/projects/useProjects';
 
 export function useDeleteWorkItem(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
@@ -34,6 +35,7 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
         predicate: ({ queryKey }) => queryKey[0] === 'work-items' && queryKey.includes(projectId),
       });
       await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -53,6 +55,7 @@ export function useCreateWorkItem(projectId: string) {
     mutationFn: (input) => createWorkItem(projectId, input),
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
@@ -111,6 +114,7 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
       // paginas del proyecto actualizado, sin invalidar otros proyectos.
       void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }

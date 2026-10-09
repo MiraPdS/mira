@@ -42,5 +42,8 @@ export function createProjectsRouter(): Router {
 
   router.delete('/:projectId/members/:userId', controller.removeMember);
 
+  // MIR-23: Panel de resumen del proyecto.
+  router.get('/:projectId/summary', controller.getSummary);
+
   return router;
 }

@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { WorkItemDto, WorkItemStatus } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
+import { projectKeys } from '@/features/projects/useProjects';
 import { changeWorkItemStatus, getBoard } from './board.api';
 
 /**
@@ -79,6 +80,8 @@ export function useMoveWorkItem(projectId: string) {
           (queryKey[0] === 'work-items' && queryKey.includes(projectId)) ||
           (queryKey[0] === 'work-item' && queryKey[1] === projectId && queryKey[2] === item.id),
       });
+      // MIR-23: el resumen cuenta por estado y registra ITEM_STATUS_CHANGED.
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
 }
