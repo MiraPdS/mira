@@ -13,6 +13,7 @@ import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
 import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
 import { WorkItemEditForm } from './WorkItemEditForm';
+import { WorkItemHistory } from './WorkItemHistory';
 
 export interface WorkItemDetailProps {
   projectId: string;
@@ -355,6 +356,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           </form>
         )}
       </section>
+
+      {/* MIR-22: historial de cambios del elemento. */}
+      <WorkItemHistory projectId={projectId} workItemId={workItemId} />
     </article>
   );
 }

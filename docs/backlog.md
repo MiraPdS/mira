@@ -474,6 +474,12 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 - **Dado** un cambio de estado, **cuando** lo veo en el historial, **entonces** se lee en lenguaje natural ("movió de Por hacer a En progreso"), no como nombres de columnas de base de datos.
 - **Dado** que una actualización falla a mitad de camino, **cuando** se revierte la transacción, **entonces** **no** queda una entrada de historial huérfana.
 
+Ampliados al planificar (ver `docs/plans/MIR-22-historial-elemento.md`):
+
+- **Dado** que soy VIEWER del proyecto, **cuando** abro el historial, **entonces** lo veo; **dado** que no soy miembro, **entonces** recibo 404.
+- **Dado** un item con más de 100 cambios, **cuando** abro su historial, **entonces** veo los 100 más recientes y un aviso de que la lista está recortada.
+- **Dado** el panel del proyecto (MIR-23), **cuando** muestra la actividad, **entonces** usa las mismas frases en lenguaje natural, refiriéndose a "un ítem".
+
 ---
 
 ### MIR-23 · Panel del proyecto

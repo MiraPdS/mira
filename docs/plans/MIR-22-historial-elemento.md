@@ -75,7 +75,7 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
    pide 101 filas y `truncated = filas.length > 100`. Ningun criterio pide
    paginar y un item rara vez supera 100 cambios; el tope acota la consulta.
 
-4. **Redaccion.** `describeActivity(activity, { context: 'project' | 'item' })`
+4. **Redaccion.** `describeActivity(activity, context)` con `context: 'item' | 'project'`
    devuelve una frase sin el actor (la UI antepone el nombre). Contexto `item`:
 
    | Entrada | Frase |
@@ -102,9 +102,11 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
    en es-CL. Si `truncated`, nota al final de la lista.
 
 6. **Frescura.** Hook `useWorkItemActivity(projectId, workItemId)` con clave
-   `workItemKeys.activity(projectId, workItemId)`, invalidada explicitamente
-   tras editar el item, mover la tarjeta (cambio de estado) y crear un
-   comentario. Eliminar no la necesita (se sale del detalle).
+   `activityQueryKey(projectId, workItemId)` (`['work-item-activity', ...]`,
+   fuera de `workItemKeys` porque `useBoard` la invalida por predicado y no
+   puede importar `useWorkItems` sin un ciclo), invalidada tras editar el
+   item, mover la tarjeta y crear un comentario. Al eliminar se invalida sin
+   refetch, igual que los comentarios, para no pedir un historial que da 404.
 
 7. **Entrega.** Un PR, cuatro commits (ver arriba); el refactor del
    formateador va en su propio commit para que una regresion de MIR-23 sea
@@ -123,14 +125,15 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
 
 ### Commit 1 — Shared
 
-#### 1. `packages/shared/src/schemas/project.ts` (o `schemas/activity.ts` nuevo)
+#### 1. `packages/shared/src/schemas/activity.ts` (nuevo) y `project.ts`
 
 - Renombrar `projectActivitySchema` -> `activitySchema`; exportar
   `ActivityDto` y mantener `projectActivitySchema` / `ProjectActivityDto`
   como alias.
 - `workItemActivityResponseSchema = z.object({ data: z.array(activitySchema), truncated: z.boolean() })`
   y su tipo `WorkItemActivityResponse`.
-- Si se mueve a `schemas/activity.ts`, reexportar desde el indice.
+- Reexportar `schemas/activity.ts` desde el indice y eliminar
+  `activityEntrySchema` (andamiaje de MIR-1 sin uso).
 
 ### Commit 2 — API
 
@@ -166,13 +169,13 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
 
 #### 6. `apps/web/src/features/activity/describeActivity.ts` (nuevo)
 
-- Tablas de etiquetas y `describeActivity(activity, { context })` segun la
+- Tablas de etiquetas y `describeActivity(activity, context)` segun la
   decision 4. Formato de fecha con `timeZone: 'UTC'`.
 
 #### 7. `apps/web/src/features/projects/ProjectSummaryPage.tsx`
 
 - Elimina `actionLabels`, `fieldLabels`, `formatoValor`, `detalleActividad` y
-  usa `describeActivity(activity, { context: 'project' })`.
+  usa `describeActivity(activity, 'project')`.
 - Ajustar `ProjectSummaryPage.test.tsx` a la nueva redaccion.
 
 ### Commit 4 — Web (historial)
@@ -184,14 +187,14 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
 
 #### 9. `apps/web/src/features/work-items/useWorkItems.ts`
 
-- `workItemKeys.activity(projectId, workItemId)` y `useWorkItemActivity`.
+- `activityQueryKey(projectId, workItemId)` y `useWorkItemActivity`.
 - Invalidar esa clave en: edicion del item, cambio de estado del tablero y
   creacion de comentario.
 
 #### 10. `apps/web/src/features/work-items/WorkItemDetail.tsx`
 
-- Seccion "Historial" debajo de Comentarios (decision 5), con
-  `aria-labelledby` propio.
+- Renderiza `<WorkItemHistory>` (componente nuevo, `WorkItemHistory.tsx`)
+  debajo de Comentarios (decision 5), con `aria-labelledby` propio.
 
 #### 11. `apps/web/src/test/msw/handlers.ts`
 
@@ -205,7 +208,7 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
 
 ## Tests
 
-### API — integracion (`work-item.integration.test.ts`)
+### API — integracion (`work-item.activity.integration.test.ts`, archivo propio para no chocar con otras ramas)
 
 - **Criterio 3 (rollback de una edicion):** dentro de `prisma.$transaction`,
   crear un trigger `BEFORE INSERT ON activity_log` que lanza
@@ -240,8 +243,10 @@ Ampliados en esta sesion (se agregan a `docs/backlog.md`):
 
 - `WorkItemDetail.test.tsx`: historial con entradas (actor, frase, fecha),
   vacio, error con reintento, 404/403 no disponible, nota de truncado.
-- Invalidacion (estilo `summaryInvalidation.test.tsx`): editar, mover la
-  tarjeta y comentar vuelven a pedir `.../activity`.
+- `WorkItemHistory.test.tsx`: la seccion vive en su propio componente.
+- `activityInvalidation.test.tsx` (estilo `summaryInvalidation.test.tsx`):
+  editar, mover la tarjeta y comentar invalidan el historial; eliminar lo
+  invalida sin volver a pedirlo.
 - `ProjectSummaryPage.test.tsx` ajustado a la nueva redaccion.
 
 ## Verificacion
