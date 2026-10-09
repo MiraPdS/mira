@@ -158,15 +158,31 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   // donde queda la tarjeta. Si se reactivara tal cual, tras el auto-scroll el
   // navegador podia encajar en la columna vecina y dejar la tarjeta fuera de
   // vista. Se fija en el mismo evento, con el encaje aun suspendido.
+  // Entre los puntos de encaje (el inicio de cada columna) se elige el mas
+  // cercano a la posicion actual que deje la columna completa a la vista: si
+  // ya se veia (768-1279 px muestran 2 o 3 columnas), el tablero no se mueve.
   const regionRef = useRef<HTMLDivElement>(null);
   const alinearCon = (status: BoardStatus) => {
     const region = regionRef.current;
-    const columna = region?.querySelector<HTMLElement>(`[aria-labelledby="columna-${status}"]`);
-    if (region && columna) region.scrollLeft = columna.offsetLeft;
+    if (!region) return;
+    const columnas = [...region.querySelectorAll<HTMLElement>('[aria-labelledby^="columna-"]')];
+    const columna = columnas.find((c) => c.getAttribute('aria-labelledby') === `columna-${status}`);
+    if (!columna) return;
+
+    const laMuestra = (inicio: number) =>
+      columna.offsetLeft >= inicio &&
+      columna.offsetLeft + columna.offsetWidth <= inicio + region.clientWidth;
+    const actual = region.scrollLeft;
+    const [destino = columna.offsetLeft] = columnas
+      .map((c) => c.offsetLeft)
+      .filter(laMuestra)
+      .sort((a, b) => Math.abs(a - actual) - Math.abs(b - actual));
+    if (destino !== actual) region.scrollLeft = destino;
   };
 
   // Misma mutacion optimista que el menu (MIR-19): si la API falla, la
-  // tarjeta vuelve a su columna y aparece el mismo mensaje de error.
+  // tarjeta vuelve a su columna y aparece el mismo mensaje de error. El
+  // tablero la acompana: si no, en el telefono quedaria fuera de vista.
   const soltar = ({ active, over }: DragEndEvent) => {
     const item = (active.data.current as CardDragData | undefined)?.item;
     const destino = columnaDestino(over?.id);
@@ -174,7 +190,10 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
     const columnaFinal = seMueve ? destino : columnaDestino(item?.status);
     if (columnaFinal) alinearCon(columnaFinal);
     setEnVueloId(null);
-    if (seMueve) move.mutate({ item, status: destino });
+    if (seMueve) {
+      const origen = columnaDestino(item.status);
+      move.mutate({ item, status: destino }, { onError: () => origen && alinearCon(origen) });
+    }
   };
 
   const cancelar = ({ active }: DragCancelEvent) => {

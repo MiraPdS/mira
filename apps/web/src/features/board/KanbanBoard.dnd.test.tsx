@@ -397,24 +397,32 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
 
   describe('encaje de columnas al soltar (MIR-24)', () => {
     /**
-     * jsdom no calcula offsetLeft: cada columna se ubica segun su orden, igual
-     * que en layoutSimulado. Se registra cada asignacion a scrollLeft junto con
-     * si el encaje (snap) ya estaba activo en ese momento.
+     * jsdom no calcula offsetLeft ni anchos: cada columna se ubica segun su
+     * orden, igual que en layoutSimulado, y la region muestra `anchoVisible`
+     * px (por defecto, una sola columna, como en el telefono). Se registra cada
+     * asignacion a scrollLeft junto con si el encaje (snap) ya estaba activo en
+     * ese momento.
      */
     const inicioDe = (status: (typeof BOARD_STATUSES)[number]) =>
       BOARD_STATUSES.indexOf(status) * ANCHO_COLUMNA;
 
-    function registrarDesplazamiento() {
+    function registrarDesplazamiento(anchoVisible = ANCHO_COLUMNA) {
+      const statusDe = (el: HTMLElement) =>
+        BOARD_STATUSES.find((s) => el.getAttribute('aria-labelledby') === `columna-${s}`);
       vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(function (
         this: HTMLElement,
       ) {
-        const status = this.getAttribute('aria-labelledby')?.replace('columna-', '');
-        return BOARD_STATUSES.some((s) => s === status)
-          ? inicioDe(status as (typeof BOARD_STATUSES)[number])
-          : 0;
+        const status = statusDe(this);
+        return status ? inicioDe(status) : 0;
+      });
+      vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        return statusDe(this) ? ANCHO_COLUMNA - 12 : 0;
       });
 
       const region = screen.getByRole('region', { name: 'Columnas del tablero' });
+      Object.defineProperty(region, 'clientWidth', { configurable: true, value: anchoVisible });
       const asignaciones: { valor: number; conEncaje: boolean }[] = [];
       Object.defineProperty(region, 'scrollLeft', {
         configurable: true,
@@ -453,6 +461,34 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
 
       expect(asignaciones.at(-1)).toEqual({ valor: inicioDe('IN_PROGRESS'), conEncaje: false });
       expect(region).toHaveClass('snap-mandatory');
+    });
+
+    it('si la columna destino ya se ve completa, el tablero no se desplaza', async () => {
+      servidorConEstado([itemDePrueba()]);
+
+      const { user } = renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
+      // Dos columnas y media a la vista, como en una tableta.
+      const { asignaciones } = registrarDesplazamiento(ANCHO_COLUMNA * 2.5);
+      await arrastrar(user, 'Login', 'IN_PROGRESS');
+
+      expect(await within(tarjetasDe('IN_PROGRESS')).findByText('Login')).toBeInTheDocument();
+      expect(asignaciones).toEqual([]);
+    });
+
+    it('si el servidor rechaza el cambio, el tablero vuelve con la tarjeta a su columna', async () => {
+      server.use(
+        http.get(BOARD_URL, () => HttpResponse.json<BoardResponse>({ items: [itemDePrueba()] })),
+        http.patch(STATUS_URL, () => apiError(500, 'INTERNAL_ERROR', 'Error interno del servidor')),
+      );
+
+      const { user } = renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
+      const { asignaciones } = registrarDesplazamiento();
+      await arrastrar(user, 'Login', 'DONE');
+
+      await screen.findByRole('alert');
+      expect(asignaciones.map(({ valor }) => valor)).toEqual([inicioDe('DONE'), inicioDe('TODO')]);
     });
   });
 
