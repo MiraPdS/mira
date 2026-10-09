@@ -17,7 +17,16 @@ export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   };
 }>;
 
+/** Un campo del proyecto que cambio, tal como queda en la bitacora. */
+export interface ProjectFieldChange {
+  field: 'name' | 'description';
+  fromValue: string | null;
+  toValue: string | null;
+}
+
 export interface ProjectsRepository {
+  findById(projectId: string): Promise<Project | null>;
+
   findByKey(key: string): Promise<Project | null>;
 
   createWithOwner(
@@ -35,6 +44,18 @@ export interface ProjectsRepository {
   findMembersByProject(projectId: string): Promise<ProjectMemberWithUser[]>;
 
   addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
+
+  /**
+   * MIR-7: en UNA transaccion bloquea la fila del proyecto, calcula los cambios
+   * con `diff` sobre ese estado bloqueado, actualiza y registra una fila
+   * PROJECT_UPDATED por cambio. Devuelve null si el proyecto no existe.
+   */
+  updateWithActivity(
+    projectId: string,
+    data: { name?: string; description?: string | null },
+    actorId: string,
+    diff: (current: Project) => ProjectFieldChange[],
+  ): Promise<Project | null>;
 
   // MIR-10: Cambiar rol y quitar miembros
   changeMemberRoleWithActivity(
@@ -70,6 +91,11 @@ async function retryOnSerializationConflict<T>(operation: () => Promise<T>): Pro
 
 export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
   return {
+    findById: (projectId) =>
+      db.project.findUnique({
+        where: { id: projectId },
+      }),
+
     // Buscar proyecto por clave
     findByKey: (key) =>
       db.project.findUnique({
@@ -178,6 +204,44 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
 
         return member;
       });
+    },
+
+    async updateWithActivity(projectId, data, actorId, diff) {
+      const run = async (tx: Db) => {
+        // FOR UPDATE: un PATCH concurrente espera aqui hasta que este confirme,
+        // asi el diff (y el fromValue de la bitacora) parte del ultimo estado.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE
+        `;
+        if (locked.length === 0) return null;
+
+        const current = await tx.project.findUniqueOrThrow({ where: { id: projectId } });
+        const changes = diff(current);
+
+        const project = await tx.project.update({
+          where: { id: projectId },
+          data,
+        });
+
+        if (changes.length > 0) {
+          await tx.activityLog.createMany({
+            data: changes.map((change) => ({
+              action: 'PROJECT_UPDATED' as const,
+              projectId,
+              actorId,
+              ...change,
+            })),
+          });
+        }
+
+        return project;
+      };
+
+      // Igual que addMemberWithActivity: si `db` ya es un cliente
+      // transaccional no se puede abrir otra transaccion.
+      if (!('$transaction' in db)) return run(db);
+
+      return db.$transaction((tx) => run(tx));
     },
 
     // MIR-10: Cambiar el rol de un miembro

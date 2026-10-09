@@ -33,10 +33,10 @@ export function CreateProjectPage() {
     defaultValues: { name: '', key: '', description: '' },
   });
 
-  const onSubmit = handleSubmit(async ({ description, ...values }) => {
+  const onSubmit = handleSubmit(async (values) => {
     try {
-      // Una descripcion vacia se omite: si no, la API guardaria "" en vez de null.
-      await crear.mutateAsync(description ? { ...values, description } : values);
+      // createProjectSchema ya convierte una descripcion vacia en null.
+      await crear.mutateAsync(values);
       navigate('/proyectos', { replace: true });
     } catch (error) {
       if (!(error instanceof ApiRequestError)) return;

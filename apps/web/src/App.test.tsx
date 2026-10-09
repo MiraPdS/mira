@@ -131,4 +131,21 @@ describe('App', () => {
     expect(screen.getByText('MIR')).toBeInTheDocument();
     expect(screen.getByText('Propietario')).toBeInTheDocument();
   });
+
+  it('MIR-7: desde la lista, "Configuracion" abre la pagina del proyecto', async () => {
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects`, () =>
+        HttpResponse.json<ListProjectsResponse>({ projects: [proyectoDePrueba()] }),
+      ),
+    );
+    const { user } = renderConProviders(<App />, { route: '/proyectos' });
+
+    await user.click(await screen.findByRole('link', { name: 'Configuracion de Mira' }));
+
+    expect(
+      await screen.findByRole('heading', { name: /configuracion del proyecto/i }),
+    ).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument();
+  });
 });

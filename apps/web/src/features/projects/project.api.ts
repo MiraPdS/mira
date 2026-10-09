@@ -4,6 +4,8 @@ import type {
   ListProjectsResponse,
   ProjectDto,
   ProjectMemberDto,
+  ProjectResponse,
+  UpdateProjectInput,
 } from '@mira/shared';
 import { api } from '@/lib/api-client';
 
@@ -45,7 +47,19 @@ export const projectApi = {
 
   /** Crea un proyecto; quien lo crea queda como OWNER. */
   create: async (input: CreateProjectInput): Promise<ProjectDto> => {
-    const { project } = await api.post<{ project: ProjectDto }>('/projects', input);
+    const { project } = await api.post<ProjectResponse>('/projects', input);
+    return project;
+  },
+
+  /** Un proyecto con el rol del usuario autenticado. 403 si no es miembro. */
+  get: async (projectId: string): Promise<ProjectDto> => {
+    const { project } = await api.get<ProjectResponse>(`/projects/${projectId}`);
+    return project;
+  },
+
+  /** Edita nombre y/o descripcion. Solo el OWNER; 403 para el resto. */
+  update: async (projectId: string, input: UpdateProjectInput): Promise<ProjectDto> => {
+    const { project } = await api.patch<ProjectResponse>(`/projects/${projectId}`, input);
     return project;
   },
 

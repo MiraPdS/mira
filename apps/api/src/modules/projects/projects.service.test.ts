@@ -4,7 +4,7 @@ import type { Project, ProjectMember, User } from '@prisma/client';
 
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { ProjectsRepository } from './projects.repository.js';
-import { createProjectsService } from './projects.service.js';
+import { createProjectsService, diffProject } from './projects.service.js';
 
 /**
  * NIVEL 1 de la piramide: unitario.
@@ -266,6 +266,113 @@ describe('projectsService', () => {
       repo.listMembershipsOf.mockResolvedValue([]);
 
       await expect(service.listForUser('user_1')).resolves.toEqual([]);
+    });
+  });
+
+  describe('getById - MIR-7', () => {
+    it('devuelve el proyecto con el rol del miembro', async () => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'VIEWER' }));
+      repo.findById.mockResolvedValue(proyectoDePrueba());
+
+      const result = await service.getById('project_1', 'owner_1');
+
+      expect(result).toMatchObject({ id: 'project_1', myRole: 'VIEWER' });
+    });
+
+    it('rechaza con 403 a quien no es miembro, sin leer el proyecto', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.getById('project_1', 'outsider_1')).rejects.toMatchObject({
+        status: 403,
+        code: 'PROJECT_ACCESS_DENIED',
+      });
+      expect(repo.findById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('update - MIR-7', () => {
+    beforeEach(() => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role: 'OWNER' }));
+      // Simula la transaccion: aplica el diff sobre el estado "bloqueado".
+      repo.updateWithActivity.mockImplementation(async (_id, data, _actor, diff) => {
+        const actual = proyectoDePrueba({ description: 'Antes' });
+        diff(actual);
+        return { ...actual, ...data };
+      });
+    });
+
+    it('el OWNER actualiza y recibe el DTO con rol OWNER', async () => {
+      const result = await service.update('project_1', 'owner_1', { name: 'Mira 2' });
+
+      expect(repo.updateWithActivity).toHaveBeenCalledWith(
+        'project_1',
+        { name: 'Mira 2' },
+        'owner_1',
+        expect.any(Function),
+      );
+      expect(result).toMatchObject({ name: 'Mira 2', myRole: 'OWNER' });
+    });
+
+    it('el diff que pasa al repositorio se calcula contra el estado que este le entrega', async () => {
+      await service.update('project_1', 'owner_1', { name: 'Mira', description: 'Despues' });
+
+      const diff = repo.updateWithActivity.mock.calls[0]![3];
+      expect(diff(proyectoDePrueba({ description: 'Antes' }))).toEqual([
+        { field: 'description', fromValue: 'Antes', toValue: 'Despues' },
+      ]);
+    });
+
+    it('responde 404 si el proyecto desaparecio antes de bloquearlo', async () => {
+      repo.updateWithActivity.mockResolvedValue(null);
+
+      await expect(service.update('project_1', 'owner_1', { name: 'X' })).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+    });
+
+    it.each(['MEMBER', 'VIEWER'] as const)('rechaza con 403 a un %s', async (role) => {
+      repo.findMember.mockResolvedValue(miembroDePrueba({ role }));
+
+      await expect(service.update('project_1', 'user_1', { name: 'X' })).rejects.toMatchObject({
+        status: 403,
+        code: 'OWNER_REQUIRED',
+      });
+      expect(repo.updateWithActivity).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a quien no es miembro (o si el proyecto no existe)', async () => {
+      repo.findMember.mockResolvedValue(null);
+
+      await expect(service.update('project_1', 'outsider_1', { name: 'X' })).rejects.toBeInstanceOf(
+        ForbiddenError,
+      );
+      expect(repo.updateWithActivity).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('diffProject - MIR-7', () => {
+    const actual = proyectoDePrueba({ name: 'Mira', description: 'Antes' });
+
+    it('registra el cambio de nombre', () => {
+      expect(diffProject(actual, { name: 'Mira 2' })).toEqual([
+        { field: 'name', fromValue: 'Mira', toValue: 'Mira 2' },
+      ]);
+    });
+
+    it('vaciar la descripcion registra el paso a null', () => {
+      expect(diffProject(actual, { description: null })).toEqual([
+        { field: 'description', fromValue: 'Antes', toValue: null },
+      ]);
+    });
+
+    it('solo registra los campos que realmente cambian', () => {
+      expect(diffProject(actual, { name: 'Mira', description: 'Despues' })).toEqual([
+        { field: 'description', fromValue: 'Antes', toValue: 'Despues' },
+      ]);
+    });
+
+    it('con los mismos valores no hay cambios', () => {
+      expect(diffProject(actual, { name: 'Mira', description: 'Antes' })).toEqual([]);
     });
   });
 

@@ -1,7 +1,13 @@
 import type { Project } from '@prisma/client';
-import { can, type CreateProjectInput, type ProjectDto, type ProjectRole } from '@mira/shared';
+import {
+  can,
+  type CreateProjectInput,
+  type ProjectDto,
+  type ProjectRole,
+  type UpdateProjectInput,
+} from '@mira/shared';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
-import type { ProjectsRepository } from './projects.repository.js';
+import type { ProjectFieldChange, ProjectsRepository } from './projects.repository.js';
 
 /** Serializa fechas y adjunta el rol del usuario en el proyecto. */
 export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto {
@@ -14,6 +20,21 @@ export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto 
     updatedAt: project.updatedAt.toISOString(),
     myRole,
   };
+}
+
+/**
+ * MIR-7: campos que realmente cambian respecto del estado actual. Un campo
+ * enviado con el mismo valor no cuenta: un PATCH sin cambios no deja bitacora.
+ */
+export function diffProject(current: Project, input: UpdateProjectInput): ProjectFieldChange[] {
+  const changes: ProjectFieldChange[] = [];
+  for (const field of ['name', 'description'] as const) {
+    const toValue = input[field];
+    if (toValue !== undefined && toValue !== current[field]) {
+      changes.push({ field, fromValue: current[field], toValue });
+    }
+  }
+  return changes;
 }
 
 export function createProjectsService(repo: ProjectsRepository) {
@@ -46,6 +67,45 @@ export function createProjectsService(repo: ProjectsRepository) {
       const memberships = await repo.listMembershipsOf(userId);
 
       return memberships.map((membership) => toProjectDto(membership.project, membership.role));
+    },
+
+    /** MIR-7: cualquier miembro ve el proyecto con su rol. */
+    async getById(projectId: string, actorId: string): Promise<ProjectDto> {
+      const membership = await repo.findMember(projectId, actorId);
+
+      // Sin membresia da igual si el proyecto existe: mismo 403 en ambos casos.
+      if (!membership || !can(membership.role, 'project:view')) {
+        throw new ForbiddenError('No perteneces a este proyecto', 'PROJECT_ACCESS_DENIED');
+      }
+
+      const project = await repo.findById(projectId);
+      if (!project) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+
+      return toProjectDto(project, membership.role);
+    },
+
+    /**
+     * MIR-7: el OWNER edita nombre y descripcion. Siempre escribe, pero solo
+     * los campos que realmente cambian quedan en la bitacora.
+     */
+    async update(
+      projectId: string,
+      actorId: string,
+      input: UpdateProjectInput,
+    ): Promise<ProjectDto> {
+      const membership = await repo.findMember(projectId, actorId);
+
+      if (!can(membership?.role, 'project:update')) {
+        throw new ForbiddenError('Solo el propietario puede editar el proyecto', 'OWNER_REQUIRED');
+      }
+
+      // El diff se calcula dentro de la transaccion, sobre la fila bloqueada.
+      const project = await repo.updateWithActivity(projectId, input, actorId, (current) =>
+        diffProject(current, input),
+      );
+      if (!project) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+
+      return toProjectDto(project, 'OWNER');
     },
 
     // MIR-9: Listar miembros del proyecto.

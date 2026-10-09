@@ -44,6 +44,10 @@ describe('ProjectsPage', () => {
     expect(alfa.getByText('ALF')).toBeInTheDocument();
     expect(alfa.getByText('Propietario')).toBeInTheDocument();
     expect(alfa.getByText('Primer proyecto')).toBeInTheDocument();
+    expect(alfa.getByRole('link', { name: 'Configuracion de Alfa' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_alfa/configuracion',
+    );
 
     const beta = within(items[1]!);
     expect(beta.getByRole('link', { name: 'Beta' })).toHaveAttribute('href', '/proyectos/p_beta');
