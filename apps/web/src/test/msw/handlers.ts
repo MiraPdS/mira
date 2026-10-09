@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import type {
   ApiError,
   AuthResponse,
+  CommentDto,
   ListProjectsResponse,
   ProjectDto,
   ProjectResponse,
@@ -87,4 +88,10 @@ export const handlers = [
       project: proyectoDePrueba({ id: String(params.projectId), ...cambios }),
     });
   }),
+  // MIR-21: elemento sin comentarios. Sin este handler la consulta falla y su
+  // alerta se suma a las de la pantalla; quien necesite comentarios los
+  // declara con server.use(...).
+  http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/comments`, () =>
+    HttpResponse.json<{ comments: CommentDto[] }>({ comments: [] }),
+  ),
 ];

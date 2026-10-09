@@ -1,4 +1,6 @@
 import type {
+  CommentDto,
+  CreateCommentInput,
   CreateWorkItemInput,
   Paginated,
   UpdateWorkItemInput,
@@ -8,6 +10,8 @@ import type {
 import { api } from '@/lib/api-client';
 
 type WorkItemResponse = { item: WorkItemDto };
+type CommentResponse = { comment: CommentDto };
+type CommentsResponse = { comments: CommentDto[] };
 
 /** Filtros opcionales del backlog; la paginacion conserva la firma de MIR-12. */
 export type WorkItemListFilters = Pick<
@@ -87,4 +91,25 @@ export async function updateWorkItem(
     input,
   );
   return item;
+}
+
+/** Obtiene los comentarios de un elemento de trabajo. */
+export async function getComments(projectId: string, workItemId: string): Promise<CommentDto[]> {
+  const { comments } = await api.get<CommentsResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/comments`,
+  );
+  return comments;
+}
+
+/** Publica un comentario en un elemento de trabajo. */
+export async function createComment(
+  projectId: string,
+  workItemId: string,
+  input: CreateCommentInput,
+): Promise<CommentDto> {
+  const { comment } = await api.post<CommentResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/comments`,
+    input,
+  );
+  return comment;
 }

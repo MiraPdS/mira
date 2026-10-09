@@ -1,5 +1,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  CommentDto,
+  CreateCommentInput,
   CreateWorkItemInput,
   Paginated,
   UpdateWorkItemInput,
@@ -7,8 +9,10 @@ import type {
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import {
+  createComment,
   createWorkItem,
   deleteWorkItem,
+  getComments,
   getWorkItem,
   listWorkItems,
   updateWorkItem,
@@ -36,6 +40,15 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       });
       await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
       await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+      // MIR-21: igual que el detalle, sin refetch de los comentarios del
+      // elemento eliminado mientras su consumidor sigue montado (daria 404).
+      const commentsKey = commentsQueryKey(projectId, workItemId);
+      await queryClient.cancelQueries({ queryKey: commentsKey, exact: true });
+      await queryClient.invalidateQueries({
+        queryKey: commentsKey,
+        exact: true,
+        refetchType: 'none',
+      });
     },
   });
 }
@@ -114,6 +127,37 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
       // paginas del proyecto actualizado, sin invalidar otros proyectos.
       void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+    },
+  });
+}
+
+/** MIR-21: clave de cache de los comentarios de un elemento. */
+export function commentsQueryKey(projectId: string, workItemId: string) {
+  return ['work-item-comments', projectId, workItemId] as const;
+}
+
+/** MIR-21: comentarios del elemento, del mas antiguo al mas reciente. */
+export function useComments(projectId: string, workItemId: string) {
+  return useQuery<CommentDto[], ApiRequestError>({
+    queryKey: commentsQueryKey(projectId, workItemId),
+    queryFn: () => getComments(projectId, workItemId),
+    enabled: Boolean(projectId && workItemId),
+  });
+}
+
+/** MIR-21: publica un comentario y refresca el listado y el resumen (MIR-23). */
+export function useCreateComment(projectId: string, workItemId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<CommentDto, ApiRequestError, CreateCommentInput>({
+    mutationFn: (input) => createComment(projectId, workItemId, input),
+    onSuccess: async () => {
+      await queryClient.invalidateQueries({
+        queryKey: commentsQueryKey(projectId, workItemId),
+        exact: true,
+      });
+      // El comentario deja una actividad COMMENT_ADDED en el panel del proyecto.
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });

@@ -1,10 +1,17 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { can, PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
+import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
+import {
+  can,
+  COMMENT_MAX_LENGTH,
+  createCommentSchema,
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+} from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
-import { useDeleteWorkItem, useWorkItem } from './useWorkItems';
+import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
 import { WorkItemEditForm } from './WorkItemEditForm';
 
 export interface WorkItemDetailProps {
@@ -60,6 +67,30 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
   }, [confirming]);
   const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
   const [isEditing, setIsEditing] = useState(false);
+  // MIR-21: comentarios. Los hooks van antes de los retornos tempranos.
+  const canComment = !userError && !membersError && can(role, 'comment:create');
+  const [commentBody, setCommentBody] = useState('');
+  const commentInputId = useId();
+  const commentsTitleId = useId();
+  const {
+    data: comments,
+    isPending: commentsPending,
+    error: commentsError,
+    refetch: refetchComments,
+  } = useComments(projectId, workItemId);
+  const commentCreation = useCreateComment(projectId, workItemId);
+  // Una sola regla para el boton y el envio: el mismo esquema que valida la API.
+  const commentInput = createCommentSchema.safeParse({ body: commentBody });
+  // 404 (elemento eliminado) y 403 (sin acceso) no se arreglan reintentando.
+  const commentsErrorStatus =
+    commentsError instanceof ApiRequestError ? commentsError.status : null;
+  const commentsUnavailable = commentsErrorStatus === 403 || commentsErrorStatus === 404;
+
+  function publicarComentario(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!commentInput.success || !canComment || commentCreation.isPending) return;
+    commentCreation.mutate(commentInput.data, { onSuccess: () => setCommentBody('') });
+  }
 
   if (deletion.isSuccess) {
     return <p role="status">Elemento eliminado.</p>;
@@ -230,6 +261,100 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           </dd>
         </div>
       </dl>
+
+      {/* MIR-21: comentarios del elemento de trabajo. */}
+      <section aria-labelledby={commentsTitleId} className="mt-8 border-t border-slate-200 pt-6">
+        <h3 id={commentsTitleId} className="text-lg font-semibold text-slate-900">
+          Comentarios
+        </h3>
+
+        {commentsPending ? (
+          <p role="status" className="mt-4 text-sm text-slate-500">
+            Cargando comentarios...
+          </p>
+        ) : commentsUnavailable ? (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {commentsErrorStatus === 404
+              ? 'Este elemento ya no existe.'
+              : 'No tienes acceso a los comentarios de este elemento.'}
+          </p>
+        ) : commentsError ? (
+          <div className="mt-4">
+            <p role="alert" className="text-sm text-red-700">
+              No se pudieron cargar los comentarios.
+            </p>
+            <Button variant="secondary" className="mt-2" onClick={() => void refetchComments()}>
+              Reintentar
+            </Button>
+          </div>
+        ) : comments?.length === 0 ? (
+          <p className="mt-4 text-sm text-slate-500">Todavía no hay comentarios.</p>
+        ) : (
+          <ol className="mt-4 space-y-4">
+            {comments?.map((comment) => (
+              <li key={comment.id} className="rounded-lg border border-slate-200 p-4">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-slate-900">
+                    {comment.author.name}
+                  </span>
+
+                  <time dateTime={comment.createdAt} className="text-xs text-slate-500">
+                    {fechaLegible(comment.createdAt)}
+                  </time>
+                </div>
+
+                <p className="mt-2 whitespace-pre-wrap break-words text-sm text-slate-700">
+                  {comment.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        )}
+
+        {canComment && (
+          <form
+            aria-label="Nuevo comentario"
+            onSubmit={publicarComentario}
+            className="mt-6 border-t border-slate-200 pt-5"
+          >
+            <label htmlFor={commentInputId} className="block text-sm font-medium text-slate-900">
+              Escribir comentario
+            </label>
+
+            <textarea
+              id={commentInputId}
+              value={commentBody}
+              onChange={(event) => {
+                setCommentBody(event.target.value);
+                if (commentCreation.isError) commentCreation.reset();
+              }}
+              rows={4}
+              maxLength={COMMENT_MAX_LENGTH}
+              placeholder="Escribe un comentario..."
+              disabled={commentCreation.isPending}
+              className="mt-2 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
+            />
+
+            <p className="mt-1 text-xs text-slate-500">
+              {commentBody.length}/{COMMENT_MAX_LENGTH} caracteres
+            </p>
+
+            {commentCreation.error && (
+              <p role="alert" className="mt-2 text-sm text-red-700">
+                {commentCreation.error.message}
+              </p>
+            )}
+
+            <Button
+              type="submit"
+              className="mt-3"
+              disabled={!commentInput.success || commentCreation.isPending}
+            >
+              {commentCreation.isPending ? 'Publicando...' : 'Publicar comentario'}
+            </Button>
+          </form>
+        )}
+      </section>
     </article>
   );
 }
