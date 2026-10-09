@@ -1,9 +1,14 @@
 import type {
   AddMemberInput,
+  ActivityAction,
   ListProjectsResponse,
   ProjectDto,
   ProjectMemberDto,
+  WorkItemPriority,
+  WorkItemStatus,
+  WorkItemType,
 } from '@mira/shared';
+
 import { api } from '@/lib/api-client';
 
 interface AddMemberResponse {
@@ -24,9 +29,11 @@ interface GetMembersResponse {
 }
 
 // MIR-23: Tipos del panel de resumen.
+// Reutilizamos los tipos compartidos para mantener
+// consistencia entre el frontend y el backend.
 export interface ProjectActivity {
   id: string;
-  action: string;
+  action: ActivityAction;
   workItemId: string | null;
   actor: {
     id: string;
@@ -40,25 +47,9 @@ export interface ProjectActivity {
 
 export interface ProjectSummary {
   total: number;
-  byStatus: {
-    BACKLOG: number;
-    TODO: number;
-    IN_PROGRESS: number;
-    IN_REVIEW: number;
-    DONE: number;
-  };
-  byType: {
-    EPIC: number;
-    STORY: number;
-    TASK: number;
-    BUG: number;
-  };
-  byPriority: {
-    LOW: number;
-    MEDIUM: number;
-    HIGH: number;
-    CRITICAL: number;
-  };
+  byStatus: Record<WorkItemStatus, number>;
+  byType: Record<WorkItemType, number>;
+  byPriority: Record<WorkItemPriority, number>;
   recentActivity: ProjectActivity[];
 }
 

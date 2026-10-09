@@ -79,12 +79,17 @@ describe('ProjectSummaryPage - MIR-23', () => {
 
     expect(await screen.findByText('Resumen del proyecto')).toBeInTheDocument();
 
-    const total = screen.getByRole('heading', { name: 'Total de ítems' }).parentElement;
+    const total = screen.getByRole('heading', {
+      name: 'Total de ítems',
+    }).parentElement;
+
     expect(total).not.toBeNull();
     expect(within(total!).getByText('5')).toBeInTheDocument();
 
     const estado = screen.getByRole('heading', { name: 'Por estado' }).closest('section');
+
     const tipo = screen.getByRole('heading', { name: 'Por tipo' }).closest('section');
+
     const prioridad = screen.getByRole('heading', { name: 'Por prioridad' }).closest('section');
 
     expect(estado).not.toBeNull();
@@ -92,7 +97,9 @@ describe('ProjectSummaryPage - MIR-23', () => {
     expect(prioridad).not.toBeNull();
 
     expect(within(estado!).getByText('En progreso')).toBeInTheDocument();
+
     expect(within(tipo!).getByText('Historia')).toBeInTheDocument();
+
     expect(within(prioridad!).getByText('Alta')).toBeInTheDocument();
 
     expect(within(tipo!).getAllByText('2')).toHaveLength(2);
@@ -113,6 +120,7 @@ describe('ProjectSummaryPage - MIR-23', () => {
     const estado = screen.getByRole('heading', { name: 'Por estado' }).closest('section');
 
     expect(estado).not.toBeNull();
+
     expect(within(estado!).getAllByText('0')).toHaveLength(5);
   });
 
@@ -146,14 +154,57 @@ describe('ProjectSummaryPage - MIR-23', () => {
     renderPagina();
 
     expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+
     expect(screen.getByText(/creó un ítem/i)).toBeInTheDocument();
+  });
+
+  // MIR-23: Verifica que la actividad muestre el detalle del cambio.
+  it('muestra el campo modificado y sus valores anteriores y nuevos', async () => {
+    server.use(
+      http.get(ENDPOINT, () =>
+        HttpResponse.json({
+          summary: {
+            ...emptySummary,
+            total: 1,
+            recentActivity: [
+              {
+                id: 'activity_status_1',
+                action: 'ITEM_STATUS_CHANGED',
+                workItemId: 'item_1',
+                actor: {
+                  id: 'user_1',
+                  name: 'Ada Lovelace',
+                },
+                field: 'status',
+                fromValue: 'TODO',
+                toValue: 'IN_PROGRESS',
+                createdAt: '2026-10-08T12:00:00.000Z',
+              },
+            ],
+          },
+        }),
+      ),
+    );
+
+    renderPagina();
+
+    expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
+
+    expect(screen.getByText('cambió el estado de un ítem')).toBeInTheDocument();
+
+    expect(screen.getByText('Estado: Por hacer → En progreso')).toBeInTheDocument();
   });
 
   it('muestra un mensaje cuando falla la consulta', async () => {
     server.use(
       http.get(ENDPOINT, () =>
         HttpResponse.json(
-          { error: { code: 'PROJECT_ACCESS_DENIED', message: 'Acceso denegado' } },
+          {
+            error: {
+              code: 'PROJECT_ACCESS_DENIED',
+              message: 'Acceso denegado',
+            },
+          },
           { status: 403 },
         ),
       ),

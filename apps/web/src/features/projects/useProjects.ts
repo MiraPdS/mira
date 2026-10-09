@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type { AddMemberInput, ProjectDto } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
-import { projectApi } from './project.api';
+import { projectApi, type ProjectSummary } from './project.api';
 
 /**
  * Claves de cache de proyectos. `all` es prefijo de las demas: crear o editar
@@ -10,6 +10,7 @@ import { projectApi } from './project.api';
 export const projectKeys = {
   all: ['projects'] as const,
   members: (projectId: string) => ['projects', projectId, 'members'] as const,
+  summary: (projectId: string) => ['projects', projectId, 'summary'] as const,
 };
 
 /** Lista de proyectos del usuario. Un 401 lo resuelve el manejador global. */
@@ -17,6 +18,18 @@ export function useProjects() {
   return useQuery<ProjectDto[], ApiRequestError>({
     queryKey: projectKeys.all,
     queryFn: projectApi.list,
+  });
+}
+
+/**
+ * MIR-23: Obtiene el resumen estadistico y la actividad reciente
+ * de un proyecto usando TanStack Query.
+ */
+export function useProjectSummary(projectId: string) {
+  return useQuery<ProjectSummary, ApiRequestError>({
+    queryKey: projectKeys.summary(projectId),
+    queryFn: () => projectApi.getSummary(projectId),
+    enabled: Boolean(projectId),
   });
 }
 

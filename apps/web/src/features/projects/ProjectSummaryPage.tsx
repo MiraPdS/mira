@@ -1,30 +1,10 @@
-import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { projectApi, type ProjectSummary } from './project.api';
+import { STATUS_LABELS, TYPE_LABELS, PRIORITY_LABELS } from '@mira/shared';
+import type { ProjectActivity } from './project.api';
+import { useProjectSummary } from './useProjects';
 
-const statusLabels: Record<keyof ProjectSummary['byStatus'], string> = {
-  BACKLOG: 'Backlog',
-  TODO: 'Por hacer',
-  IN_PROGRESS: 'En progreso',
-  IN_REVIEW: 'En revisión',
-  DONE: 'Terminado',
-};
-
-const typeLabels: Record<keyof ProjectSummary['byType'], string> = {
-  EPIC: 'Épica',
-  STORY: 'Historia',
-  TASK: 'Tarea',
-  BUG: 'Error',
-};
-
-const priorityLabels: Record<keyof ProjectSummary['byPriority'], string> = {
-  LOW: 'Baja',
-  MEDIUM: 'Media',
-  HIGH: 'Alta',
-  CRITICAL: 'Crítica',
-};
-
-const actionLabels: Record<string, string> = {
+// Descripciones de las acciones registradas en el proyecto.
+const actionLabels: Record<ProjectActivity['action'], string> = {
   ITEM_CREATED: 'creó un ítem',
   ITEM_UPDATED: 'actualizó un ítem',
   ITEM_STATUS_CHANGED: 'cambió el estado de un ítem',
@@ -36,24 +16,90 @@ const actionLabels: Record<string, string> = {
   MEMBER_REMOVED: 'eliminó un miembro',
 };
 
-function SummarySection({
+// Etiquetas de los campos que pueden aparecer en la actividad.
+const fieldLabels: Record<string, string> = {
+  title: 'Título',
+  description: 'Descripción',
+  status: 'Estado',
+  type: 'Tipo',
+  priority: 'Prioridad',
+  estimate: 'Estimación',
+  dueDate: 'Fecha límite',
+  assigneeId: 'Responsable',
+  role: 'Rol',
+  reference: 'Referencia',
+};
+
+// Traduce los valores de los enums a sus etiquetas compartidas.
+function formatoValor(field: string, value: string | null): string {
+  if (value === null) {
+    return 'Sin asignar';
+  }
+
+  if (field === 'status' && value in STATUS_LABELS) {
+    return STATUS_LABELS[value as keyof typeof STATUS_LABELS];
+  }
+
+  if (field === 'type' && value in TYPE_LABELS) {
+    return TYPE_LABELS[value as keyof typeof TYPE_LABELS];
+  }
+
+  if (field === 'priority' && value in PRIORITY_LABELS) {
+    return PRIORITY_LABELS[value as keyof typeof PRIORITY_LABELS];
+  }
+
+  return value;
+}
+
+// Construye una descripcion mas especifica para cada actividad.
+function detalleActividad(activity: ProjectActivity): string | null {
+  const { field, fromValue, toValue, action } = activity;
+
+  if (!field || (fromValue === null && toValue === null)) {
+    return null;
+  }
+
+  const etiqueta = fieldLabels[field] ?? field;
+
+  // Si existe valor anterior y nuevo, mostramos el cambio.
+  if (fromValue !== null && toValue !== null) {
+    return `${etiqueta}: ${formatoValor(field, fromValue)} → ${formatoValor(field, toValue)}`;
+  }
+
+  // Si se creo o asigno un valor, mostramos el nuevo.
+  if (toValue !== null) {
+    return `${etiqueta}: ${formatoValor(field, toValue)}`;
+  }
+
+  // Para una eliminacion, mostramos el valor que existia.
+  if (action === 'ITEM_DELETED') {
+    return `${etiqueta}: ${formatoValor(field, fromValue)}`;
+  }
+
+  // Un campo que queda sin valor.
+  return `${etiqueta}: ${formatoValor(field, fromValue)} → Sin asignar`;
+}
+
+// Componente reutilizable para mostrar los conteos.
+function SummarySection<K extends string>({
   title,
   values,
   labels,
 }: {
   title: string;
-  values: Record<string, number>;
-  labels: Record<string, string>;
+  values: Record<K, number>;
+  labels: Record<K, string>;
 }) {
   return (
     <section className="rounded-xl border border-slate-200 bg-white p-5">
       <h2 className="mb-4 text-lg font-semibold text-slate-900">{title}</h2>
 
       <div className="space-y-3">
-        {Object.entries(values).map(([key, count]) => (
+        {(Object.keys(values) as K[]).map((key) => (
           <div key={key} className="flex items-center justify-between">
-            <span className="text-sm text-slate-600">{labels[key] ?? key}</span>
-            <span className="font-semibold text-slate-900">{count}</span>
+            <span className="text-sm text-slate-600">{labels[key]}</span>
+
+            <span className="font-semibold text-slate-900">{values[key]}</span>
           </div>
         ))}
       </div>
@@ -64,49 +110,28 @@ function SummarySection({
 export function ProjectSummaryPage() {
   const { projectId } = useParams<{ projectId: string }>();
 
-  const [summary, setSummary] = useState<ProjectSummary | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  // TanStack Query administra la carga, errores y cache del resumen.
+  const { data: summary, isPending, isError } = useProjectSummary(projectId ?? '');
 
-  useEffect(() => {
-    if (!projectId) {
-      setError('No se encontró el identificador del proyecto.');
-      setLoading(false);
-      return;
-    }
+  // Proyecto sin identificador.
+  if (!projectId) {
+    return (
+      <main className="mx-auto max-w-6xl px-6 py-10">
+        <h1 className="text-2xl font-semibold text-slate-900">Resumen del proyecto</h1>
 
-    let cancelled = false;
+        <p role="alert" className="mt-4 text-red-600">
+          No se encontró el identificador del proyecto.
+        </p>
 
-    async function loadSummary() {
-      setLoading(true);
-      setError(null);
-      setSummary(null);
+        <Link to="/proyectos" className="mt-4 inline-block text-blue-600 hover:underline">
+          Volver a proyectos
+        </Link>
+      </main>
+    );
+  }
 
-      try {
-        const result = await projectApi.getSummary(projectId!);
-
-        if (!cancelled) {
-          setSummary(result);
-        }
-      } catch {
-        if (!cancelled) {
-          setError('No fue posible cargar el resumen del proyecto.');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
-      }
-    }
-
-    void loadSummary();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId]);
-
-  if (loading) {
+  // Estado de carga.
+  if (isPending) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
         <p role="status" className="text-slate-500">
@@ -116,13 +141,16 @@ export function ProjectSummaryPage() {
     );
   }
 
-  if (error || !summary) {
+  // Error al obtener el resumen.
+  if (isError || !summary) {
     return (
       <main className="mx-auto max-w-6xl px-6 py-10">
         <h1 className="text-2xl font-semibold text-slate-900">Resumen del proyecto</h1>
+
         <p role="alert" className="mt-4 text-red-600">
-          {error ?? 'No hay información disponible.'}
+          No fue posible cargar el resumen del proyecto.
         </p>
+
         <Link to="/proyectos" className="mt-4 inline-block text-blue-600 hover:underline">
           Volver a proyectos
         </Link>
@@ -132,6 +160,7 @@ export function ProjectSummaryPage() {
 
   return (
     <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+      {/* Encabezado del proyecto */}
       <header>
         <Link to="/proyectos" className="text-sm text-blue-600 hover:underline">
           ← Volver a proyectos
@@ -142,14 +171,18 @@ export function ProjectSummaryPage() {
         <p className="mt-2 text-slate-500">Estadísticas y actividad reciente del proyecto.</p>
       </header>
 
+      {/* Total de elementos */}
       <section className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-sm font-medium text-slate-500">Total de ítems</h2>
+
         <p className="mt-2 text-4xl font-bold text-slate-900">{summary.total}</p>
       </section>
 
+      {/* Proyecto vacio */}
       {summary.total === 0 && (
         <section className="rounded-xl border border-slate-200 bg-slate-50 p-6">
           <h2 className="font-semibold text-slate-900">Este proyecto todavía no tiene ítems</h2>
+
           <p className="mt-2 text-sm text-slate-600">
             Cuando se creen tareas, historias, errores o épicas, podrás consultar sus estadísticas
             aquí.
@@ -157,14 +190,20 @@ export function ProjectSummaryPage() {
         </section>
       )}
 
+      {/* Estadisticas */}
       <div className="grid gap-5 md:grid-cols-3">
-        <SummarySection title="Por estado" values={summary.byStatus} labels={statusLabels} />
+        <SummarySection title="Por estado" values={summary.byStatus} labels={STATUS_LABELS} />
 
-        <SummarySection title="Por tipo" values={summary.byType} labels={typeLabels} />
+        <SummarySection title="Por tipo" values={summary.byType} labels={TYPE_LABELS} />
 
-        <SummarySection title="Por prioridad" values={summary.byPriority} labels={priorityLabels} />
+        <SummarySection
+          title="Por prioridad"
+          values={summary.byPriority}
+          labels={PRIORITY_LABELS}
+        />
       </div>
 
+      {/* Actividad reciente */}
       <section className="rounded-xl border border-slate-200 bg-white p-6">
         <h2 className="text-xl font-semibold text-slate-900">Actividad reciente</h2>
 
@@ -174,22 +213,32 @@ export function ProjectSummaryPage() {
           </p>
         ) : (
           <ul className="mt-5 divide-y divide-slate-100">
-            {summary.recentActivity.map((activity) => (
-              <li key={activity.id} className="py-4">
-                <p className="text-sm text-slate-700">
-                  <span className="font-semibold">{activity.actor.name}</span>{' '}
-                  {actionLabels[activity.action] ?? activity.action}
-                </p>
+            {summary.recentActivity.map((activity) => {
+              const detalle = detalleActividad(activity);
 
-                <time dateTime={activity.createdAt} className="mt-1 block text-xs text-slate-500">
-                  {new Date(activity.createdAt).toLocaleString('es-CL')}
-                </time>
-              </li>
-            ))}
+              return (
+                <li key={activity.id} className="py-4">
+                  {/* Usuario y accion */}
+                  <p className="text-sm text-slate-700">
+                    <span className="font-semibold">{activity.actor.name}</span>{' '}
+                    {actionLabels[activity.action]}
+                  </p>
+
+                  {/* Informacion especifica del cambio */}
+                  {detalle && <p className="mt-1 text-sm break-words text-slate-600">{detalle}</p>}
+
+                  {/* Fecha de la actividad */}
+                  <time dateTime={activity.createdAt} className="mt-1 block text-xs text-slate-500">
+                    {new Date(activity.createdAt).toLocaleString('es-CL')}
+                  </time>
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>
 
+      {/* Navegacion hacia los miembros */}
       <Link
         to={`/proyectos/${projectId}/miembros`}
         className="inline-block text-sm font-medium text-blue-600 hover:underline"

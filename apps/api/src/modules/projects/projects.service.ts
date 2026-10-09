@@ -85,7 +85,8 @@ export function createProjectsService(repo: ProjectsRepository) {
     async getProjectSummary(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
 
-      if (!actorMembership) {
+      // La autorizacion se centraliza en la matriz de permisos compartida.
+      if (!can(actorMembership?.role, 'project:view')) {
         throw new ForbiddenError('No perteneces a este proyecto', 'PROJECT_ACCESS_DENIED');
       }
 
