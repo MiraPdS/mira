@@ -35,7 +35,9 @@ function capturarPatch(base: ProjectDto) {
       const cuerpo = (await request.json()) as UpdateProjectInput;
       cuerpos.push(cuerpo);
       return HttpResponse.json<ProjectResponse>({
-        project: { ...base, ...cuerpo, description: cuerpo.description ?? base.description },
+        // El spread conserva un `description: null` explicito y deja intacto
+        // lo que el cuerpo omite.
+        project: { ...base, ...cuerpo },
       });
     }),
   );
@@ -128,6 +130,30 @@ describe('ProjectSettingsPage', () => {
 
     await screen.findByText('Cambios guardados');
     expect(cuerpos).toEqual([{ description: null }]);
+    expect(screen.getByText('Sin descripcion')).toBeInTheDocument();
+  });
+
+  it('solo espacios agregados al nombre no envian PATCH', async () => {
+    const cuerpos = capturarPatch(conProyecto());
+    const { user } = await abrirEdicion();
+
+    await user.type(screen.getByLabelText('Nombre'), '   ');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument();
+    expect(cuerpos).toEqual([]);
+    expect(screen.queryByText('Cambios guardados')).not.toBeInTheDocument();
+  });
+
+  it('espacios en una descripcion que ya era null no envian PATCH', async () => {
+    const cuerpos = capturarPatch(conProyecto({ description: null }));
+    const { user } = await abrirEdicion();
+
+    await user.type(screen.getByLabelText('Descripcion (opcional)'), '   ');
+    await user.click(screen.getByRole('button', { name: 'Guardar' }));
+
+    expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument();
+    expect(cuerpos).toEqual([]);
   });
 
   it('un 422 con campo se muestra bajo ese campo', async () => {

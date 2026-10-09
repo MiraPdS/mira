@@ -145,8 +145,9 @@ function ProjectDetails({
 
 /**
  * Formulario de edicion. Misma receta que CreateProjectPage, con dos
- * diferencias: solo se envian los campos tocados (la bitacora registra por
- * campo) y un 403 refresca el proyecto para que el boton desaparezca solo.
+ * diferencias: solo se envian los campos que realmente cambian (la bitacora
+ * registra por campo; sin cambios no hay PATCH) y un 403 refresca el proyecto
+ * para que el boton desaparezca solo.
  */
 function EditProjectForm({
   project,
@@ -166,16 +167,24 @@ function EditProjectForm({
     register,
     handleSubmit,
     setError,
-    formState: { errors, dirtyFields, isDirty },
+    formState: { errors, isDirty },
   } = useForm<UpdateProjectInput>({
     resolver: zodResolver(updateProjectSchema),
     defaultValues: { name: project.name, description: project.description ?? '' },
   });
 
   const onSubmit = handleSubmit(async (values) => {
+    // `values` ya viene normalizado por el esquema (trim, "" -> null). Se
+    // compara contra el proyecto y no contra dirtyFields: agregar espacios al
+    // nombre ensucia el campo pero no lo cambia.
     const cambios: UpdateProjectInput = {};
     for (const campo of CAMPOS) {
-      if (dirtyFields[campo]) Object.assign(cambios, { [campo]: values[campo] });
+      if (values[campo] !== project[campo]) Object.assign(cambios, { [campo]: values[campo] });
+    }
+
+    if (Object.keys(cambios).length === 0) {
+      onCancel();
+      return;
     }
 
     try {

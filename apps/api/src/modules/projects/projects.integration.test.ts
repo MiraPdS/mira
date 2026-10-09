@@ -3,6 +3,7 @@ import request from 'supertest';
 import type { Express } from 'express';
 import { addMember, createProject, createUser, sessionCookie } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
+import { createProjectsRepository } from './projects.repository.js';
 
 /**
  * NIVEL 2 de la piramide: integracion.
@@ -315,6 +316,79 @@ describe('PATCH /api/projects/:projectId', () => {
       fromValue: 'Antes',
       toValue: null,
     });
+  });
+
+  it('un PATCH con los mismos valores responde 200 y no deja bitacora', async () => {
+    const { project, owner } = await createProject({ name: 'Mira', description: 'Antes' });
+
+    const res = await request(app)
+      .patch(`/api/projects/${project.id}`)
+      .set('Cookie', sessionCookie(owner))
+      .send({ name: 'Mira', description: 'Antes' });
+
+    expect(res.status).toBe(200);
+    expect(await prisma.activityLog.count({ where: { action: 'PROJECT_UPDATED' } })).toBe(0);
+  });
+
+  it('dos PATCH concurrentes dejan una bitacora encadenada y coherente con el estado final', async () => {
+    const { project, owner } = await createProject({ name: 'Mira' });
+    const enviar = (name: string) =>
+      request(app)
+        .patch(`/api/projects/${project.id}`)
+        .set('Cookie', sessionCookie(owner))
+        .send({ name });
+
+    // Una transaccion externa retiene la fila para que ambos PATCH se solapen
+    // de verdad: los dos llegan mientras esta bloqueada y se liberan juntos.
+    let liberar!: () => void;
+    const soltar = new Promise<void>((resolve) => (liberar = resolve));
+    let avisarBloqueo!: () => void;
+    const bloqueada = new Promise<void>((resolve) => (avisarBloqueo = resolve));
+    const retencion = prisma.$transaction(
+      async (tx) => {
+        await tx.$queryRaw`SELECT id FROM projects WHERE id = ${project.id} FOR UPDATE`;
+        avisarBloqueo();
+        await soltar;
+      },
+      { timeout: 10_000 },
+    );
+    await bloqueada;
+
+    const pendientes = Promise.all([enviar('Alfa'), enviar('Beta')]);
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    liberar();
+    await retencion;
+
+    const respuestas = await pendientes;
+    expect(respuestas.map((r) => r.status)).toEqual([200, 200]);
+
+    // Sin el bloqueo, ambas filas tendrian fromValue "Mira".
+    const filas = await prisma.activityLog.findMany({
+      where: { projectId: project.id, action: 'PROJECT_UPDATED' },
+    });
+    expect(filas).toHaveLength(2);
+    const primera = filas.find((f) => f.fromValue === 'Mira');
+    const segunda = filas.find((f) => f.fromValue === primera?.toValue);
+    expect(primera).toBeDefined();
+    expect(segunda).toBeDefined();
+
+    const final = await prisma.project.findUniqueOrThrow({ where: { id: project.id } });
+    expect(final.name).toBe(segunda?.toValue);
+  });
+
+  it('si falla el registro en la bitacora, el proyecto no cambia (rollback)', async () => {
+    const { project } = await createProject({ name: 'Mira' });
+    const repo = createProjectsRepository(prisma);
+
+    // Un actor inexistente viola la FK de activity_log al insertar la fila.
+    await expect(
+      repo.updateWithActivity(project.id, { name: 'Otro' }, 'actor-inexistente', (actual) => [
+        { field: 'name', fromValue: actual.name, toValue: 'Otro' },
+      ]),
+    ).rejects.toThrow();
+
+    const tras = await prisma.project.findUniqueOrThrow({ where: { id: project.id } });
+    expect(tras.name).toBe('Mira');
   });
 
   it('responde 401 sin sesion', async () => {

@@ -45,13 +45,17 @@ export interface ProjectsRepository {
 
   addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
 
-  /** Actualiza el proyecto y registra una fila PROJECT_UPDATED por campo cambiado. */
+  /**
+   * MIR-7: en UNA transaccion bloquea la fila del proyecto, calcula los cambios
+   * con `diff` sobre ese estado bloqueado, actualiza y registra una fila
+   * PROJECT_UPDATED por cambio. Devuelve null si el proyecto no existe.
+   */
   updateWithActivity(
     projectId: string,
     data: { name?: string; description?: string | null },
-    changes: ProjectFieldChange[],
     actorId: string,
-  ): Promise<Project>;
+    diff: (current: Project) => ProjectFieldChange[],
+  ): Promise<Project | null>;
 
   // MIR-10: Cambiar rol y quitar miembros
   changeMemberRoleWithActivity(
@@ -202,8 +206,18 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       });
     },
 
-    async updateWithActivity(projectId, data, changes, actorId) {
+    async updateWithActivity(projectId, data, actorId, diff) {
       const run = async (tx: Db) => {
+        // FOR UPDATE: un PATCH concurrente espera aqui hasta que este confirme,
+        // asi el diff (y el fromValue de la bitacora) parte del ultimo estado.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE
+        `;
+        if (locked.length === 0) return null;
+
+        const current = await tx.project.findUniqueOrThrow({ where: { id: projectId } });
+        const changes = diff(current);
+
         const project = await tx.project.update({
           where: { id: projectId },
           data,

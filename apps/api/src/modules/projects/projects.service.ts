@@ -22,6 +22,21 @@ export function toProjectDto(project: Project, myRole: ProjectRole): ProjectDto 
   };
 }
 
+/**
+ * MIR-7: campos que realmente cambian respecto del estado actual. Un campo
+ * enviado con el mismo valor no cuenta: un PATCH sin cambios no deja bitacora.
+ */
+export function diffProject(current: Project, input: UpdateProjectInput): ProjectFieldChange[] {
+  const changes: ProjectFieldChange[] = [];
+  for (const field of ['name', 'description'] as const) {
+    const toValue = input[field];
+    if (toValue !== undefined && toValue !== current[field]) {
+      changes.push({ field, fromValue: current[field], toValue });
+    }
+  }
+  return changes;
+}
+
 export function createProjectsService(repo: ProjectsRepository) {
   return {
     // MIR-5: Crear proyecto.
@@ -84,18 +99,11 @@ export function createProjectsService(repo: ProjectsRepository) {
         throw new ForbiddenError('Solo el propietario puede editar el proyecto', 'OWNER_REQUIRED');
       }
 
-      const actual = await repo.findById(projectId);
-      if (!actual) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
-
-      const changes: ProjectFieldChange[] = [];
-      for (const field of ['name', 'description'] as const) {
-        const toValue = input[field];
-        if (toValue !== undefined && toValue !== actual[field]) {
-          changes.push({ field, fromValue: actual[field], toValue });
-        }
-      }
-
-      const project = await repo.updateWithActivity(projectId, input, changes, actorId);
+      // El diff se calcula dentro de la transaccion, sobre la fila bloqueada.
+      const project = await repo.updateWithActivity(projectId, input, actorId, (current) =>
+        diffProject(current, input),
+      );
+      if (!project) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
 
       return toProjectDto(project, 'OWNER');
     },
