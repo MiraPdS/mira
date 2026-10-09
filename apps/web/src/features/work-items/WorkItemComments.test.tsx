@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import type { CommentDto, ProjectRole, WorkItemDto } from '@mira/shared';
-import { renderConProviders, screen, waitFor } from '@/test/render';
+import { renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemDetail } from './WorkItemDetail';
@@ -80,24 +80,25 @@ describe('MIR-21 - comentarios de elementos de trabajo', () => {
 
     server.use(http.get(COMMENTS_URL, () => HttpResponse.json({ comments: [primero, segundo] })));
 
-    const { container } = renderConProviders(
-      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
-    );
+    renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />);
 
     expect(await screen.findByText('Primer comentario')).toBeInTheDocument();
     expect(screen.getByText('Segundo comentario')).toBeInTheDocument();
 
-    const list = container.querySelector('ol');
-    expect(list).not.toBeNull();
-
-    const entries = list?.querySelectorAll('li');
+    const seccion = screen.getByRole('region', { name: 'Comentarios' });
+    const entries = within(within(seccion).getByRole('list')).getAllByRole('listitem');
     expect(entries).toHaveLength(2);
-    expect(entries?.[0]).toHaveTextContent('Primer comentario');
-    expect(entries?.[1]).toHaveTextContent('Segundo comentario');
+    expect(entries[0]).toHaveTextContent('Primer comentario');
+    expect(entries[1]).toHaveTextContent('Segundo comentario');
 
-    expect(entries?.[0]).toHaveTextContent(USUARIO_DE_PRUEBA.name);
+    // Autor y fecha legible, con el mismo formato que usa la pantalla.
+    const fecha = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeStyle: 'short' });
+    expect(entries[0]).toHaveTextContent(USUARIO_DE_PRUEBA.name);
     expect(
-      entries?.[0]?.querySelector('time[datetime="2026-10-01T10:00:00.000Z"]'),
+      // Intl puede usar espacios finos; RTL los normaliza a un espacio comun.
+      within(entries[0]!).getByText(
+        fecha.format(new Date('2026-10-01T10:00:00.000Z')).replace(/\s+/g, ' '),
+      ),
     ).toBeInTheDocument();
   });
 

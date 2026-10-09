@@ -17,7 +17,6 @@ const dateFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'medium',
   timeStyle: 'short',
 });
-
 const calendarDateFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'long',
   timeZone: 'UTC',
@@ -48,66 +47,46 @@ export function WorkItemDetail(props: WorkItemDetailProps) {
 
 function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDetailProps) {
   const deletion = useDeleteWorkItem(projectId, workItemId);
-
   const { data: currentUser, isError: userError } = useCurrentUser();
   const { data: members, isError: membersError } = useProjectMembers(projectId);
-
   const role = members?.members.find((member) => member.user.id === currentUser?.id)?.role;
-
   const canDelete = !userError && !membersError && can(role, 'work-item:delete');
-  const canEdit = !userError && !membersError && can(role, 'work-item:update');
-  const canComment = !userError && !membersError && can(role, 'comment:create');
-
   const [confirming, setConfirming] = useState(false);
-  const [isEditing, setIsEditing] = useState(false);
-  const [commentBody, setCommentBody] = useState('');
-
   const dialogRef = useRef<HTMLDialogElement>(null);
   const dialogTitleId = useId();
   const dialogDescriptionId = useId();
+  useEffect(() => {
+    if (confirming) dialogRef.current?.showModal();
+  }, [confirming]);
+  const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
+  const [isEditing, setIsEditing] = useState(false);
+  // MIR-21: comentarios. Los hooks van antes de los retornos tempranos.
+  const canComment = !userError && !membersError && can(role, 'comment:create');
+  const [commentBody, setCommentBody] = useState('');
   const commentInputId = useId();
   const commentsTitleId = useId();
-
-  const { data: item, error, isPending } = useWorkItem(projectId, workItemId);
-
   const {
     data: comments,
     isPending: commentsPending,
     error: commentsError,
     refetch: refetchComments,
   } = useComments(projectId, workItemId);
-
   const commentCreation = useCreateComment(projectId, workItemId);
-
-  useEffect(() => {
-    if (confirming) dialogRef.current?.showModal();
-  }, [confirming]);
 
   function publicarComentario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-
     const body = commentBody.trim();
-
-    if (!body || body.length > 5000 || !canComment || commentCreation.isPending) {
-      return;
-    }
-
-    commentCreation.mutate(
-      { body },
-      {
-        onSuccess: () => {
-          setCommentBody('');
-        },
-      },
-    );
+    if (!body || body.length > 5000 || !canComment || commentCreation.isPending) return;
+    commentCreation.mutate({ body }, { onSuccess: () => setCommentBody('') });
   }
 
   if (deletion.isSuccess) {
     return <p role="status">Elemento eliminado.</p>;
   }
 
-  // En TanStack Query v5 una consulta deshabilitada puede quedar isPending.
-  // Por eso los identificadores vacios se revisan antes de la carga.
+  // La query se deshabilita con identificadores vacios. En TanStack Query v5
+  // eso deja isPending en true, por lo que este caso debe resolverse antes de
+  // mostrar el estado de carga.
   if (!projectId || !workItemId) {
     return <ElementoNoEncontrado />;
   }
@@ -135,7 +114,8 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     );
   }
 
-  // MIR-15: conservar la edicion integrada en develop.
+  const canEdit = !userError && !membersError && can(role, 'work-item:update');
+
   if (isEditing && canEdit) {
     return (
       <WorkItemEditForm
@@ -151,9 +131,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
       <header className="border-b border-slate-200 pb-4">
         <p className="text-sm font-medium text-slate-500">{item.reference}</p>
-
         <h2 className="mt-1 text-xl font-semibold text-slate-900">{item.title}</h2>
-
         {canDelete && (
           <Button
             variant="destructive"
@@ -166,7 +144,6 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             Eliminar elemento
           </Button>
         )}
-
         {canEdit ? <Button onClick={() => setIsEditing(true)}>Editar</Button> : null}
       </header>
 
@@ -184,13 +161,10 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           <h3 id={dialogTitleId} className="text-lg font-semibold">
             Eliminar elemento
           </h3>
-
           <p id={dialogDescriptionId} className="my-4">
             ¿Eliminar {item.reference}: {item.title}? Esta acción no se puede deshacer.
           </p>
-
           {deletion.error && <p role="alert">{deletion.error.message}</p>}
-
           <div className="mt-4 flex gap-3">
             <Button
               variant="secondary"
@@ -200,13 +174,11 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             >
               Cancelar
             </Button>
-
             <Button
               variant="destructive"
               disabled={deletion.isPending || !canDelete}
               onClick={() => {
                 if (deletion.isPending) return;
-
                 deletion.mutate(undefined, {
                   onSuccess: () => {
                     setConfirming(false);
@@ -228,27 +200,22 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             {item.description ?? 'Sin descripción'}
           </dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Tipo</dt>
           <dd className="mt-1 text-sm text-slate-900">{TYPE_LABELS[item.type]}</dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Estado</dt>
           <dd className="mt-1 text-sm text-slate-900">{STATUS_LABELS[item.status]}</dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Prioridad</dt>
           <dd className="mt-1 text-sm text-slate-900">{PRIORITY_LABELS[item.priority]}</dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Responsable</dt>
           <dd className="mt-1 text-sm text-slate-900">{item.assignee?.name ?? 'Sin asignar'}</dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Estimación</dt>
           <dd className="mt-1 text-sm text-slate-900">
@@ -257,7 +224,6 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
               : `${item.estimate} ${item.estimate === 1 ? 'punto' : 'puntos'}`}
           </dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Fecha límite</dt>
           <dd className="mt-1 text-sm text-slate-900">
@@ -270,14 +236,12 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             )}
           </dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Fecha de creación</dt>
           <dd className="mt-1 text-sm text-slate-900">
             <time dateTime={item.createdAt}>{fechaLegible(item.createdAt)}</time>
           </dd>
         </div>
-
         <div>
           <dt className="text-sm font-medium text-slate-500">Última actualización</dt>
           <dd className="mt-1 text-sm text-slate-900">

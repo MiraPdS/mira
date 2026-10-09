@@ -8,8 +8,6 @@ import type {
   WorkItemDto,
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
-import { boardKeys } from '@/features/board/useBoard';
-import { projectKeys } from '@/features/projects/useProjects';
 import {
   createComment,
   createWorkItem,
@@ -17,52 +15,40 @@ import {
   getComments,
   getWorkItem,
   listWorkItems,
-  normalizeWorkItemListFilters,
   updateWorkItem,
+  normalizeWorkItemListFilters,
   type WorkItemListFilters,
 } from './work-items.api';
-
-export const workItemKeys = {
-  detail: (projectId: string, workItemId: string) => ['work-item', projectId, workItemId] as const,
-  backlog: (projectId: string) => ['work-items', 'backlog', projectId] as const,
-};
-
-/** Clave de cache de comentarios por proyecto y elemento. */
-export function commentsQueryKey(projectId: string, workItemId: string) {
-  return ['work-item-comments', projectId, workItemId] as const;
-}
+import { boardKeys } from '@/features/board/useBoard';
+import { projectKeys } from '@/features/projects/useProjects';
 
 export function useDeleteWorkItem(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
-
   return useMutation<void, ApiRequestError, void>({
     mutationFn: () => deleteWorkItem(projectId, workItemId),
     onSuccess: async () => {
-      const detailKey = workItemKeys.detail(projectId, workItemId);
-
+      const detailKey = ['work-item', projectId, workItemId];
       await queryClient.cancelQueries({ queryKey: detailKey, exact: true });
-
       // No refetch del detalle eliminado mientras su consumidor sigue montado.
       await queryClient.invalidateQueries({
         queryKey: detailKey,
         exact: true,
         refetchType: 'none',
       });
-
       await queryClient.invalidateQueries({
         predicate: ({ queryKey }) => queryKey[0] === 'work-items' && queryKey.includes(projectId),
       });
       await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
       await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
-
-      // Evita conservar comentarios de un elemento eliminado.
-      queryClient.removeQueries({
-        queryKey: commentsQueryKey(projectId, workItemId),
-        exact: true,
-      });
+      // MIR-21: no conservar los comentarios de un elemento eliminado.
+      queryClient.removeQueries({ queryKey: commentsQueryKey(projectId, workItemId), exact: true });
     },
   });
 }
+export const workItemKeys = {
+  detail: (projectId: string, workItemId: string) => ['work-item', projectId, workItemId] as const,
+  backlog: (projectId: string) => ['work-items', 'backlog', projectId] as const,
+};
 
 /**
  * Mutacion de creacion desacoplada de rutas, listas y navegacion. Un item puede
@@ -130,7 +116,6 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
     mutationFn: (input) => updateWorkItem(projectId, workItemId, input),
     onSuccess: (item) => {
       queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
-
       // El backlog tiene una query por pagina. El prefijo alcanza todas las
       // paginas del proyecto actualizado, sin invalidar otros proyectos.
       void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
@@ -140,7 +125,12 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
   });
 }
 
-/** Consulta los comentarios del elemento en orden cronologico. */
+/** MIR-21: clave de cache de los comentarios de un elemento. */
+export function commentsQueryKey(projectId: string, workItemId: string) {
+  return ['work-item-comments', projectId, workItemId] as const;
+}
+
+/** MIR-21: comentarios del elemento, del mas antiguo al mas reciente. */
 export function useComments(projectId: string, workItemId: string) {
   return useQuery<CommentDto[], ApiRequestError>({
     queryKey: commentsQueryKey(projectId, workItemId),
@@ -149,7 +139,7 @@ export function useComments(projectId: string, workItemId: string) {
   });
 }
 
-/** Publica un comentario y actualiza el listado despues de crearlo. */
+/** MIR-21: publica un comentario y refresca el listado y el resumen (MIR-23). */
 export function useCreateComment(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
 
@@ -160,8 +150,7 @@ export function useCreateComment(projectId: string, workItemId: string) {
         queryKey: commentsQueryKey(projectId, workItemId),
         exact: true,
       });
-
-      // MIR-23: el comentario deja una actividad COMMENT_ADDED en el resumen.
+      // El comentario deja una actividad COMMENT_ADDED en el panel del proyecto.
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
   });
