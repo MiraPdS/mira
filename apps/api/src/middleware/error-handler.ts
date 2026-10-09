@@ -35,7 +35,13 @@ export const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     return;
   }
 
-  if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2025') {
+  // P2025: el registro a modificar ya no existe. P2003: se intento crear una
+  // fila hija de algo que se borro en paralelo (p. ej. un proyecto eliminado,
+  // MIR-8). En ambos casos el recurso ya no esta: 404 en vez de 500.
+  if (
+    err instanceof Prisma.PrismaClientKnownRequestError &&
+    (err.code === 'P2025' || err.code === 'P2003')
+  ) {
     res.status(404).json({ error: { code: 'NOT_FOUND', message: 'Recurso no encontrado' } });
     return;
   }

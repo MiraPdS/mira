@@ -474,6 +474,12 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 - **Dado** un cambio de estado, **cuando** lo veo en el historial, **entonces** se lee en lenguaje natural ("movió de Por hacer a En progreso"), no como nombres de columnas de base de datos.
 - **Dado** que una actualización falla a mitad de camino, **cuando** se revierte la transacción, **entonces** **no** queda una entrada de historial huérfana.
 
+Ampliados al planificar (ver `docs/plans/MIR-22-historial-elemento.md`):
+
+- **Dado** que soy VIEWER del proyecto, **cuando** abro el historial, **entonces** lo veo; **dado** que no soy miembro, **entonces** recibo 404.
+- **Dado** un item con más de 100 cambios, **cuando** abro su historial, **entonces** veo los 100 más recientes y un aviso de que la lista está recortada.
+- **Dado** el panel del proyecto (MIR-23), **cuando** muestra la actividad, **entonces** usa las mismas frases en lenguaje natural, refiriéndose a "un ítem".
+
 ---
 
 ### MIR-23 · Panel del proyecto
@@ -519,10 +525,18 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 **Tipo:** Documentación · **Prioridad:** High · **Estimación:** 5
 
 - Home como índice con enlaces a todas las páginas.
-- Páginas: Resumen, Tecnologías y Stack, Arquitectura, Estrategia de Pruebas,
-  Supuestos y Dependencias, Evidencias.
+- Páginas de `deliverables/entregas.md` §4.7: `Proyecto - Resumen y alcance`,
+  `Proyecto - Requisitos y trazabilidad`, `Proyecto - Arquitectura y
+  tecnologías`, `Proyecto - Estrategia de pruebas`, `Proyecto - Supuestos y
+  dependencias`, `Proyecto - Evidencias`, `Entrega 1`, `Entrega 2`, `Entrega 3`.
 - Página "Entrega 1" con H1 exactamente `Entrega 1`.
-- Contenido base disponible en `docs/`.
+- Contenido fuente en `docs/wiki/`, publicado a la Wiki por
+  `.github/workflows/wiki.yml` en cada push a `develop` (espejo exacto). La
+  Wiki no se edita en GitHub.
+- CI verifica en cada PR: sin `[[wikilinks]]`, sin enlaces rotos y el H1 de
+  cada entrega; en el PR de release a `main`, que no queden secciones ⏳.
+- Las secciones que dependen del release (resultados, evidencias, uso de IA)
+  quedan marcadas ⏳ y se completan en MIR-28.
 
 ---
 
@@ -530,10 +544,13 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 
 **Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 5
 
-- Frontend desplegado en Vercel con `VITE_API_URL` apuntando a la API.
-- API desplegada en Render o Fly.io, conectada al PostgreSQL de Supabase.
+- Frontend desplegado en Vercel con `VITE_API_URL=/api`, reenviado a la API
+  por el rewrite de `apps/web/vercel.json`.
+- API desplegada en Render, conectada al PostgreSQL de Supabase.
 - Migraciones aplicadas con `prisma migrate deploy`.
-- CORS configurado con el origen exacto de producción y cookies cross-site funcionando.
+- Cookies de sesión funcionando en Chrome, incógnito y Safari (mismo origen vía
+  rewrite, ver D13); `CORS_ORIGIN` igual fijado al origen exacto de producción.
+- `/api/health` verifica la base y un pinger externo lo llama cada 10 minutos.
 
 ---
 
@@ -545,6 +562,10 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 - Tag `v1.0-entrega1` sobre un commit estable de `main`.
 - GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y
   limitaciones conocidas.
+- Evidencia congelada con `npm run wiki:evidencias -- entrega-1` sobre el
+  commit del release, enlazada desde la Wiki.
+- Páginas de la Wiki sin secciones ⏳ (salvo Entrega 2 y 3): lo exige el check
+  "Verificar Wiki" del PR de release.
 
 ---
 

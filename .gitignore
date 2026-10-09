@@ -38,3 +38,6 @@ Thumbs.db
 # vite / vercel
 .vite/
 .vercel/
+
+# obsidian (configuracion personal del editor)
+docs/.obsidian/

@@ -6,7 +6,7 @@ import type {
   ProjectSummaryDto,
   UpdateProjectInput,
 } from '@mira/shared';
-import type { ApiRequestError } from '@/lib/api-client';
+import { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 import type { ProjectMemberRole } from './project.api';
 import { boardKeys } from '@/features/board/useBoard';
@@ -77,6 +77,54 @@ export function useUpdateProject(projectId: string) {
       void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
       // MIR-23: la edicion deja una actividad PROJECT_UPDATED.
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+    },
+  });
+}
+
+/**
+ * MIR-8: elimina el proyecto, lo quita de la lista al instante y limpia la
+ * cache de todo lo que cuelga de el (ver onSuccess).
+ */
+export function useDeleteProject(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<void, ApiRequestError, void>({
+    // Un 404 significa que ya estaba eliminado (otra pestana u otra sesion):
+    // el resultado buscado ya se cumple, asi que se trata como exito.
+    mutationFn: async () => {
+      try {
+        await projectApi.remove(projectId);
+      } catch (error) {
+        if (error instanceof ApiRequestError && error.status === 404) return;
+        throw error;
+      }
+    },
+    // Nada se espera aqui: la navegacion a /proyectos (en el onSuccess del
+    // componente) no debe quedar detras de operaciones de cache.
+    onSuccess: () => {
+      // La lista se corrige localmente y no se vuelve a pedir: lo unico que
+      // cambio en el servidor es que este proyecto ya no esta.
+      queryClient.setQueryData<ProjectDto[]>(projectKeys.all, (proyectos) =>
+        proyectos?.filter((proyecto) => proyecto.id !== projectId),
+      );
+
+      // Todo lo que cuelga del proyecto lleva su id en la 2a o 3a posicion de
+      // la clave: detalle, miembros y resumen (['projects', id, ...]), tablero
+      // (['board', id]), backlog (['work-items', 'backlog', id, ...]), detalle
+      // de items (['work-item', id, ...]) y comentarios
+      // (['work-item-comments', id, ...]). La lista (['projects']) no entra.
+      const delProyecto = ({ queryKey }: { queryKey: readonly unknown[] }) =>
+        queryKey.slice(1, 3).includes(projectId);
+
+      // Lo que no se esta mostrando se borra, para que volver con el historial
+      // no ensene datos de un proyecto que ya no existe. Lo que aun esta en
+      // pantalla (la configuracion, hasta navegar) solo se cancela y se marca
+      // obsoleto sin refetch: pedirlo de nuevo daria 403/404.
+      void queryClient.cancelQueries({ predicate: delProyecto });
+      queryClient.removeQueries({
+        predicate: (query) => delProyecto(query) && query.getObserversCount() === 0,
+      });
+      void queryClient.invalidateQueries({ predicate: delProyecto, refetchType: 'none' });
     },
   });
 }

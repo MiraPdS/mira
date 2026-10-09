@@ -32,7 +32,10 @@
     "db:reset": "npm run db:reset -w @mira/api",
     "db:migrate": "npm run db:migrate -w @mira/api",
     "db:seed": "npm run db:seed -w @mira/api",
-    "prepare": "husky"
+    "wiki:verificar": "node scripts/wiki.mjs verificar",
+    "wiki:construir": "node scripts/wiki.mjs construir",
+    "wiki:evidencias": "node scripts/wiki-evidencias.mjs",
+    "prepare": "node .husky/install.mjs"
   },
   "devDependencies": {
     "@commitlint/cli": "^19.6.0",

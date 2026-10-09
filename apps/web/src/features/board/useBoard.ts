@@ -74,11 +74,14 @@ export function useMoveWorkItem(projectId: string) {
       if (queryClient.isMutating({ mutationKey: boardKeys.move(projectId) }) === 1) {
         void queryClient.invalidateQueries({ queryKey: boardKey, exact: true });
       }
-      // El backlog y el detalle tambien muestran el estado.
+      // El backlog y el detalle tambien muestran el estado, y el historial
+      // del elemento registra ITEM_STATUS_CHANGED (MIR-22).
       void queryClient.invalidateQueries({
         predicate: ({ queryKey }) =>
           (queryKey[0] === 'work-items' && queryKey.includes(projectId)) ||
-          (queryKey[0] === 'work-item' && queryKey[1] === projectId && queryKey[2] === item.id),
+          ((queryKey[0] === 'work-item' || queryKey[0] === 'work-item-activity') &&
+            queryKey[1] === projectId &&
+            queryKey[2] === item.id),
       });
       // MIR-23: el resumen cuenta por estado y registra ITEM_STATUS_CHANGED.
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });

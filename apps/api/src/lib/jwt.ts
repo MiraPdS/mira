@@ -32,16 +32,18 @@ export function verifyToken(token: string): TokenPayload | null {
  *
  *  httpOnly: JavaScript no puede leerla -> un XSS no puede robar el token.
  *            Es la razon por la que elegimos cookie sobre localStorage.
- *  sameSite: 'lax' en desarrollo (localhost:5173 -> localhost:3000).
- *            'none' + secure en produccion, porque web y api viven en
- *            dominios distintos (Vercel y Render).
+ *  sameSite: 'lax' siempre. En desarrollo localhost:5173 -> :3000 es el
+ *            mismo sitio (el puerto no cuenta), y desplegado el navegador
+ *            habla con la API por el rewrite /api de Vercel: mismo origen,
+ *            cookie first-party (D13). 'lax' impide que otro sitio dispare
+ *            POST con la cookie de sesion (CSRF), cosa que 'none' permitia.
  *  secure:   solo HTTPS en produccion; en local romperia el login.
  */
 function cookieOptions(): CookieOptions {
   return {
     httpOnly: true,
     secure: isProduction,
-    sameSite: isProduction ? 'none' : 'lax',
+    sameSite: 'lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60 * 1000, // 7 dias, igual que JWT_EXPIRES_IN
   };

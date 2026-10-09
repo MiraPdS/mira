@@ -101,7 +101,39 @@ packages/shared/src/               esquemas Zod, tipos y permisos compartidos
 El `service` no sabe de HTTP ni de Prisma: recibe el repositorio por parametro.
 Eso es lo que permite testearlo sin base de datos, y no es negociable.
 
-## 7. Que no se commitea
+## 7. Wiki
+
+La Wiki de GitHub se genera desde `docs/wiki/`. **No se edita en GitHub**: el
+workflow `wiki.yml` la sobrescribe como espejo exacto en cada push a
+`develop`, y lo editado alla se pierde.
+
+- Una pagina por archivo, todas en la raiz de `docs/wiki/`; las imagenes van en
+  `docs/wiki/images/`. El nombre del archivo es el titulo de la pagina
+  (`Proyecto-Estrategia-de-pruebas.md` -> "Proyecto Estrategia de pruebas").
+- Enlaces entre paginas con Markdown normal y la extension:
+  `[Evidencias](Proyecto-Evidencias.md)`. Nada de `[[wikilinks]]` (en Obsidian,
+  desactivar "Use [[Wikilinks]]"). El sync quita el `.md`.
+- Enlaces a otros archivos del repo, absolutos a `develop`:
+  `https://github.com/MiraPdS/mira/blob/develop/docs/...`.
+- Lo que aun no existe se marca `> ⏳ Se completa en MIR-<n>.` El PR de release
+  a `main` falla si queda alguno fuera de las paginas de entregas futuras.
+- Antes de abrir el PR: `npm run wiki:verificar`. En el PR, el job "Vista
+  previa de la Wiki" deja el resultado como artefacto `wiki-preview`.
+- Al cerrar una historia, agregar su fila (PR y pruebas) en
+  `Proyecto-Requisitos-y-trazabilidad.md`.
+- En el PR de release: `npm run wiki:evidencias -- entrega-<n>` sobre el commit
+  del release (necesita `gh` y el CI de ese commit en verde). Escribe
+  `Evidencias-Entrega-<n>.md` con la cobertura y las pruebas de ese run.
+
+## 8. Uso de IA
+
+Se permite usar asistentes de IA. Si un PR tiene trabajo sustancial generado o
+modificado con IA, se declara en la plantilla: herramienta, que se genero y
+como se valido. Quien abre el PR responde por todo su contenido igual que si lo
+hubiera escrito a mano. La seccion "Uso de IA" de cada entrega en la Wiki se
+arma con esas declaraciones.
+
+## 9. Que no se commitea
 
 Archivos `.env` reales, credenciales, tokens, capturas con datos personales y
 carpetas `dist/`, `coverage/` o `node_modules/`.

@@ -1,12 +1,14 @@
 import type { Project } from '@prisma/client';
 import {
   can,
+  PROJECT_ROLES,
   type CreateProjectInput,
   type ProjectDto,
   type ProjectRole,
   type ProjectSummaryDto,
   type UpdateProjectInput,
 } from '@mira/shared';
+import { toActivityDto } from '../../lib/activity.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { ProjectFieldChange, ProjectsRepository } from './projects.repository.js';
 
@@ -109,6 +111,42 @@ export function createProjectsService(repo: ProjectsRepository) {
       return toProjectDto(project, 'OWNER');
     },
 
+    /**
+     * MIR-8: solo quien tiene `project:delete` (el OWNER) elimina. El rol se
+     * comprueba en el mismo DELETE (ver deleteIfMemberRole), para que un
+     * cambio de rol concurrente no deje borrar a quien ya no es OWNER.
+     *
+     * 404 si el proyecto ya no existe (por ejemplo, un segundo DELETE desde
+     * otra pestana); 403 si existe pero quien llama no es su OWNER.
+     */
+    async delete(projectId: string, actorId: string): Promise<void> {
+      const rolesQuePuedenBorrar = PROJECT_ROLES.filter((role) => can(role, 'project:delete'));
+      const result = await repo.deleteIfMemberRole(projectId, actorId, rolesQuePuedenBorrar);
+
+      if (result.status === 'not_found') {
+        throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
+      }
+      if (result.status === 'forbidden') {
+        throw new ForbiddenError(
+          'Solo el propietario puede eliminar el proyecto',
+          'OWNER_REQUIRED',
+        );
+      }
+
+      // La cascada tambien borra la bitacora del proyecto: queda constancia en
+      // el log del servidor de quien elimino que proyecto y cuando.
+      console.info(
+        '[auditoria] proyecto eliminado',
+        JSON.stringify({
+          projectId: result.project.id,
+          key: result.project.key,
+          name: result.project.name,
+          actorId,
+          at: new Date().toISOString(),
+        }),
+      );
+    },
+
     // MIR-9: Listar miembros del proyecto.
     async getMembers(projectId: string, actorId: string) {
       const actorMembership = await repo.findMember(projectId, actorId);
@@ -206,16 +244,7 @@ export function createProjectsService(repo: ProjectsRepository) {
 
       return {
         ...summary,
-        recentActivity: summary.recentActivity.map((activity) => ({
-          id: activity.id,
-          action: activity.action,
-          workItemId: activity.workItemId,
-          actor: activity.actor,
-          field: activity.field,
-          fromValue: activity.fromValue,
-          toValue: activity.toValue,
-          createdAt: activity.createdAt.toISOString(),
-        })),
+        recentActivity: summary.recentActivity.map(toActivityDto),
       };
     },
   };

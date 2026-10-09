@@ -14,11 +14,11 @@ Santa María, segundo semestre 2026.
 
 | Recurso | Enlace |
 | --- | --- |
-| Wiki del proyecto | _(pendiente)_ |
+| Wiki del proyecto | https://github.com/MiraPdS/mira/wiki |
 | Cápsula de video — Entrega 1 | _(pendiente)_ |
 | Tablero Jira | https://bolgunn.atlassian.net/jira/software/projects/MIR/boards |
 | Release `v1.0-entrega1` | _(pendiente)_ |
-| Aplicación desplegada | _(pendiente)_ |
+| Aplicación desplegada | https://mira-pds.vercel.app |
 
 ## Equipo
 
@@ -67,7 +67,7 @@ mira/
 │           └── test/        setup, handlers de MSW, helper de render
 ├── packages/
 │   └── shared/              esquemas Zod, tipos y permisos
-└── docs/                    backlog, decisiones y estrategia de pruebas
+└── docs/                    backlog, decisiones, estrategia de pruebas y fuente de la Wiki (docs/wiki/)
 ```
 
 Cada módulo del backend sigue la misma cadena:
@@ -153,6 +153,20 @@ el build. El reporte de cobertura queda como artefacto del workflow.
 
 En la Entrega 2, Jenkins asume el rol de CI/CD oficial (build, despliegue y
 notificaciones a Slack) y este workflow queda como verificación rápida de PR.
+
+## Despliegue
+
+Frontend en Vercel, API en Render y PostgreSQL en Supabase, todo en capa
+gratuita y desplegando la rama `main`. Vercel reenvía `/api` a Render, así que
+el navegador ve un solo origen ([D13](./docs/decisiones-tecnicas.md)). Cómo
+está montado y cómo recrearlo: [`docs/despliegue.md`](./docs/despliegue.md).
+
+- **Credenciales de demostración:** `ada@mira.dev` / `demo1234` (también
+  `alan@` y `grace@mira.dev`). Son públicas a propósito: la base solo tiene
+  datos de prueba.
+- **Primera petición lenta:** si la API llevaba rato sin tráfico, Render la
+  despierta en 30-60 s. Un monitor externo la mantiene despierta, pero antes de
+  una demo conviene abrir `/api/health`.
 
 ## Contribuir
 

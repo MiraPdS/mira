@@ -79,7 +79,10 @@ jobs:
         run: npm run db:deploy -w @mira/api
 
       - name: Pruebas con cobertura
-        run: npm run test:coverage
+        # El reporter JSON deja los resultados por archivo dentro de coverage/,
+        # para que viajen en el mismo artefacto. De ahi los lee
+        # `npm run wiki:evidencias` al congelar la evidencia de una entrega.
+        run: npm run test:coverage -- --reporter=default --reporter=json --outputFile.json=coverage/test-results.json
 
       - name: Publicar reporte de cobertura
         # Se sube siempre, incluso si las pruebas fallaron: el reporte del
@@ -89,7 +92,9 @@ jobs:
         with:
           name: cobertura
           path: coverage/
-          retention-days: 14
+          # El maximo en repos publicos. Aun asi expira: la evidencia de cada
+          # entrega se congela en la Wiki (scripts/wiki-evidencias.mjs).
+          retention-days: 90
 
   build:
     name: Build

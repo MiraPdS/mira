@@ -7,6 +7,7 @@ import type {
   ProjectDto,
   ProjectResponse,
   PublicUser,
+  WorkItemActivityResponse,
 } from '@mira/shared';
 
 /**
@@ -93,5 +94,9 @@ export const handlers = [
   // declara con server.use(...).
   http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/comments`, () =>
     HttpResponse.json<{ comments: CommentDto[] }>({ comments: [] }),
+  ),
+  // MIR-22: elemento sin historial, por la misma razon.
+  http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/activity`, () =>
+    HttpResponse.json<WorkItemActivityResponse>({ data: [], truncated: false }),
   ),
 ];

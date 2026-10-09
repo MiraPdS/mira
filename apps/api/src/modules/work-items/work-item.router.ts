@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  assignWorkItemSchema,
   changeStatusSchema,
   createWorkItemSchema,
   updateWorkItemSchema,
@@ -43,12 +44,23 @@ export function createWorkItemRouter(): Router {
   );
   router.delete('/:projectId/work-items/:workItemId', requireAuth, controller.delete);
 
+  // Historial (MIR-22): GET /api/projects/:projectId/work-items/:workItemId/activity
+  router.get('/:projectId/work-items/:workItemId/activity', requireAuth, controller.activity);
+
   // Mover una tarjeta (MIR-19): PATCH /api/projects/:projectId/work-items/:workItemId/status
   router.patch(
     '/:projectId/work-items/:workItemId/status',
     requireAuth,
     validateBody(changeStatusSchema),
     controller.changeStatus,
+  );
+
+  // Asignar responsable (MIR-17): PATCH /api/projects/:projectId/work-items/:workItemId/assignee
+  router.patch(
+    '/:projectId/work-items/:workItemId/assignee',
+    requireAuth,
+    validateBody(assignWorkItemSchema),
+    controller.assign,
   );
 
   // Tablero Kanban: GET /api/projects/:projectId/board

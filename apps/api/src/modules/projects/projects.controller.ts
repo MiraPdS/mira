@@ -74,6 +74,25 @@ export function createProjectsController(service: ProjectsService) {
       }
     },
 
+    // MIR-8: eliminar el proyecto.
+    async delete(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+
+        const projectId = req.params.projectId;
+
+        if (!projectId) {
+          throw new BadRequestError('Falta el identificador del proyecto', 'PROJECT_ID_REQUIRED');
+        }
+
+        await service.delete(projectId, req.user.id);
+
+        res.status(204).send();
+      } catch (error) {
+        next(error);
+      }
+    },
+
     async listMembers(req: Request, res: Response, next: NextFunction) {
       try {
         if (!req.user) throw new UnauthorizedError();

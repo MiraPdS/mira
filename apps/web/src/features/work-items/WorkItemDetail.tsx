@@ -8,11 +8,20 @@ import {
   TYPE_LABELS,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
+import { Select } from '@/components/ui/select';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { ApiRequestError } from '@/lib/api-client';
-import { useComments, useCreateComment, useDeleteWorkItem, useWorkItem } from './useWorkItems';
+import { fechaLegible } from '@/lib/dates';
+import {
+  useAssignWorkItem,
+  useComments,
+  useCreateComment,
+  useDeleteWorkItem,
+  useWorkItem,
+} from './useWorkItems';
 import { WorkItemEditForm } from './WorkItemEditForm';
+import { WorkItemHistory } from './WorkItemHistory';
 
 export interface WorkItemDetailProps {
   projectId: string;
@@ -20,18 +29,10 @@ export interface WorkItemDetailProps {
   onDeleted?: () => void;
 }
 
-const dateFormatter = new Intl.DateTimeFormat('es-CL', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-});
 const calendarDateFormatter = new Intl.DateTimeFormat('es-CL', {
   dateStyle: 'long',
   timeZone: 'UTC',
 });
-
-function fechaLegible(isoDate: string): string {
-  return dateFormatter.format(new Date(isoDate));
-}
 
 function ElementoNoEncontrado() {
   return (
@@ -55,7 +56,11 @@ export function WorkItemDetail(props: WorkItemDetailProps) {
 function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDetailProps) {
   const deletion = useDeleteWorkItem(projectId, workItemId);
   const { data: currentUser, isError: userError } = useCurrentUser();
-  const { data: members, isError: membersError } = useProjectMembers(projectId);
+  const {
+    data: members,
+    isError: membersError,
+    isPending: membersPending,
+  } = useProjectMembers(projectId);
   const role = members?.members.find((member) => member.user.id === currentUser?.id)?.role;
   const canDelete = !userError && !membersError && can(role, 'work-item:delete');
   const [confirming, setConfirming] = useState(false);
@@ -140,10 +145,10 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
   }
 
   return (
-    <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-6">
+    <article className="w-full max-w-xl rounded-lg border border-slate-200 bg-white p-4 sm:p-6">
       <header className="border-b border-slate-200 pb-4">
         <p className="text-sm font-medium text-slate-500">{item.reference}</p>
-        <h2 className="mt-1 text-xl font-semibold text-slate-900">{item.title}</h2>
+        <h2 className="mt-1 text-xl font-semibold wrap-anywhere text-slate-900">{item.title}</h2>
         {canDelete && (
           <Button
             variant="destructive"
@@ -164,7 +169,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           ref={dialogRef}
           aria-labelledby={dialogTitleId}
           aria-describedby={dialogDescriptionId}
-          className="max-w-lg rounded-lg p-6 backdrop:bg-black/40"
+          className="m-auto w-[calc(100%-2rem)] max-w-lg rounded-lg p-4 backdrop:bg-black/40 sm:p-6"
           onCancel={(event) => {
             event.preventDefault();
             if (!deletion.isPending) setConfirming(false);
@@ -173,11 +178,11 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           <h3 id={dialogTitleId} className="text-lg font-semibold">
             Eliminar elemento
           </h3>
-          <p id={dialogDescriptionId} className="my-4">
+          <p id={dialogDescriptionId} className="my-4 wrap-anywhere">
             ¿Eliminar {item.reference}: {item.title}? Esta acción no se puede deshacer.
           </p>
           {deletion.error && <p role="alert">{deletion.error.message}</p>}
-          <div className="mt-4 flex gap-3">
+          <div className="mt-4 flex flex-col-reverse gap-3 sm:flex-row">
             <Button
               variant="secondary"
               autoFocus
@@ -208,7 +213,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
       <dl className="mt-6 grid gap-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <dt className="text-sm font-medium text-slate-500">Descripción</dt>
-          <dd className="mt-1 whitespace-pre-wrap text-sm text-slate-900">
+          <dd className="mt-1 whitespace-pre-wrap wrap-anywhere text-sm text-slate-900">
             {item.description ?? 'Sin descripción'}
           </dd>
         </div>
@@ -226,7 +231,24 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Responsable</dt>
-          <dd className="mt-1 text-sm text-slate-900">{item.assignee?.name ?? 'Sin asignar'}</dd>
+          <dd className="mt-1 text-sm text-slate-900">
+            {canEdit && members ? (
+              <AssigneeField
+                projectId={projectId}
+                workItemId={workItemId}
+                assignee={item.assignee}
+                members={members.members.map((member) => member.user)}
+              />
+            ) : membersPending && !userError ? (
+              // Mientras se sabe el rol, un selector deshabilitado en vez de
+              // texto que luego salta a selector.
+              <Select aria-label="Responsable" aria-busy="true" disabled value="">
+                <option value="">{item.assignee?.name ?? 'Sin asignar'}</option>
+              </Select>
+            ) : (
+              (item.assignee?.name ?? 'Sin asignar')
+            )}
+          </dd>
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Estimación</dt>
@@ -355,6 +377,75 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           </form>
         )}
       </section>
+
+      {/* MIR-22: historial de cambios del elemento. */}
+      <WorkItemHistory projectId={projectId} workItemId={workItemId} />
     </article>
+  );
+}
+
+/**
+ * MIR-17: selector de responsable. Solo ofrece miembros del proyecto (la API
+ * responde 400 a cualquier otro); "Sin asignar" quita el responsable.
+ */
+function AssigneeField({
+  projectId,
+  workItemId,
+  assignee,
+  members,
+}: {
+  projectId: string;
+  workItemId: string;
+  assignee: { id: string; name: string } | null;
+  members: Array<{ id: string; name: string }>;
+}) {
+  const assign = useAssignWorkItem(projectId, workItemId);
+  const selectId = useId();
+  // Si el responsable actual ya no es miembro (lo quitaron del equipo), se
+  // sigue mostrando para no aparentar que el item esta sin asignar.
+  const assigneeIsFormerMember =
+    assignee !== null && !members.some((member) => member.id === assignee.id);
+
+  // Mientras se guarda se muestra la opcion elegida, no la anterior: con una
+  // conexion lenta, volver al valor previo parece un fallo.
+  const selectedId = assign.isPending ? (assign.variables ?? '') : (assignee?.id ?? '');
+
+  // Un error (p. ej. ASSIGNEE_NOT_MEMBER por una lista de miembros obsoleta)
+  // deja de tener sentido cuando la lista o el item cambian.
+  const membersKey = members.map((member) => member.id).join(',');
+  const { reset } = assign;
+  useEffect(() => {
+    reset();
+  }, [membersKey, assignee?.id, reset]);
+
+  return (
+    <>
+      <label htmlFor={selectId} className="sr-only">
+        Responsable
+      </label>
+      <Select
+        id={selectId}
+        value={selectedId}
+        disabled={assign.isPending}
+        onChange={(event) => assign.mutate(event.target.value || null)}
+      >
+        <option value="">Sin asignar</option>
+        {assigneeIsFormerMember ? (
+          <option value={assignee.id} disabled>
+            {assignee.name} (ya no es miembro)
+          </option>
+        ) : null}
+        {members.map((member) => (
+          <option key={member.id} value={member.id}>
+            {member.name}
+          </option>
+        ))}
+      </Select>
+      {assign.error ? (
+        <p role="alert" className="mt-1 text-sm text-red-700">
+          {assign.error.message}
+        </p>
+      ) : null}
+    </>
   );
 }

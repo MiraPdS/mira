@@ -179,9 +179,10 @@ MIR-26 Wiki del proyecto,Task,High,5,,"Calidad, infraestructura y entrega",docs,
 
 Criterios de aceptacion:
 - Home funciona como indice con enlaces a todas las paginas.
-- Existen las paginas Resumen, Tecnologias y Stack, Arquitectura, Estrategia de Pruebas, Supuestos y Dependencias y Evidencias.
+- Existen las paginas Proyecto - Resumen y alcance, Proyecto - Requisitos y trazabilidad, Proyecto - Arquitectura y tecnologias, Proyecto - Estrategia de pruebas, Proyecto - Supuestos y dependencias, Proyecto - Evidencias, Entrega 1, Entrega 2 y Entrega 3.
 - La pagina Entrega 1 tiene H1 exactamente Entrega 1.
-- El contenido base esta disponible en la carpeta docs del repositorio."
+- El contenido fuente esta en docs/wiki/ y un workflow lo publica en la Wiki en cada push a develop.
+- CI verifica enlaces y formato de la Wiki, y bloquea el PR de release si quedan secciones pendientes."
 MIR-27 Despliegue del ambiente de demostracion,Task,High,5,,"Calidad, infraestructura y entrega","infra,deploy","Como equipo queremos una URL publica funcionando para la demostracion y para los E2E.
 
 Criterios de aceptacion:
@@ -194,7 +195,9 @@ MIR-28 Release v1.0-entrega1,Task,Highest,2,,"Calidad, infraestructura y entrega
 Criterios de aceptacion:
 - Pull Request de release de develop a main, revisado.
 - Tag v1.0-entrega1 sobre un commit estable de main.
-- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y limitaciones conocidas."
+- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y limitaciones conocidas.
+- Evidencia de pruebas congelada en la Wiki con npm run wiki:evidencias sobre el commit del release.
+- Wiki sin secciones pendientes, salvo Entrega 2 y 3."
 MIR-29 Capsula de video de la Entrega 1,Task,High,3,,"Calidad, infraestructura y entrega",docs,"Como equipo queremos explicar en video el trabajo realizado.
 
 Criterios de aceptacion:

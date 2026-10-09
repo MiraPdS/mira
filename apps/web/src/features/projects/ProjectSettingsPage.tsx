@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   can,
@@ -11,11 +11,11 @@ import {
   type UpdateProjectInput,
 } from '@mira/shared';
 import { ApiRequestError } from '@/lib/api-client';
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Field } from '@/components/ui/field';
-import { projectKeys, useProject, useUpdateProject } from './useProjects';
+import { projectKeys, useDeleteProject, useProject, useUpdateProject } from './useProjects';
 
 const CAMPOS = ['name', 'description'] as const;
 
@@ -31,8 +31,11 @@ export function ProjectSettingsPage() {
   const [sinPermiso, setSinPermiso] = useState(false);
 
   return (
-    <main className="mx-auto w-full max-w-xl px-6 py-10">
-      <Link to="/proyectos" className="text-sm text-slate-600 underline">
+    <main className="mx-auto w-full max-w-xl px-4 py-6 sm:px-6 sm:py-10">
+      <Link
+        to="/proyectos"
+        className="inline-flex min-h-11 items-center text-sm text-slate-600 underline sm:min-h-0"
+      >
         Volver a proyectos
       </Link>
 
@@ -112,7 +115,7 @@ function ProjectDetails({
       <dl className="space-y-4 text-sm">
         <div>
           <dt className="font-medium text-slate-700">Nombre</dt>
-          <dd className="mt-1 text-slate-900">{project.name}</dd>
+          <dd className="mt-1 wrap-anywhere text-slate-900">{project.name}</dd>
         </div>
         <div>
           <dt className="font-medium text-slate-700">Clave</dt>
@@ -120,7 +123,7 @@ function ProjectDetails({
         </div>
         <div>
           <dt className="font-medium text-slate-700">Descripcion</dt>
-          <dd className="mt-1 whitespace-pre-line text-slate-900">
+          <dd className="mt-1 whitespace-pre-line wrap-anywhere text-slate-900">
             {project.description ?? <span className="text-slate-500">Sin descripcion</span>}
           </dd>
         </div>
@@ -133,12 +136,98 @@ function ProjectDetails({
       <div className="flex items-center justify-between gap-3">
         <Link
           to={`/proyectos/${encodeURIComponent(project.id)}/miembros`}
-          className="text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline"
+          className="inline-flex min-h-11 items-center text-sm font-medium text-slate-600 hover:text-slate-900 hover:underline sm:min-h-0"
         >
           Ver equipo
         </Link>
         {can(project.myRole, 'project:update') ? <Button onClick={onEdit}>Editar</Button> : null}
       </div>
+
+      {can(project.myRole, 'project:delete') ? <DeleteProjectSection project={project} /> : null}
+    </section>
+  );
+}
+
+/**
+ * MIR-8: zona de peligro. Eliminar exige confirmar en un dialogo; cancelar
+ * no envia nada. Mismo patron de <dialog> que la eliminacion de items (MIR-16).
+ */
+function DeleteProjectSection({ project }: { project: ProjectDto }) {
+  const navigate = useNavigate();
+  const eliminar = useDeleteProject(project.id);
+  const [confirmando, setConfirmando] = useState(false);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const tituloId = useId();
+  const descripcionId = useId();
+
+  useEffect(() => {
+    if (confirmando) dialogRef.current?.showModal();
+  }, [confirmando]);
+
+  const cerrar = () => {
+    if (!eliminar.isPending) setConfirmando(false);
+  };
+
+  return (
+    <section className="mt-8 rounded-md border border-red-200 p-4">
+      <h2 className="text-sm font-semibold text-red-700">Zona de peligro</h2>
+      <p className="mt-1 text-sm text-slate-600">
+        Eliminar el proyecto borra también sus elementos, comentarios e historial.
+      </p>
+      <Button
+        variant="destructive"
+        className="mt-3"
+        onClick={() => {
+          eliminar.reset();
+          setConfirmando(true);
+        }}
+      >
+        Eliminar proyecto
+      </Button>
+
+      {confirmando ? (
+        <dialog
+          ref={dialogRef}
+          aria-labelledby={tituloId}
+          aria-describedby={descripcionId}
+          className="max-w-lg rounded-lg p-6 backdrop:bg-black/40"
+          onCancel={(event) => {
+            event.preventDefault();
+            cerrar();
+          }}
+        >
+          <h3 id={tituloId} className="text-lg font-semibold">
+            Eliminar proyecto
+          </h3>
+          <p id={descripcionId} className="my-4 text-sm text-slate-700">
+            ¿Eliminar {project.key}: {project.name}? Se borrarán todos sus elementos, comentarios e
+            historial. Esta acción no se puede deshacer.
+          </p>
+          {eliminar.error ? (
+            <p role="alert" className="text-sm text-red-700">
+              {eliminar.error.status === 403
+                ? 'Ya no tienes permisos para eliminar este proyecto.'
+                : eliminar.error.message}
+            </p>
+          ) : null}
+          <div className="mt-4 flex gap-3">
+            <Button variant="secondary" autoFocus disabled={eliminar.isPending} onClick={cerrar}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              disabled={eliminar.isPending}
+              onClick={() =>
+                eliminar.mutate(undefined, {
+                  onSuccess: () => navigate('/proyectos', { replace: true }),
+                })
+              }
+            >
+              {eliminar.isPending ? 'Eliminando...' : 'Eliminar'}
+            </Button>
+          </div>
+        </dialog>
+      ) : null}
     </section>
   );
 }
@@ -236,15 +325,9 @@ function EditProjectForm({
       </Field>
 
       <Field id="description" label="Descripcion (opcional)" error={errors.description?.message}>
-        <textarea
+        <Textarea
           id="description"
           rows={4}
-          className={cn(
-            'flex w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm',
-            'placeholder:text-slate-400 focus-visible:ring-2 focus-visible:outline-none',
-            'focus-visible:ring-slate-400 disabled:cursor-not-allowed disabled:opacity-50',
-            'aria-[invalid=true]:border-red-500 aria-[invalid=true]:focus-visible:ring-red-400',
-          )}
           aria-invalid={Boolean(errors.description)}
           aria-describedby={errors.description ? 'description-error' : undefined}
           {...register('description')}
@@ -257,11 +340,11 @@ function EditProjectForm({
         </p>
       ) : null}
 
-      <div className="flex items-center justify-end gap-3">
-        <Button variant="ghost" onClick={onCancel}>
+      <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
+        <Button variant="ghost" className="w-full sm:w-auto" onClick={onCancel}>
           Cancelar
         </Button>
-        <Button type="submit" disabled={!isDirty || editar.isPending}>
+        <Button type="submit" className="w-full sm:w-auto" disabled={!isDirty || editar.isPending}>
           {editar.isPending ? 'Guardando...' : 'Guardar'}
         </Button>
       </div>

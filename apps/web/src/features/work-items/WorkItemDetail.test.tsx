@@ -1,7 +1,7 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type { ProjectRole, WorkItemDto } from '@mira/shared';
-import { renderConProviders, screen, waitFor } from '@/test/render';
+import { renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemDetail } from './WorkItemDetail';
@@ -47,6 +47,17 @@ function responderConRol(role: ProjectRole | null) {
             id: 'membership_other',
             role: 'OWNER',
             user: { ...USUARIO_DE_PRUEBA, id: 'other_user' },
+          },
+          // Responsable del item de prueba: es miembro, como exige MIR-17.
+          {
+            id: 'membership_grace',
+            role: 'MEMBER',
+            user: {
+              id: 'user_2',
+              name: 'Grace Hopper',
+              email: 'grace@mira.dev',
+              createdAt: '2026-01-03T04:05:06.000Z',
+            },
           },
           ...(role ? [{ id: 'membership_123', role, user: USUARIO_DE_PRUEBA }] : []),
         ],
@@ -702,5 +713,126 @@ describe('eliminación desde WorkItemDetail', () => {
     expect(
       queryClient.getQueryState(['work-items', 'backlog', 'other-project', 1, 10])?.isInvalidated,
     ).toBe(false);
+  });
+});
+
+describe('responsable (MIR-17)', () => {
+  const ASSIGNEE_URL = `${DETAIL_URL}/assignee`;
+
+  function capturarAsignaciones(respuesta?: () => Response) {
+    const cuerpos: unknown[] = [];
+    server.use(
+      http.patch(ASSIGNEE_URL, async ({ request }) => {
+        const cuerpo = (await request.json()) as { assigneeId: string | null };
+        cuerpos.push(cuerpo);
+        if (respuesta) return respuesta();
+        const assignee =
+          cuerpo.assigneeId === null
+            ? null
+            : { ...USUARIO_DE_PRUEBA, id: cuerpo.assigneeId, name: 'Usuario asignado' };
+        return HttpResponse.json({ item: itemDePrueba({ assignee }) });
+      }),
+    );
+    return cuerpos;
+  }
+
+  it('un MEMBER cambia el responsable eligiendo entre los miembros', async () => {
+    responderConItem(itemDePrueba({ assignee: null }));
+    const cuerpos = capturarAsignaciones();
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
+    );
+
+    const selector = await screen.findByRole('combobox', { name: 'Responsable' });
+    const opciones = within(selector)
+      .getAllByRole('option')
+      .map((opcion) => opcion.textContent);
+    expect(opciones[0]).toBe('Sin asignar');
+    expect(opciones).toContain('Grace Hopper');
+
+    await user.selectOptions(selector, 'user_2');
+
+    await waitFor(() => expect(cuerpos).toEqual([{ assigneeId: 'user_2' }]));
+  });
+
+  it('elegir "Sin asignar" envia null', async () => {
+    responderConItem();
+    const cuerpos = capturarAsignaciones();
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
+    );
+
+    await user.selectOptions(
+      await screen.findByRole('combobox', { name: 'Responsable' }),
+      'Sin asignar',
+    );
+
+    await waitFor(() => expect(cuerpos).toEqual([{ assigneeId: null }]));
+  });
+
+  it('un VIEWER ve el responsable como texto, sin selector', async () => {
+    responderConRol('VIEWER');
+    responderConItem();
+    const { queryClient } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
+    );
+
+    expect(await screen.findByText('Grace Hopper')).toBeInTheDocument();
+    await waitFor(() => expect(queryClient.isFetching()).toBe(0));
+    expect(screen.queryByRole('combobox', { name: 'Responsable' })).not.toBeInTheDocument();
+  });
+
+  it('muestra el error de la API si la asignacion falla', async () => {
+    responderConItem();
+    capturarAsignaciones(() =>
+      apiError(400, 'ASSIGNEE_NOT_MEMBER', 'El responsable debe ser miembro del proyecto'),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
+    );
+
+    await user.selectOptions(
+      await screen.findByRole('combobox', { name: 'Responsable' }),
+      'Sin asignar',
+    );
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'El responsable debe ser miembro del proyecto',
+    );
+  });
+
+  it('mientras guarda muestra el responsable elegido, no el anterior', async () => {
+    responderConItem(itemDePrueba({ assignee: null }));
+    server.use(
+      http.patch(ASSIGNEE_URL, async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
+    );
+
+    const selector = await screen.findByRole('combobox', { name: 'Responsable' });
+    await user.selectOptions(selector, 'user_2');
+
+    await waitFor(() => expect(selector).toBeDisabled());
+    expect(selector).toHaveValue('user_2');
+  });
+
+  it('mientras carga el equipo muestra un selector deshabilitado, sin saltar desde texto', async () => {
+    responderConItem();
+    server.use(
+      http.get(`${BASE_URL}/projects/*/members`, async () => {
+        await delay('infinite');
+        return HttpResponse.json({ members: [] });
+      }),
+    );
+    renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />);
+
+    const selector = await screen.findByRole('combobox', { name: 'Responsable' });
+    expect(selector).toBeDisabled();
+    expect(selector).toHaveAttribute('aria-busy', 'true');
+    expect(within(selector).getByRole('option')).toHaveTextContent('Grace Hopper');
   });
 });
