@@ -1,5 +1,6 @@
 import type {
   AddMemberInput,
+  CreateProjectInput,
   ListProjectsResponse,
   ProjectDto,
   ProjectMemberDto,
@@ -40,6 +41,12 @@ export const projectApi = {
   list: async (): Promise<ProjectDto[]> => {
     const { projects } = await api.get<ListProjectsResponse>('/projects');
     return projects;
+  },
+
+  /** Crea un proyecto; quien lo crea queda como OWNER. */
+  create: async (input: CreateProjectInput): Promise<ProjectDto> => {
+    const { project } = await api.post<{ project: ProjectDto }>('/projects', input);
+    return project;
   },
 
   addMember: (projectId: string, input: AddMemberInput) =>

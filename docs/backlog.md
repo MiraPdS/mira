@@ -131,10 +131,18 @@ de rutas completo.
 
 **Criterios de aceptación**
 
+API:
+
 - **Dado** nombre y clave válidos, **cuando** creo el proyecto, **entonces** recibo 201 y quedo registrado como `OWNER`.
 - **Dado** que la clave ya existe, **cuando** creo el proyecto, **entonces** recibo 409 con un mensaje que indica el conflicto.
 - **Dado** que la clave no cumple el formato (2 a 8 caracteres, empieza con letra, solo alfanuméricos), **cuando** envío, **entonces** recibo 422.
 - **Dado** que no tengo sesión, **cuando** intento crear un proyecto, **entonces** recibo 401.
+
+Web:
+
+- **Dado** que estoy en "Mis proyectos", **cuando** pulso "Nuevo proyecto" y envío nombre y clave válidos, **entonces** vuelvo a la lista y el proyecto aparece con mi rol Propietario.
+- **Dado** que la clave ya existe, **cuando** envío, **entonces** veo el mensaje bajo el campo clave, conservo lo escrito y el campo recibe el foco.
+- **Dado** datos que no cumplen el formato, **cuando** envío, **entonces** veo el error bajo cada campo sin llamar a la API.
 
 ---
 
