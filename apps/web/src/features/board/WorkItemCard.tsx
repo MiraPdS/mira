@@ -6,6 +6,7 @@ import {
   type WorkItemStatus,
 } from '@mira/shared';
 import type { ReactNode } from 'react';
+import { Link } from 'react-router-dom';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 import type { CardDragData } from './boardDnd';
@@ -137,7 +138,21 @@ function ContenidoTarjeta({
         {menu}
       </div>
       <h4 id={titleId} className="mt-1 text-sm font-medium wrap-anywhere text-slate-900">
-        {item.title}
+        {/* Solo la tarjeta real enlaza al detalle; la copia que sigue al
+            puntero es imagen.  draggable=false: el arrastre nativo de un
+            enlace competiria con el de dnd-kit (que exige 5 px, asi que un
+            clic sigue siendo un clic). */}
+        {titleId ? (
+          <Link
+            to={`/proyectos/${encodeURIComponent(item.projectId)}/elementos/${encodeURIComponent(item.id)}`}
+            draggable={false}
+            className="hover:underline focus-visible:outline-2 focus-visible:outline-slate-400"
+          >
+            {item.title}
+          </Link>
+        ) : (
+          item.title
+        )}
       </h4>
       <DatosTarjeta item={item} />
     </>
