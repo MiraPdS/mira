@@ -5,9 +5,10 @@ import {
   type WorkItemPriority,
   type WorkItemStatus,
 } from '@mira/shared';
+import type { ReactNode } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { ATRIBUTO_ASA, type CardDragData } from './boardDnd';
+import type { CardDragData } from './boardDnd';
 import { MoveToMenu } from './MoveToMenu';
 
 const PRIORITY_STYLES: Record<WorkItemPriority, string> = {
@@ -61,30 +62,29 @@ export function WorkItemCard({ item, onMove }: WorkItemCardProps) {
           isDragging && 'opacity-40',
         )}
       >
-        <div className="flex items-center justify-between gap-2">
-          <div className="flex min-w-0 items-center gap-1">
-            {onMove ? (
+        <ContenidoTarjeta
+          item={item}
+          titleId={titleId}
+          asa={
+            onMove ? (
               <button
                 ref={setActivatorNodeRef}
                 type="button"
                 {...attributes}
-                {...{ [ATRIBUTO_ASA]: '' }}
+                data-asa-arrastre=""
                 aria-label={`Arrastrar ${item.reference}`}
                 className={cn(CLASES_ASA, 'hover:bg-slate-100 hover:text-slate-600')}
               >
                 <span aria-hidden="true">⠿</span>
               </button>
-            ) : null}
-            <p className="min-w-0 font-mono text-xs text-slate-500">{item.reference}</p>
-          </div>
-          {onMove ? (
-            <MoveToMenu reference={item.reference} currentStatus={item.status} onMove={onMove} />
-          ) : null}
-        </div>
-        <h4 id={titleId} className="mt-1 text-sm font-medium wrap-anywhere text-slate-900">
-          {item.title}
-        </h4>
-        <DatosTarjeta item={item} />
+            ) : null
+          }
+          menu={
+            onMove ? (
+              <MoveToMenu reference={item.reference} currentStatus={item.status} onMove={onMove} />
+            ) : null
+          }
+        />
       </article>
     </li>
   );
@@ -107,13 +107,40 @@ export function TarjetaArrastrada({ item }: { item: WorkItemDto }) {
       aria-hidden="true"
       className="cursor-grabbing rounded-md border border-slate-200 bg-white p-3 shadow-lg ring-2 ring-sky-400"
     >
-      <div className="flex min-w-0 items-center gap-1">
-        <span className={CLASES_ASA}>⠿</span>
-        <p className="min-w-0 font-mono text-xs text-slate-500">{item.reference}</p>
-      </div>
-      <p className="mt-1 text-sm font-medium wrap-anywhere text-slate-900">{item.title}</p>
-      <DatosTarjeta item={item} />
+      <ContenidoTarjeta item={item} asa={<span className={CLASES_ASA}>⠿</span>} />
     </article>
+  );
+}
+
+/**
+ * Cuerpo comun de WorkItemCard y TarjetaArrastrada: cada una aporta su asa y,
+ * la original, el menu. Asi la tarjeta no cambia de aspecto al tomarla.
+ */
+function ContenidoTarjeta({
+  item,
+  titleId,
+  asa,
+  menu,
+}: {
+  item: WorkItemDto;
+  titleId?: string;
+  asa: ReactNode;
+  menu?: ReactNode;
+}) {
+  return (
+    <>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-1">
+          {asa}
+          <p className="min-w-0 font-mono text-xs text-slate-500">{item.reference}</p>
+        </div>
+        {menu}
+      </div>
+      <h4 id={titleId} className="mt-1 text-sm font-medium wrap-anywhere text-slate-900">
+        {item.title}
+      </h4>
+      <DatosTarjeta item={item} />
+    </>
   );
 }
 

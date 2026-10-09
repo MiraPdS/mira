@@ -172,6 +172,27 @@ function deslizar(elemento: Element, destino: (typeof BOARD_STATUSES)[number]) {
   fireEvent.touchEnd(elemento, { touches: [], changedTouches: [fin] });
 }
 
+/**
+ * Un toque (sin desplazamiento) seguido de los eventos de raton de
+ * compatibilidad que el navegador tactil emite despues de `touchend`
+ * (mousemove, mousedown, mouseup y click en el mismo punto). Son los que
+ * podrian activar el MouseSensor en un telefono.
+ */
+function tocarConCompatibilidad(elemento: Element) {
+  const { left, top } = elemento.getBoundingClientRect();
+  const punto = { clientX: left + 10, clientY: top + 10 };
+
+  fireEvent(elemento, eventoTactil('pointerdown', punto));
+  fireEvent.touchStart(elemento, { touches: [punto] });
+  fireEvent(elemento, eventoTactil('pointerup', punto));
+  fireEvent.touchEnd(elemento, { touches: [], changedTouches: [punto] });
+
+  fireEvent.mouseMove(elemento, punto);
+  fireEvent.mouseDown(elemento, { ...punto, button: 0 });
+  fireEvent.mouseUp(elemento, { ...punto, button: 0 });
+  fireEvent.click(elemento, punto);
+}
+
 /** jsdom no implementa PointerEvent: se arma sobre MouseEvent. */
 function eventoTactil(tipo: string, punto: { clientX: number; clientY: number }) {
   const evento = new MouseEvent(tipo, { bubbles: true, cancelable: true, button: 0, ...punto });
@@ -356,6 +377,82 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
       expect(within(tarjetasDe('TODO')).getByText('Login')).toBeInTheDocument();
       expect(peticiones).toHaveLength(0);
+    });
+
+    it('un toque sobre el cuerpo de la tarjeta no la toma, aunque lleguen los eventos de raton de compatibilidad', async () => {
+      const peticiones = servidorConEstado([itemDePrueba()]);
+
+      renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
+      tocarConCompatibilidad(screen.getByRole('heading', { name: 'Login' }));
+
+      // Sin la distancia minima del MouseSensor, el mousedown de compatibilidad
+      // tomaria la tarjeta y dnd-kit lo anunciaria.
+      expect(screen.getByRole('status')).toBeEmptyDOMElement();
+      await new Promise((resolve) => setTimeout(resolve, 100));
+      expect(within(tarjetasDe('TODO')).getByText('Login')).toBeInTheDocument();
+      expect(peticiones).toHaveLength(0);
+    });
+  });
+
+  describe('encaje de columnas al soltar (MIR-24)', () => {
+    /**
+     * jsdom no calcula offsetLeft: cada columna se ubica segun su orden, igual
+     * que en layoutSimulado. Se registra cada asignacion a scrollLeft junto con
+     * si el encaje (snap) ya estaba activo en ese momento.
+     */
+    const inicioDe = (status: (typeof BOARD_STATUSES)[number]) =>
+      BOARD_STATUSES.indexOf(status) * ANCHO_COLUMNA;
+
+    function registrarDesplazamiento() {
+      vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(function (
+        this: HTMLElement,
+      ) {
+        const status = this.getAttribute('aria-labelledby')?.replace('columna-', '');
+        return BOARD_STATUSES.some((s) => s === status)
+          ? inicioDe(status as (typeof BOARD_STATUSES)[number])
+          : 0;
+      });
+
+      const region = screen.getByRole('region', { name: 'Columnas del tablero' });
+      const asignaciones: { valor: number; conEncaje: boolean }[] = [];
+      Object.defineProperty(region, 'scrollLeft', {
+        configurable: true,
+        get: () => asignaciones.at(-1)?.valor ?? 0,
+        set: (valor: number) =>
+          asignaciones.push({ valor, conEncaje: region.classList.contains('snap-mandatory') }),
+      });
+      return { region, asignaciones };
+    }
+
+    it('alinea el tablero con la columna destino antes de reactivar el encaje', async () => {
+      servidorConEstado([itemDePrueba()]);
+
+      const { user } = renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
+      const { region, asignaciones } = registrarDesplazamiento();
+      await arrastrar(user, 'Login', 'IN_REVIEW');
+
+      expect(await within(tarjetasDe('IN_REVIEW')).findByText('Login')).toBeInTheDocument();
+      // Si el encaje volviera antes de fijar la posicion, el navegador podria
+      // llevar el tablero a la columna vecina y dejar la tarjeta fuera de vista.
+      expect(asignaciones.at(-1)).toEqual({ valor: inicioDe('IN_REVIEW'), conEncaje: false });
+      expect(region).toHaveClass('snap-mandatory');
+    });
+
+    it('al cancelar, vuelve a la columna de origen', async () => {
+      servidorConEstado([itemDePrueba({ status: 'IN_PROGRESS' })]);
+
+      const { user } = renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+      const asa = await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
+      const { region, asignaciones } = registrarDesplazamiento();
+      asa.focus();
+      await user.keyboard(' {ArrowRight}{ArrowRight}{Escape}');
+
+      expect(within(tarjetasDe('IN_PROGRESS')).getByText('Login')).toBeInTheDocument();
+
+      expect(asignaciones.at(-1)).toEqual({ valor: inicioDe('IN_PROGRESS'), conEncaje: false });
+      expect(region).toHaveClass('snap-mandatory');
     });
   });
 

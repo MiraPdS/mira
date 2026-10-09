@@ -24,7 +24,7 @@ export interface CardDragData {
   item: WorkItemDto;
 }
 
-type BoardStatus = (typeof BOARD_STATUSES)[number];
+export type BoardStatus = (typeof BOARD_STATUSES)[number];
 
 function isBoardStatus(value: unknown): value is BoardStatus {
   return (BOARD_STATUSES as readonly unknown[]).includes(value);
@@ -101,8 +101,8 @@ export const anuncios: Announcements = {
     `Cancelaste el movimiento; ${referencia(active.data.current)} vuelve a su columna.`,
 };
 
-/** Marca el asa de la tarjeta; SensorTactilDesdeAsa solo arranca desde ella. */
-export const ATRIBUTO_ASA = 'data-asa-arrastre';
+/** Selector del asa (`data-asa-arrastre` en WorkItemCard): el sensor tactil solo arranca desde ella. */
+const SELECTOR_ASA = '[data-asa-arrastre]';
 
 /**
  * Sensor tactil que solo se activa desde el asa de la tarjeta (MIR-24).
@@ -119,7 +119,7 @@ export class SensorTactilDesdeAsa extends TouchSensor {
       eventName: 'onTouchStart' as const,
       handler: (event: TouchEvent, options: TouchSensorOptions) => {
         const objetivo = event.nativeEvent.target;
-        if (!(objetivo instanceof Element) || !objetivo.closest(`[${ATRIBUTO_ASA}]`)) return false;
+        if (!(objetivo instanceof Element) || !objetivo.closest(SELECTOR_ASA)) return false;
         return TouchSensor.activators[0]!.handler(event, options);
       },
     },

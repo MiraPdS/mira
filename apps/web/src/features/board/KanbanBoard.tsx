@@ -5,7 +5,7 @@ import {
   type WorkItemDto,
   type WorkItemStatus,
 } from '@mira/shared';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   DndContext,
   DragOverlay,
@@ -14,6 +14,7 @@ import {
   useDroppable,
   useSensor,
   useSensors,
+  type DragCancelEvent,
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
@@ -28,6 +29,7 @@ import {
   instrucciones,
   saltarDeColumna,
   SensorTactilDesdeAsa,
+  type BoardStatus,
   type CardDragData,
 } from './boardDnd';
 import { useBoard, useMoveWorkItem } from './useBoard';
@@ -38,7 +40,7 @@ export interface KanbanBoardProps {
 }
 
 interface BoardColumnProps {
-  status: (typeof BOARD_STATUSES)[number];
+  status: BoardStatus;
   items: WorkItemDto[];
   /** Ausente cuando el usuario no puede mover tarjetas. */
   onMove?: (item: WorkItemDto, status: WorkItemStatus) => void;
@@ -52,8 +54,8 @@ interface BoardColumnProps {
  * tarjetas, asi que no puede desaparecer cuando se queda sin items.
  *
  * MIR-24: en pantallas angostas la columna deja siempre 2.5rem libres para que
- * asome la siguiente y se note que el tablero se desplaza; desde 320 px de
- * ancho util en adelante mide sus 18rem (w-72) de siempre.
+ * asome la siguiente y se note que el tablero se desplaza; desde 20.5rem
+ * (328 px) de ancho util en adelante mide sus 18rem (w-72) de siempre.
  */
 function BoardColumn({ status, items, onMove }: BoardColumnProps) {
   const label = STATUS_LABELS[status];
@@ -145,20 +147,40 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
     useSensor(KeyboardSensor, { coordinateGetter: saltarDeColumna }),
   );
 
-  // Tarjeta en vuelo: la dibuja el DragOverlay y, mientras exista, el tablero
-  // no encaja columnas (ver la region mas abajo).
-  const [enVuelo, setEnVuelo] = useState<WorkItemDto | null>(null);
-  const tomar = ({ active }: DragStartEvent) =>
-    setEnVuelo((active.data.current as CardDragData | undefined)?.item ?? null);
+  // Id de la tarjeta en vuelo: la dibuja el DragOverlay y, mientras exista, el
+  // tablero no encaja columnas (ver la region mas abajo). Se guarda el id y no
+  // el item: asi el overlay muestra lo ultimo de la cache si un refresco cambia
+  // la tarjeta durante el arrastre.
+  const [enVueloId, setEnVueloId] = useState<string | null>(null);
+  const tomar = ({ active }: DragStartEvent) => setEnVueloId(String(active.id));
+
+  // MIR-24: antes de reactivar el encaje, el tablero se alinea con la columna
+  // donde queda la tarjeta. Si se reactivara tal cual, tras el auto-scroll el
+  // navegador podia encajar en la columna vecina y dejar la tarjeta fuera de
+  // vista. Se fija en el mismo evento, con el encaje aun suspendido.
+  const regionRef = useRef<HTMLDivElement>(null);
+  const alinearCon = (status: BoardStatus) => {
+    const region = regionRef.current;
+    const columna = region?.querySelector<HTMLElement>(`[aria-labelledby="columna-${status}"]`);
+    if (region && columna) region.scrollLeft = columna.offsetLeft;
+  };
 
   // Misma mutacion optimista que el menu (MIR-19): si la API falla, la
   // tarjeta vuelve a su columna y aparece el mismo mensaje de error.
   const soltar = ({ active, over }: DragEndEvent) => {
-    setEnVuelo(null);
     const item = (active.data.current as CardDragData | undefined)?.item;
     const destino = columnaDestino(over?.id);
-    if (!canMove || !item || !destino || destino === item.status) return;
-    move.mutate({ item, status: destino });
+    const seMueve = canMove && item && destino && destino !== item.status;
+    const columnaFinal = seMueve ? destino : columnaDestino(item?.status);
+    if (columnaFinal) alinearCon(columnaFinal);
+    setEnVueloId(null);
+    if (seMueve) move.mutate({ item, status: destino });
+  };
+
+  const cancelar = ({ active }: DragCancelEvent) => {
+    const origen = columnaDestino((active.data.current as CardDragData | undefined)?.item.status);
+    if (origen) alinearCon(origen);
+    setEnVueloId(null);
   };
 
   if (board.isPending) {
@@ -183,6 +205,7 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   }
 
   const items = board.data;
+  const enVuelo = enVueloId ? items.find((item) => item.id === enVueloId) : undefined;
 
   return (
     <section aria-labelledby="tablero-titulo" className="min-w-0">
@@ -209,7 +232,7 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
         collisionDetection={detectarColumna}
         onDragStart={tomar}
         onDragEnd={soltar}
-        onDragCancel={() => setEnVuelo(null)}
+        onDragCancel={cancelar}
         autoScroll={AUTO_SCROLL}
         accessibility={{ announcements: anuncios, screenReaderInstructions: instrucciones }}
       >
@@ -217,12 +240,13 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
             encaje activo, cada paso del auto-scroll saltaba una columna
             entera y la tarjeta pasaba de "Por hacer" a "Hecho" de golpe. */}
         <div
+          ref={regionRef}
           role="region"
           aria-label="Columnas del tablero"
           tabIndex={0}
           className={cn(
             'relative mt-4 flex gap-4 overflow-x-auto pb-4 focus-visible:outline-2 focus-visible:outline-slate-400',
-            !enVuelo && 'snap-x snap-mandatory',
+            !enVueloId && 'snap-x snap-mandatory',
           )}
         >
           {BOARD_STATUSES.map((status) => (
