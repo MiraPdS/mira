@@ -1,14 +1,17 @@
 import {
   can,
+  type AssignWorkItemInput,
   type ChangeStatusInput,
   type CreateWorkItemInput,
   type Paginated,
   type PublicUser,
   type UpdateWorkItemInput,
+  type WorkItemActivityResponse,
   type WorkItemDto,
   type WorkItemFilters,
 } from '@mira/shared';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { toActivityDto } from '../../lib/activity.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   WorkItemForDto,
   WorkItemRepository,
@@ -197,6 +200,52 @@ export function createWorkItemService(repo: WorkItemRepository) {
       });
     },
 
+    /**
+     * MIR-17: asigna o quita el responsable. Quien asigna necesita
+     * `work-item:update`; el responsable debe ser miembro del proyecto (si no,
+     * 400). Todo en la misma transaccion serializable que mover (MIR-19):
+     * dos asignaciones concurrentes no dejan un fromValue obsoleto.
+     */
+    async assign(
+      projectId: string,
+      actorId: string,
+      workItemId: string,
+      input: AssignWorkItemInput,
+    ): Promise<WorkItemDto> {
+      return repo.withTransaction(async (transactionRepo) => {
+        const role = await transactionRepo.findMemberRole(projectId, actorId);
+        if (role === null) throw new NotFoundError('Elemento de trabajo');
+        if (!can(role, 'work-item:update')) throw new ForbiddenError();
+
+        const workItem = await transactionRepo.findByIdInProject(projectId, workItemId);
+        if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+        const { assigneeId } = input;
+        if (assigneeId !== null) {
+          const assigneeRole = await transactionRepo.findMemberRole(projectId, assigneeId);
+          if (assigneeRole === null) {
+            throw new BadRequestError(
+              'El responsable debe ser miembro del proyecto',
+              'ASSIGNEE_NOT_MEMBER',
+            );
+          }
+        }
+
+        // Asignar a quien ya es responsable no es un cambio: sin historial.
+        const currentAssigneeId = workItem.assignee?.id ?? null;
+        if (currentAssigneeId === assigneeId) return toWorkItemDto(workItem);
+
+        const updated = await transactionRepo.assignAtomically({
+          projectId,
+          workItemId,
+          actorId,
+          fromAssigneeId: currentAssigneeId,
+          toAssigneeId: assigneeId,
+        });
+        return toWorkItemDto(updated);
+      });
+    },
+
     async getById(projectId: string, actorId: string, workItemId: string): Promise<WorkItemDto> {
       const role = await repo.findMemberRole(projectId, actorId);
       if (role === null) throw new NotFoundError('Elemento de trabajo');
@@ -206,6 +255,26 @@ export function createWorkItemService(repo: WorkItemRepository) {
       if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
       return toWorkItemDto(workItem);
+    },
+
+    /** MIR-22: historial del item, con la misma autorizacion que el detalle. */
+    async activity(
+      projectId: string,
+      actorId: string,
+      workItemId: string,
+    ): Promise<WorkItemActivityResponse> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      if (role === null) throw new NotFoundError('Elemento de trabajo');
+      if (!can(role, 'work-item:view')) throw new ForbiddenError();
+
+      // Independientes: la existencia del item y su historial van en paralelo.
+      const [workItem, { activities, truncated }] = await Promise.all([
+        repo.findByIdInProject(projectId, workItemId),
+        repo.listActivity(projectId, workItemId),
+      ]);
+      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+      return { data: activities.map(toActivityDto), truncated };
     },
 
     async board(projectId: string, actorId: string): Promise<WorkItemDto[]> {

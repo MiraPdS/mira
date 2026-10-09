@@ -6,8 +6,10 @@ import type {
   BoardResponse,
   ListProjectsResponse,
   ProjectDto,
+  WorkItemActivityResponse,
+  WorkItemDto,
 } from '@mira/shared';
-import { renderConProviders, screen } from '@/test/render';
+import { renderConProviders, screen, within } from '@/test/render';
 import { server } from '@/test/msw/server';
 import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { App } from './App';
@@ -175,5 +177,68 @@ describe('App', () => {
       await screen.findByRole('heading', { name: /configuracion del proyecto/i }),
     ).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: 'Editar' })).toBeInTheDocument();
+  });
+
+  it('MIR-22: desde el tablero, una tarjeta abre su detalle con el historial', async () => {
+    const item: WorkItemDto = {
+      id: 'item_456',
+      reference: 'MIR-22',
+      projectId: 'project_123',
+      title: 'Historial de cambios',
+      description: null,
+      type: 'STORY',
+      status: 'IN_PROGRESS',
+      priority: 'MEDIUM',
+      estimate: null,
+      dueDate: null,
+      assignee: null,
+      createdBy: USUARIO_DE_PRUEBA,
+      sprintId: null,
+      createdAt: '2026-10-01T10:00:00.000Z',
+      updatedAt: '2026-10-02T10:00:00.000Z',
+    };
+    const itemUrl = `${BASE_URL}/projects/project_123/work-items/item_456`;
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/board`, () =>
+        HttpResponse.json<BoardResponse>({ items: [item] }),
+      ),
+      http.get(`${BASE_URL}/projects/:projectId/members`, () =>
+        HttpResponse.json({
+          members: [{ id: 'membership_1', role: 'VIEWER', user: USUARIO_DE_PRUEBA }],
+        }),
+      ),
+      http.get(itemUrl, () => HttpResponse.json({ item })),
+      http.get(`${itemUrl}/activity`, () =>
+        HttpResponse.json<WorkItemActivityResponse>({
+          data: [
+            {
+              id: 'activity_1',
+              action: 'ITEM_STATUS_CHANGED',
+              workItemId: 'item_456',
+              actor: { id: USUARIO_DE_PRUEBA.id, name: USUARIO_DE_PRUEBA.name },
+              field: 'status',
+              fromValue: 'TODO',
+              toValue: 'IN_PROGRESS',
+              createdAt: '2026-10-02T10:00:00.000Z',
+            },
+          ],
+          truncated: false,
+        }),
+      ),
+    );
+
+    const { user } = renderConProviders(<App />, { route: '/proyectos/project_123/tablero' });
+
+    await user.click(await screen.findByRole('link', { name: 'Historial de cambios' }));
+
+    const historial = await screen.findByRole('region', { name: 'Historial' });
+    expect(
+      await within(historial).findByText(/movió de Por hacer a En progreso/),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /volver al tablero/i })).toHaveAttribute(
+      'href',
+      '/proyectos/project_123/tablero',
+    );
   });
 });

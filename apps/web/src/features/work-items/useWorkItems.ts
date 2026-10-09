@@ -1,19 +1,28 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import type {
   CommentDto,
   CreateCommentInput,
   CreateWorkItemInput,
   Paginated,
   UpdateWorkItemInput,
+  WorkItemActivityResponse,
   WorkItemDto,
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import {
+  assignWorkItem,
   createComment,
   createWorkItem,
   deleteWorkItem,
   getComments,
   getWorkItem,
+  getWorkItemActivity,
   listWorkItems,
   updateWorkItem,
   normalizeWorkItemListFilters,
@@ -42,13 +51,14 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
       // MIR-21: igual que el detalle, sin refetch de los comentarios del
       // elemento eliminado mientras su consumidor sigue montado (daria 404).
-      const commentsKey = commentsQueryKey(projectId, workItemId);
-      await queryClient.cancelQueries({ queryKey: commentsKey, exact: true });
-      await queryClient.invalidateQueries({
-        queryKey: commentsKey,
-        exact: true,
-        refetchType: 'none',
-      });
+      // MIR-22: lo mismo para su historial.
+      for (const key of [
+        commentsQueryKey(projectId, workItemId),
+        activityQueryKey(projectId, workItemId),
+      ]) {
+        await queryClient.cancelQueries({ queryKey: key, exact: true });
+        await queryClient.invalidateQueries({ queryKey: key, exact: true, refetchType: 'none' });
+      }
     },
   });
 }
@@ -123,14 +133,45 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
 
   return useMutation<WorkItemDto, ApiRequestError, UpdateWorkItemInput>({
     mutationFn: (input) => updateWorkItem(projectId, workItemId, input),
-    onSuccess: (item) => {
-      queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
-      // El backlog tiene una query por pagina. El prefijo alcanza todas las
-      // paginas del proyecto actualizado, sin invalidar otros proyectos.
-      void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
-      void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
-      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
-    },
+    onSuccess: (item) => syncWorkItemCaches(queryClient, projectId, workItemId, item),
+  });
+}
+
+/**
+ * Tras editar o asignar un item, el servidor devuelve el item confirmado: se
+ * escribe en el detalle y se refresca todo lo que lo muestra. Un solo lugar
+ * para que una vista nueva (p. ej. el historial por elemento de MIR-22) se
+ * agregue una vez y alcance a todas las mutaciones del item.
+ */
+function syncWorkItemCaches(
+  queryClient: QueryClient,
+  projectId: string,
+  workItemId: string,
+  item: WorkItemDto,
+) {
+  queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
+  // El backlog tiene una query por pagina. El prefijo alcanza todas las
+  // paginas del proyecto actualizado, sin invalidar otros proyectos.
+  void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
+  void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+  void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+  // MIR-22: editar deja ITEM_UPDATED y asignar ITEM_ASSIGNED en el historial.
+  void queryClient.invalidateQueries({
+    queryKey: activityQueryKey(projectId, workItemId),
+    exact: true,
+  });
+}
+
+/**
+ * MIR-17: asigna o quita el responsable. Refresca las mismas vistas que editar
+ * (backlog con filtro por responsable, tablero y resumen con ITEM_ASSIGNED).
+ */
+export function useAssignWorkItem(projectId: string, workItemId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<WorkItemDto, ApiRequestError, string | null>({
+    mutationFn: (assigneeId) => assignWorkItem(projectId, workItemId, assigneeId),
+    onSuccess: (item) => syncWorkItemCaches(queryClient, projectId, workItemId, item),
   });
 }
 
@@ -159,8 +200,31 @@ export function useCreateComment(projectId: string, workItemId: string) {
         queryKey: commentsQueryKey(projectId, workItemId),
         exact: true,
       });
-      // El comentario deja una actividad COMMENT_ADDED en el panel del proyecto.
+      // El comentario deja una actividad COMMENT_ADDED en el panel del proyecto
+      // y en el historial del elemento (MIR-22).
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+      void queryClient.invalidateQueries({
+        queryKey: activityQueryKey(projectId, workItemId),
+        exact: true,
+      });
     },
+  });
+}
+
+/**
+ * MIR-22: clave de cache del historial de un elemento.  Va con prefijo propio
+ * (no bajo workItemKeys) porque el tablero la invalida por predicado y
+ * useBoard no puede importar este modulo sin crear un ciclo.
+ */
+export function activityQueryKey(projectId: string, workItemId: string) {
+  return ['work-item-activity', projectId, workItemId] as const;
+}
+
+/** MIR-22: historial del elemento, del cambio mas reciente al mas antiguo. */
+export function useWorkItemActivity(projectId: string, workItemId: string) {
+  return useQuery<WorkItemActivityResponse, ApiRequestError>({
+    queryKey: activityQueryKey(projectId, workItemId),
+    queryFn: () => getWorkItemActivity(projectId, workItemId),
+    enabled: Boolean(projectId && workItemId),
   });
 }

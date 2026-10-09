@@ -1,97 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
-import {
-  PRIORITY_LABELS,
-  ROLE_LABELS,
-  STATUS_LABELS,
-  TYPE_LABELS,
-  type ActivityAction,
-  type ProjectActivityDto,
-} from '@mira/shared';
+import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
+import { describeActivity } from '@/features/activity/describeActivity';
 import { useProjectSummary } from './useProjects';
-
-// Descripciones de las acciones registradas en el proyecto.
-const actionLabels: Record<ActivityAction, string> = {
-  ITEM_CREATED: 'creó un ítem',
-  ITEM_UPDATED: 'actualizó un ítem',
-  ITEM_STATUS_CHANGED: 'cambió el estado de un ítem',
-  ITEM_ASSIGNED: 'asignó un ítem',
-  ITEM_DELETED: 'eliminó un ítem',
-  COMMENT_ADDED: 'agregó un comentario',
-  MEMBER_ADDED: 'agregó un miembro',
-  MEMBER_ROLE_CHANGED: 'cambió el rol de un miembro',
-  MEMBER_REMOVED: 'eliminó un miembro',
-  PROJECT_UPDATED: 'actualizó el proyecto',
-};
-
-// Etiquetas de los campos que pueden aparecer en la actividad.
-const fieldLabels: Record<string, string> = {
-  title: 'Título',
-  description: 'Descripción',
-  status: 'Estado',
-  type: 'Tipo',
-  priority: 'Prioridad',
-  estimate: 'Estimación',
-  dueDate: 'Fecha límite',
-  assigneeId: 'Responsable',
-  role: 'Rol',
-  member: 'Miembro',
-  name: 'Nombre',
-  reference: 'Referencia',
-};
-
-// Traduce los valores de los enums a sus etiquetas compartidas.
-function formatoValor(field: string, value: string | null): string {
-  if (value === null) {
-    return 'Sin asignar';
-  }
-
-  if (field === 'status' && value in STATUS_LABELS) {
-    return STATUS_LABELS[value as keyof typeof STATUS_LABELS];
-  }
-
-  if (field === 'type' && value in TYPE_LABELS) {
-    return TYPE_LABELS[value as keyof typeof TYPE_LABELS];
-  }
-
-  if (field === 'priority' && value in PRIORITY_LABELS) {
-    return PRIORITY_LABELS[value as keyof typeof PRIORITY_LABELS];
-  }
-
-  if (field === 'role' && value in ROLE_LABELS) {
-    return ROLE_LABELS[value as keyof typeof ROLE_LABELS];
-  }
-
-  return value;
-}
-
-// Construye una descripcion mas especifica para cada actividad.
-function detalleActividad(activity: ProjectActivityDto): string | null {
-  const { field, fromValue, toValue, action } = activity;
-
-  if (!field || (fromValue === null && toValue === null)) {
-    return null;
-  }
-
-  const etiqueta = fieldLabels[field] ?? field;
-
-  // Si existe valor anterior y nuevo, mostramos el cambio.
-  if (fromValue !== null && toValue !== null) {
-    return `${etiqueta}: ${formatoValor(field, fromValue)} → ${formatoValor(field, toValue)}`;
-  }
-
-  // Si se creo o asigno un valor, mostramos el nuevo.
-  if (toValue !== null) {
-    return `${etiqueta}: ${formatoValor(field, toValue)}`;
-  }
-
-  // Para una eliminacion, mostramos el valor que existia.
-  if (action === 'ITEM_DELETED') {
-    return `${etiqueta}: ${formatoValor(field, fromValue)}`;
-  }
-
-  // Un campo que queda sin valor.
-  return `${etiqueta}: ${formatoValor(field, fromValue)} → Sin asignar`;
-}
 
 // Componente reutilizable para mostrar los conteos.
 function SummarySection<K extends string>({
@@ -265,29 +175,17 @@ export function ProjectSummaryPage() {
           </p>
         ) : (
           <ul className="mt-5 divide-y divide-slate-100">
-            {summary.recentActivity.map((activity) => {
-              const detalle = detalleActividad(activity);
-
-              return (
-                <li key={activity.id} className="py-4">
-                  {/* Usuario y accion */}
-                  <p className="text-sm text-slate-700">
-                    <span className="font-semibold wrap-anywhere">{activity.actor.name}</span>{' '}
-                    {actionLabels[activity.action]}
-                  </p>
-
-                  {/* Informacion especifica del cambio */}
-                  {detalle && (
-                    <p className="mt-1 text-sm wrap-anywhere text-slate-600">{detalle}</p>
-                  )}
-
-                  {/* Fecha de la actividad */}
-                  <time dateTime={activity.createdAt} className="mt-1 block text-xs text-slate-500">
-                    {new Date(activity.createdAt).toLocaleString('es-CL')}
-                  </time>
-                </li>
-              );
-            })}
+            {summary.recentActivity.map((activity) => (
+              <li key={activity.id} className="py-4">
+                <p className="text-sm wrap-anywhere text-slate-700">
+                  <span className="font-semibold">{activity.actor.name}</span>{' '}
+                  {describeActivity(activity, 'project')}
+                </p>
+                <time dateTime={activity.createdAt} className="mt-1 block text-xs text-slate-500">
+                  {new Date(activity.createdAt).toLocaleString('es-CL')}
+                </time>
+              </li>
+            ))}
           </ul>
         )}
       </section>

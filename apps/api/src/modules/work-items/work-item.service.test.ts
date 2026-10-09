@@ -7,7 +7,7 @@ import type {
   UpdateWorkItemInput,
   WorkItemFilters,
 } from '@mira/shared';
-import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   ListWorkItemsResult,
   WorkItemForDto,
@@ -492,6 +492,100 @@ describe('workItemService', () => {
     });
   });
 
+  describe('assign - MIR-17', () => {
+    const GRACE = usuarioDePrueba({ id: 'user_grace', name: 'Grace Hopper' });
+
+    /** Rol por usuario: el actor y el posible responsable se consultan por separado. */
+    function roles(porUsuario: Record<string, 'OWNER' | 'MEMBER' | 'VIEWER' | null>) {
+      repo.findMemberRole.mockImplementation(
+        async (_projectId, userId) => porUsuario[userId] ?? null,
+      );
+    }
+
+    it.each(['OWNER', 'MEMBER'] as const)(
+      '%s asigna a un miembro y delega el cambio con responsable anterior y nuevo',
+      async (role) => {
+        roles({ [ACTOR_ID]: role, user_grace: 'VIEWER' });
+        repo.findByIdInProject.mockResolvedValue(itemDePrueba({ assignee: null }));
+        repo.assignAtomically.mockResolvedValue(itemDePrueba({ assignee: GRACE }));
+
+        const result = await service.assign(PROJECT_ID, ACTOR_ID, 'item_1', {
+          assigneeId: 'user_grace',
+        });
+
+        expect(repo.assignAtomically).toHaveBeenCalledExactlyOnceWith({
+          projectId: PROJECT_ID,
+          workItemId: 'item_1',
+          actorId: ACTOR_ID,
+          fromAssigneeId: null,
+          toAssigneeId: 'user_grace',
+        });
+        expect(result.assignee?.name).toBe('Grace Hopper');
+      },
+    );
+
+    it('responde 400 si el responsable no es miembro del proyecto', async () => {
+      roles({ [ACTOR_ID]: 'OWNER' });
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+
+      const error = await service
+        .assign(PROJECT_ID, ACTOR_ID, 'item_1', { assigneeId: 'extrano' })
+        .catch((e: unknown) => e);
+
+      expect(error).toBeInstanceOf(BadRequestError);
+      expect(error).toMatchObject({ status: 400, code: 'ASSIGNEE_NOT_MEMBER' });
+      expect(repo.assignAtomically).not.toHaveBeenCalled();
+    });
+
+    it('quitar el responsable deja el item sin asignar', async () => {
+      roles({ [ACTOR_ID]: 'MEMBER' });
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba({ assignee: GRACE }));
+      repo.assignAtomically.mockResolvedValue(itemDePrueba({ assignee: null }));
+
+      const result = await service.assign(PROJECT_ID, ACTOR_ID, 'item_1', { assigneeId: null });
+
+      expect(repo.assignAtomically).toHaveBeenCalledWith(
+        expect.objectContaining({ fromAssigneeId: 'user_grace', toAssigneeId: null }),
+      );
+      expect(result.assignee).toBeNull();
+    });
+
+    it('asignar a quien ya es responsable no escribe ni registra historial', async () => {
+      roles({ [ACTOR_ID]: 'MEMBER', user_grace: 'MEMBER' });
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba({ assignee: GRACE }));
+
+      await service.assign(PROJECT_ID, ACTOR_ID, 'item_1', { assigneeId: 'user_grace' });
+
+      expect(repo.assignAtomically).not.toHaveBeenCalled();
+    });
+
+    it('rechaza con 403 a un VIEWER sin consultar el item', async () => {
+      roles({ [ACTOR_ID]: 'VIEWER' });
+
+      await expect(
+        service.assign(PROJECT_ID, ACTOR_ID, 'item_1', { assigneeId: null }),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+    });
+
+    it('oculta el item con 404 a quien no es miembro', async () => {
+      roles({});
+
+      await expect(
+        service.assign(PROJECT_ID, ACTOR_ID, 'item_1', { assigneeId: null }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('responde 404 si el item no existe en el proyecto', async () => {
+      roles({ [ACTOR_ID]: 'OWNER' });
+      repo.findByIdInProject.mockResolvedValue(null);
+
+      await expect(
+        service.assign(PROJECT_ID, ACTOR_ID, 'item_1', { assigneeId: null }),
+      ).rejects.toBeInstanceOf(NotFoundError);
+    });
+  });
+
   describe('changeStatus', () => {
     it.each(['OWNER', 'MEMBER'] as const)(
       '%s mueve el item y delega el cambio atomico con estado anterior y nuevo',
@@ -685,6 +779,75 @@ describe('workItemService', () => {
         createdAt: '2026-02-01T10:00:00.000Z',
         updatedAt: '2026-02-01T10:05:00.000Z',
       });
+    });
+  });
+
+  describe('activity', () => {
+    const entrada = {
+      id: 'activity_1',
+      action: 'ITEM_STATUS_CHANGED' as const,
+      projectId: PROJECT_ID,
+      workItemId: 'item_1',
+      actorId: ACTOR_ID,
+      actor: { id: ACTOR_ID, name: 'Ada Lovelace' },
+      field: 'status',
+      fromValue: 'TODO',
+      toValue: 'IN_PROGRESS',
+      createdAt: new Date('2026-02-02T09:00:00.000Z'),
+    };
+
+    it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)('%s puede ver el historial', async (role) => {
+      repo.findMemberRole.mockResolvedValue(role);
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.listActivity.mockResolvedValue({ activities: [entrada], truncated: false });
+
+      await expect(service.activity(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toEqual({
+        data: [
+          {
+            id: 'activity_1',
+            action: 'ITEM_STATUS_CHANGED',
+            workItemId: 'item_1',
+            actor: { id: ACTOR_ID, name: 'Ada Lovelace' },
+            field: 'status',
+            fromValue: 'TODO',
+            toValue: 'IN_PROGRESS',
+            createdAt: '2026-02-02T09:00:00.000Z',
+          },
+        ],
+        truncated: false,
+      });
+      expect(repo.listActivity).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+    });
+
+    it('propaga el indicador de truncado', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.listActivity.mockResolvedValue({ activities: [], truncated: true });
+
+      await expect(service.activity(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toMatchObject({
+        truncated: true,
+      });
+    });
+
+    it('oculta al no miembro con NotFoundError sin leer el historial', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.activity(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.listActivity).not.toHaveBeenCalled();
+    });
+
+    it('responde NotFoundError si el item no existe en el proyecto', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+      repo.findByIdInProject.mockResolvedValue(null);
+      repo.listActivity.mockResolvedValue({ activities: [], truncated: false });
+
+      await expect(
+        service.activity(PROJECT_ID, ACTOR_ID, 'item_inexistente'),
+      ).rejects.toBeInstanceOf(NotFoundError);
     });
   });
 
