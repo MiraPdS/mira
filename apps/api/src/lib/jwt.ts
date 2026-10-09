@@ -33,8 +33,11 @@ export function verifyToken(token: string): TokenPayload | null {
  *  httpOnly: JavaScript no puede leerla -> un XSS no puede robar el token.
  *            Es la razon por la que elegimos cookie sobre localStorage.
  *  sameSite: 'lax' en desarrollo (localhost:5173 -> localhost:3000).
- *            'none' + secure en produccion, porque web y api viven en
- *            dominios distintos (Vercel y Render).
+ *            'none' + secure en produccion. Desde MIR-27 el navegador habla
+ *            con la API a traves del rewrite /api de Vercel (mismo origen,
+ *            cookie first-party, ver D13), asi que 'none' ya no es
+ *            imprescindible; se mantiene para que llamar a Render directo
+ *            siga funcionando en navegadores que permiten cookies de terceros.
  *  secure:   solo HTTPS en produccion; en local romperia el login.
  */
 function cookieOptions(): CookieOptions {

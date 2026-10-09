@@ -1,0 +1,61 @@
+# =============================================================================
+# Render Blueprint - API de Mira (MIR-27).
+#
+# Render lee este archivo al crear el servicio desde "New > Blueprint". Todo lo
+# que no es secreto vive aqui, versionado y revisado en PR; los secretos van
+# con `sync: false` y se pegan en el dashboard (ver docs/despliegue.md).
+# =============================================================================
+services:
+  - type: web
+    name: mira-api
+    runtime: node
+    plan: free
+    # Cerca de Supabase us-west-1: cada consulta cruza este tramo.
+    region: oregon
+    # Produccion = codigo liberado. Los cambios llegan a main solo via release.
+    branch: main
+    autoDeployTrigger: commit
+    # Sin rootDir: se instala el monorepo completo para resolver @mira/shared.
+    #
+    #  --include=dev  NODE_ENV=production tambien aplica al build, y sin esto
+    #                 npm ci salta prisma, tsup y tsx.
+    #  db:deploy      el plan free no tiene pre-deploy command; si la migracion
+    #                 falla, falla el build y sigue viva la version anterior.
+    #  db:seed        idempotente: asegura los usuarios y proyectos de demo.
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run build -w @mira/api &&
+      npm run db:deploy -w @mira/api &&
+      npm run db:seed -w @mira/api
+    startCommand: npm run start -w @mira/api
+    # Toca la base: un deploy que no alcanza Supabase nunca queda vivo.
+    healthCheckPath: /api/health
+    # Cambios solo del frontend no redeployan la API.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - package.json
+        - package-lock.json
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: '20'
+      - key: NODE_ENV
+        value: production
+      - key: BCRYPT_ROUNDS
+        value: '12'
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      # Pooler de transacciones (6543) con ?pgbouncer=true&connection_limit=1
+      - key: DATABASE_URL
+        sync: false
+      # Session pooler (pooler.supabase.com:5432), NO db.<ref>.supabase.co:
+      # la conexion directa es solo IPv6 y Render no sale por IPv6.
+      - key: DIRECT_URL
+        sync: false
+      # Origen exacto de produccion en Vercel (https://<proyecto>.vercel.app).
+      - key: CORS_ORIGIN
+        sync: false

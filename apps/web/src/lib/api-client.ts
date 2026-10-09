@@ -6,7 +6,9 @@ import type { ApiError } from '@mira/shared';
  * Dos decisiones que se repiten en cada peticion y por eso viven aqui:
  *
  *  credentials: 'include'  -> sin esto el navegador NO envia la cookie de
- *                             sesion a otro origen, y todo responderia 401.
+ *                             sesion a otro origen (en local :5173 -> :3000),
+ *                             y todo responderia 401. Desplegado es mismo
+ *                             origen via el rewrite /api de Vercel (D13).
  *  ApiRequestError          -> todo error de la API llega con la misma forma
  *                             ({ error: { code, message, fields } }), asi que
  *                             la UI tiene un solo camino para mostrarlos.
