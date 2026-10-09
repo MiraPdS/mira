@@ -6,6 +6,7 @@ import cookieParser from 'cookie-parser';
 import { env, isTest } from './env.js';
 import { errorHandler, notFoundHandler } from './middleware/error-handler.js';
 import { createAuthRouter } from './modules/auth/auth.router.js';
+import { createHealthRouter } from './modules/health/health.router.js';
 
 import { createProjectsRouter } from './modules/projects/projects.router.js';
 import { createWorkItemRouter } from './modules/work-items/work-item.router.js';
@@ -34,13 +35,7 @@ export function createApp(): Express {
 
   if (!isTest) app.use(morgan('dev'));
 
-  app.get('/api/health', (_req, res) => {
-    res.json({
-      status: 'ok',
-      env: env.NODE_ENV,
-      timestamp: new Date().toISOString(),
-    });
-  });
+  app.use('/api/health', createHealthRouter());
 
   app.use('/api/auth', createAuthRouter());
 

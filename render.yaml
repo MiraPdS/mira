@@ -1,0 +1,70 @@
+# =============================================================================
+# Render Blueprint - API de Mira (MIR-27).
+#
+# Render lee este archivo al crear el servicio desde "New > Blueprint". Todo lo
+# que no es secreto vive aqui, versionado y revisado en PR; los secretos van
+# con `sync: false` y se pegan en el dashboard (ver docs/despliegue.md).
+# =============================================================================
+services:
+  - type: web
+    # Render agrega un sufijo aleatorio a la URL si el nombre esta tomado
+    # (hoy: mira-api-2epf.onrender.com). Si el servicio se recrea, actualizar
+    # el destination de apps/web/vercel.json o /api apuntara a un host muerto.
+    name: mira-api
+    runtime: node
+    plan: free
+    # Misma region que Supabase (West US Oregon, us-west-2): cada consulta
+    # cruza este tramo.
+    region: oregon
+    # Produccion = codigo liberado. Los cambios llegan a main solo via release.
+    branch: main
+    autoDeployTrigger: commit
+    # Sin rootDir: se instala el monorepo completo para resolver @mira/shared.
+    #
+    #  --include=dev  NODE_ENV=production tambien aplica al build, y sin esto
+    #                 npm ci salta prisma, tsup y tsx.
+    #  db:deploy      el plan free no tiene pre-deploy command; si la migracion
+    #                 falla, falla el build y sigue viva la version anterior.
+    #  db:seed        idempotente: asegura los usuarios y proyectos de demo.
+    #                 No es fatal: son datos de demo, y si fallara despues de
+    #                 migrar, abortar dejaria la base migrada con el codigo viejo.
+    buildCommand: >-
+      npm ci --include=dev &&
+      npm run build -w @mira/api &&
+      npm run db:deploy -w @mira/api &&
+      (npm run db:seed -w @mira/api || echo "[build] el seed fallo; se continua")
+    startCommand: npm run start -w @mira/api
+    # Liveness sin base: un parpadeo de Supabase no debe reiniciar una API
+    # sana. Que la base este alcanzable ya lo prueba `migrate deploy` en el
+    # build. /api/health (con SELECT 1) queda para el pinger externo.
+    healthCheckPath: /api/health/live
+    # Cambios solo del frontend no redeployan la API.
+    buildFilter:
+      paths:
+        - apps/api/**
+        - packages/shared/**
+        - package.json
+        - package-lock.json
+        - tsconfig.base.json
+        - render.yaml
+    envVars:
+      - key: NODE_VERSION
+        value: '20'
+      - key: NODE_ENV
+        value: production
+      - key: BCRYPT_ROUNDS
+        value: '12'
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: JWT_SECRET
+        generateValue: true
+      # Pooler de transacciones (6543) con ?pgbouncer=true&connection_limit=1
+      - key: DATABASE_URL
+        sync: false
+      # Session pooler (pooler.supabase.com:5432), NO db.<ref>.supabase.co:
+      # la conexion directa es solo IPv6 y Render no sale por IPv6.
+      - key: DIRECT_URL
+        sync: false
+      # Origen exacto de produccion en Vercel (https://<proyecto>.vercel.app).
+      - key: CORS_ORIGIN
+        sync: false

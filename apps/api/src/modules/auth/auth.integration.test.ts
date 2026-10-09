@@ -183,15 +183,6 @@ describe('POST /api/auth/logout', () => {
   });
 });
 
-describe('GET /api/health', () => {
-  it('responde ok sin requerir autenticacion', async () => {
-    const res = await request(app).get('/api/health');
-
-    expect(res.status).toBe(200);
-    expect(res.body.status).toBe('ok');
-  });
-});
-
 describe('rutas inexistentes', () => {
   it('responden 404 con la forma de error estandar', async () => {
     const res = await request(app).get('/api/no-existe');

@@ -12,10 +12,10 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    // El front habla con la API por su URL absoluta (VITE_API_URL) y no por
-    // proxy: asi el entorno local se comporta igual que el desplegado, donde
-    // web y api viven en dominios distintos (Vercel y Render) y las cookies
-    // cross-site tienen que funcionar de verdad.
+    // En local el front habla con la API por su URL absoluta (VITE_API_URL,
+    // :5173 -> :3000), sin proxy. Desplegado usa VITE_API_URL=/api y el
+    // rewrite de apps/web/vercel.json lo lleva a Render: mismo origen y
+    // cookie first-party, que Safari e incognito no bloquean (ver D13).
     strictPort: true,
   },
 });
