@@ -1,4 +1,10 @@
-import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+} from '@tanstack/react-query';
 import type {
   CommentDto,
   CreateCommentInput,
@@ -122,33 +128,40 @@ export function useUpdateWorkItem(projectId: string, workItemId: string) {
 
   return useMutation<WorkItemDto, ApiRequestError, UpdateWorkItemInput>({
     mutationFn: (input) => updateWorkItem(projectId, workItemId, input),
-    onSuccess: (item) => {
-      queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
-      // El backlog tiene una query por pagina. El prefijo alcanza todas las
-      // paginas del proyecto actualizado, sin invalidar otros proyectos.
-      void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
-      void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
-      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
-    },
+    onSuccess: (item) => syncWorkItemCaches(queryClient, projectId, workItemId, item),
   });
 }
 
 /**
- * MIR-17: asigna o quita el responsable. Escribe el detalle con la respuesta
- * del servidor y refresca backlog (filtro por responsable), tablero (la
- * tarjeta muestra al responsable) y resumen (registra ITEM_ASSIGNED).
+ * Tras editar o asignar un item, el servidor devuelve el item confirmado: se
+ * escribe en el detalle y se refresca todo lo que lo muestra. Un solo lugar
+ * para que una vista nueva (p. ej. el historial por elemento de MIR-22) se
+ * agregue una vez y alcance a todas las mutaciones del item.
+ */
+function syncWorkItemCaches(
+  queryClient: QueryClient,
+  projectId: string,
+  workItemId: string,
+  item: WorkItemDto,
+) {
+  queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
+  // El backlog tiene una query por pagina. El prefijo alcanza todas las
+  // paginas del proyecto actualizado, sin invalidar otros proyectos.
+  void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
+  void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
+  void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+}
+
+/**
+ * MIR-17: asigna o quita el responsable. Refresca las mismas vistas que editar
+ * (backlog con filtro por responsable, tablero y resumen con ITEM_ASSIGNED).
  */
 export function useAssignWorkItem(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
 
   return useMutation<WorkItemDto, ApiRequestError, string | null>({
     mutationFn: (assigneeId) => assignWorkItem(projectId, workItemId, assigneeId),
-    onSuccess: (item) => {
-      queryClient.setQueryData(workItemKeys.detail(projectId, workItemId), item);
-      void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
-      void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
-      void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
-    },
+    onSuccess: (item) => syncWorkItemCaches(queryClient, projectId, workItemId, item),
   });
 }
 

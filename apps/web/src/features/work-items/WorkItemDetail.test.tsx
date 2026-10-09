@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { http, HttpResponse } from 'msw';
+import { delay, http, HttpResponse } from 'msw';
 import type { ProjectRole, WorkItemDto } from '@mira/shared';
 import { renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
@@ -799,5 +799,40 @@ describe('responsable (MIR-17)', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'El responsable debe ser miembro del proyecto',
     );
+  });
+
+  it('mientras guarda muestra el responsable elegido, no el anterior', async () => {
+    responderConItem(itemDePrueba({ assignee: null }));
+    server.use(
+      http.patch(ASSIGNEE_URL, async () => {
+        await delay('infinite');
+        return HttpResponse.json({});
+      }),
+    );
+    const { user } = renderConProviders(
+      <WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />,
+    );
+
+    const selector = await screen.findByRole('combobox', { name: 'Responsable' });
+    await user.selectOptions(selector, 'user_2');
+
+    await waitFor(() => expect(selector).toBeDisabled());
+    expect(selector).toHaveValue('user_2');
+  });
+
+  it('mientras carga el equipo muestra un selector deshabilitado, sin saltar desde texto', async () => {
+    responderConItem();
+    server.use(
+      http.get(`${BASE_URL}/projects/*/members`, async () => {
+        await delay('infinite');
+        return HttpResponse.json({ members: [] });
+      }),
+    );
+    renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />);
+
+    const selector = await screen.findByRole('combobox', { name: 'Responsable' });
+    expect(selector).toBeDisabled();
+    expect(selector).toHaveAttribute('aria-busy', 'true');
+    expect(within(selector).getByRole('option')).toHaveTextContent('Grace Hopper');
   });
 });
