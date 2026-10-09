@@ -1302,6 +1302,80 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     expect(await prisma.activityLog.count()).toBe(0);
   });
 
+  it('reintenta con el estado vigente cuando dos movimientos ya leyeron el mismo item', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+    const repository = createWorkItemRepository();
+    let reads = 0;
+    let releaseReads!: () => void;
+    const bothRead = new Promise<void>((resolve) => {
+      releaseReads = resolve;
+    });
+    // Solo sincronizamos las lecturas: persistencia y transacciones son PostgreSQL real.
+    const service = createWorkItemService({
+      ...repository,
+      withTransaction(operation) {
+        return repository.withTransaction((transactionRepo) =>
+          operation({
+            ...transactionRepo,
+            async findByIdInProject(projectId, workItemId) {
+              const item = await transactionRepo.findByIdInProject(projectId, workItemId);
+              const currentRead = ++reads;
+              if (currentRead === 2) releaseReads();
+              if (currentRead <= 2) await bothRead;
+              return item;
+            },
+          }),
+        );
+      },
+    });
+
+    await Promise.all([
+      service.changeStatus(project.id, owner.id, workItem.id, { status: 'IN_PROGRESS' }),
+      service.changeStatus(project.id, owner.id, workItem.id, { status: 'DONE' }),
+    ]);
+    expect(reads).toBeGreaterThanOrEqual(3);
+    const activities = await prisma.activityLog.findMany({ where: { workItemId: workItem.id } });
+    expect(activities).toHaveLength(2);
+    const first = activities.find((entry) => entry.fromValue === 'TODO')!;
+    expect(first).toBeDefined();
+    const second = activities.find((entry) => entry.id !== first.id)!;
+    expect(second.fromValue).toBe(first.toValue);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).status).toBe(
+      second.toValue,
+    );
+  });
+
+  it('serializa dos movimientos concurrentes por HTTP sin estado anterior obsoleto', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
+    const cookie = await iniciarSesion(owner);
+    const statuses = ['IN_PROGRESS', 'DONE'] as const;
+
+    const responses = await Promise.all(
+      statuses.map((status) =>
+        request(app)
+          .patch(rutaDeEstado(project.id, workItem.id))
+          .set('Cookie', cookie)
+          .send({ status }),
+      ),
+    );
+
+    expect(responses.map((response) => response.status)).toEqual([200, 200]);
+    const activities = await prisma.activityLog.findMany({
+      where: { workItemId: workItem.id, action: 'ITEM_STATUS_CHANGED' },
+    });
+    expect(activities).toHaveLength(2);
+    expect(activities.map((entry) => entry.toValue).sort()).toEqual([...statuses].sort());
+    const first = activities.find((entry) => entry.fromValue === 'TODO');
+    expect(first).toBeDefined();
+    const second = activities.find((entry) => entry.id !== first!.id)!;
+    expect(second.fromValue).toBe(first!.toValue);
+    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).status).toBe(
+      second.toValue,
+    );
+  });
+
   it('revierte el cambio de estado si PostgreSQL falla al registrar el historial', async () => {
     const { project, owner } = await createProject();
     const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
