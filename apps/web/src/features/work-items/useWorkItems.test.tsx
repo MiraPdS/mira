@@ -7,7 +7,15 @@ import type { Paginated, WorkItemDto } from '@mira/shared';
 import { ApiRequestError } from '@/lib/api-client';
 import { apiError } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
-import { useUpdateWorkItem, workItemKeys, useWorkItems, workItemsQueryKey } from './useWorkItems';
+import {
+  commentsQueryKey,
+  useComments,
+  useDeleteWorkItem,
+  useUpdateWorkItem,
+  workItemKeys,
+  useWorkItems,
+  workItemsQueryKey,
+} from './useWorkItems';
 
 import { renderConProviders, screen } from '@/test/render';
 import type { WorkItemListFilters } from './work-items.api';
@@ -221,5 +229,43 @@ describe('useWorkItems', () => {
 
     rerender(<BacklogQuery filters={sameFilters} />);
     await waitFor(() => expect(queryClient.getQueryCache().getAll()).toHaveLength(1));
+  });
+});
+
+describe('useDeleteWorkItem - comentarios (MIR-21)', () => {
+  it('no vuelve a pedir los comentarios del elemento eliminado', async () => {
+    const queryClient = crearQueryClient();
+    let pedidosComentarios = 0;
+
+    server.use(
+      http.get(`${UPDATE_URL}/comments`, () => {
+        pedidosComentarios += 1;
+        return pedidosComentarios === 1
+          ? HttpResponse.json({ comments: [] })
+          : apiError(404, 'NOT_FOUND', 'Elemento de trabajo no encontrado');
+      }),
+      http.delete(UPDATE_URL, () => new HttpResponse(null, { status: 204 })),
+    );
+
+    // Detalle montado: los comentarios siguen observados mientras se elimina.
+    const { result } = renderHook(
+      () => ({
+        comments: useComments(PROJECT_ID, WORK_ITEM_ID),
+        deletion: useDeleteWorkItem(PROJECT_ID, WORK_ITEM_ID),
+      }),
+      { wrapper: wrapper(queryClient) },
+    );
+
+    await waitFor(() => expect(result.current.comments.isSuccess).toBe(true));
+
+    await act(async () => {
+      await result.current.deletion.mutateAsync();
+    });
+
+    expect(pedidosComentarios).toBe(1);
+    expect(result.current.comments.isError).toBe(false);
+    expect(
+      queryClient.getQueryState(commentsQueryKey(PROJECT_ID, WORK_ITEM_ID))?.isInvalidated,
+    ).toBe(true);
   });
 });

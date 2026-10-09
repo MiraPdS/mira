@@ -40,8 +40,15 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       });
       await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
       await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
-      // MIR-21: no conservar los comentarios de un elemento eliminado.
-      queryClient.removeQueries({ queryKey: commentsQueryKey(projectId, workItemId), exact: true });
+      // MIR-21: igual que el detalle, sin refetch de los comentarios del
+      // elemento eliminado mientras su consumidor sigue montado (daria 404).
+      const commentsKey = commentsQueryKey(projectId, workItemId);
+      await queryClient.cancelQueries({ queryKey: commentsKey, exact: true });
+      await queryClient.invalidateQueries({
+        queryKey: commentsKey,
+        exact: true,
+        refetchType: 'none',
+      });
     },
   });
 }

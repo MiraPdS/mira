@@ -64,15 +64,17 @@ export function createCommentRepository(db: Db = prisma): CommentRepository {
 
     async createAtomically(data) {
       const create = async (tx: Db) => {
-        // FOR UPDATE: la eliminacion concurrente del elemento espera a que este
-        // comentario confirme, o bien ya ocurrio y aqui no se encuentra la fila.
-        // Sin este bloqueo, la FK fallaria con P2003 y el cliente veria un 500.
-        const locked = await tx.$queryRaw<Array<{ id: string }>>`
-          SELECT id FROM work_items
+        // FOR KEY SHARE (el mismo bloqueo que toma la FK): impide que el
+        // elemento se borre hasta que este comentario confirme, sin bloquear
+        // ediciones ni otros comentarios. FOR UPDATE podia terminar en deadlock
+        // con deleteInTransaction. Si el elemento ya no existe, no hay fila y
+        // se devuelve null en vez de fallar la FK con P2003 (500).
+        const [workItem] = await tx.$queryRaw<Array<{ reference: string }>>`
+          SELECT reference FROM work_items
           WHERE id = ${data.workItemId} AND "projectId" = ${data.projectId}
-          FOR UPDATE
+          FOR KEY SHARE
         `;
-        if (locked.length === 0) return null;
+        if (!workItem) return null;
 
         const comment = await tx.comment.create({
           data: {
@@ -89,6 +91,10 @@ export function createCommentRepository(db: Db = prisma): CommentRepository {
             projectId: data.projectId,
             workItemId: data.workItemId,
             actorId: data.actorId,
+            // Si el elemento se elimina, workItemId pasa a null (SetNull); la
+            // referencia mantiene legible la actividad, igual que ITEM_DELETED.
+            field: 'reference',
+            toValue: workItem.reference,
           },
         });
 

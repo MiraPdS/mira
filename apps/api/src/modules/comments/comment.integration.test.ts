@@ -107,9 +107,34 @@ describe('POST /api/projects/:projectId/work-items/:workItemId/comments', () => 
         projectId: project.id,
         workItemId: workItem.id,
         action: 'COMMENT_ADDED',
+        field: 'reference',
+        toValue: workItem.reference,
       });
     },
   );
+
+  it('la actividad conserva la referencia aunque el elemento se elimine', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+    const cookie = await iniciarSesion(owner);
+
+    const res = await request(app)
+      .post(rutaComentarios(project.id, workItem.id))
+      .set('Cookie', cookie)
+      .send({ body: 'Comentario antes de eliminar' });
+    expect(res.status).toBe(201);
+
+    await prisma.workItem.delete({ where: { id: workItem.id } });
+
+    const actividad = await prisma.activityLog.findFirstOrThrow({
+      where: { projectId: project.id, action: 'COMMENT_ADDED' },
+    });
+    expect(actividad).toMatchObject({
+      workItemId: null,
+      field: 'reference',
+      toValue: workItem.reference,
+    });
+  });
 
   it.each(['', '   ', '\n\t  '])(
     'rechaza comentario vacio o solo espacios con 422: %j',
