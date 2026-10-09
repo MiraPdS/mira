@@ -59,7 +59,8 @@ export const workItemKeys = {
 
 /**
  * Mutacion de creacion desacoplada de rutas, listas y navegacion. Un item puede
- * nacer directamente en una columna (p. ej. TODO), asi que refresca el tablero.
+ * nacer directamente en una columna (p. ej. TODO), asi que refresca el backlog,
+ * el tablero y el resumen del proyecto.
  */
 export function useCreateWorkItem(projectId: string) {
   const queryClient = useQueryClient();
@@ -67,6 +68,7 @@ export function useCreateWorkItem(projectId: string) {
   return useMutation<WorkItemDto, Error, CreateWorkItemInput>({
     mutationFn: (input) => createWorkItem(projectId, input),
     onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
       void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
     },
