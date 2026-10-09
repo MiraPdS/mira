@@ -33,16 +33,13 @@ Criterios de aceptacion:
 - Dado que cierro sesion, entonces la cookie se borra y soy redirigido a /login.
 - Dado que cerre sesion, cuando entro a /proyectos, entonces soy redirigido a /login.
 - Dado que cierro sesion, entonces la cache del usuario anterior se descarta."
-MIR-5 Crear proyecto,Story,Highest,8,,Proyectos y equipo,"backend,frontend","Como usuario autenticado quiero crear un proyecto con nombre y clave para organizar el trabajo de mi equipo.
+MIR-5 Crear proyecto,Story,Highest,5,,Proyectos y equipo,"backend,frontend","Como usuario autenticado quiero crear un proyecto con nombre y clave para organizar el trabajo de mi equipo.
 
 Criterios de aceptacion:
 - Dados nombre y clave validos, entonces recibo 201 y quedo registrado como OWNER.
 - Dada una clave ya existente, entonces recibo 409.
 - Dada una clave con formato invalido (2 a 8 caracteres, inicia con letra, alfanumerica), entonces recibo 422.
-- Dado que no tengo sesion, entonces recibo 401.
-- Web: desde Mis proyectos, con nombre y clave validos, vuelvo a la lista y el proyecto aparece con rol Propietario.
-- Web: con clave repetida, veo el mensaje bajo el campo clave, conservo lo escrito y el campo recibe el foco.
-- Web: con datos de formato invalido, veo el error bajo cada campo sin llamar a la API."
+- Dado que no tengo sesion, entonces recibo 401."
 MIR-6 Listar mis proyectos,Story,Highest,3,,Proyectos y equipo,"backend,frontend","Como usuario autenticado quiero ver los proyectos en los que participo.
 
 Criterios de aceptacion:

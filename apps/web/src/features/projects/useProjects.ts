@@ -24,7 +24,7 @@ export function useProjects() {
 export function useCreateProject() {
   const queryClient = useQueryClient();
 
-  return useMutation<ProjectDto, Error, CreateProjectInput>({
+  return useMutation<ProjectDto, ApiRequestError, CreateProjectInput>({
     mutationFn: projectApi.create,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.all });
