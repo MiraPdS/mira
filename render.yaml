@@ -26,11 +26,13 @@ services:
     #  db:deploy      el plan free no tiene pre-deploy command; si la migracion
     #                 falla, falla el build y sigue viva la version anterior.
     #  db:seed        idempotente: asegura los usuarios y proyectos de demo.
+    #                 No es fatal: son datos de demo, y si fallara despues de
+    #                 migrar, abortar dejaria la base migrada con el codigo viejo.
     buildCommand: >-
       npm ci --include=dev &&
       npm run build -w @mira/api &&
       npm run db:deploy -w @mira/api &&
-      npm run db:seed -w @mira/api
+      (npm run db:seed -w @mira/api || echo "[build] el seed fallo; se continua")
     startCommand: npm run start -w @mira/api
     # Liveness sin base: un parpadeo de Supabase no debe reiniciar una API
     # sana. Que la base este alcanzable ya lo prueba `migrate deploy` en el

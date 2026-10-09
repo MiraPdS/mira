@@ -135,8 +135,10 @@ conservando el servicio y vuelve a crearlo desde `main`.
 - **Credenciales públicas.** Los usuarios del seed (`ada@`, `alan@`,
   `grace@mira.dev`, contraseña `demo1234`) son públicos a propósito: la base
   solo tiene datos de demostración.
-- **El seed no resetea.** Corre en cada deploy y recrea lo que se haya borrado,
-  pero no revierte ediciones.
+- **El seed no pisa la demo.** Corre en cada deploy (si falla, el deploy sigue:
+  son datos de demo). Asegura los tres usuarios, pero los ítems de demo solo
+  se crean cuando el proyecto es nuevo: los que se borren en la demo no vuelven
+  y el contador de referencias nunca retrocede.
 - **Migraciones: siempre compatibles con la versión anterior.** Corren en el
   build, contra la base de producción, **mientras la versión anterior sigue
   atendiendo**. Si fallan, el deploy falla y sigue viva la versión anterior. Si

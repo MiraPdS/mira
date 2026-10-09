@@ -72,6 +72,21 @@ describe('GET /api/health', () => {
     expect(res.status).toBe(503);
     expect(queryRaw).toHaveBeenCalledTimes(1);
   });
+
+  it('abandona una consulta colgada y vuelve a 200 cuando la base se recupera', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(prisma, '$queryRaw')
+      .mockReturnValueOnce(new Promise(() => {}) as never)
+      .mockResolvedValueOnce([{ '?column?': 1 }] as never);
+    const mini = express();
+    mini.use('/api/health', createHealthRouter({ dbTimeoutMs: 50, dbAbandonMs: 20 }));
+
+    const colgada = await request(mini).get('/api/health');
+    const recuperada = await request(mini).get('/api/health');
+
+    expect(colgada.status).toBe(503);
+    expect(recuperada.status).toBe(200);
+  });
 });
 
 describe('GET /api/health/live', () => {

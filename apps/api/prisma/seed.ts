@@ -111,39 +111,45 @@ async function main() {
     },
   ] as const;
 
-  for (const item of items) {
-    await prisma.workItem.upsert({
-      where: { reference: `MIR-${item.n}` },
-      update: {},
-      create: {
-        reference: `MIR-${item.n}`,
-        projectId: proyecto.id,
-        createdById: ada.id,
-        assigneeId: item.assignee,
-        title: item.title,
-        type: item.type,
-        status: item.status,
-        priority: item.priority,
-        estimate: item.estimate,
-        position: item.n,
-      },
-    });
-  }
-
-  // El contador nunca retrocede: el seed corre en cada deploy de Render (MIR-27)
-  // y los items creados en la demo ya consumieron referencias posteriores.
-  // Escritura condicional en la base, no leer-y-escribir: si alguien crea un
-  // item mientras corre el seed, un valor leido antes quedaria obsoleto.
-  await prisma.project.updateMany({
-    where: { id: proyecto.id, itemCounter: { lt: items.length } },
+  // Los items de demo se crean UNA vez, cuando el proyecto es nuevo (contador
+  // en 0). El seed corre en cada deploy de Render (MIR-27): recrearlos
+  // resucitaria items borrados en la demo con posiciones viejas, y mover el
+  // contador podria repetir referencias ya usadas. El contador se reclama con
+  // una escritura condicional en la base, sin leer antes, para no competir con
+  // items creados mientras corre el seed.
+  const reclamado = await prisma.project.updateMany({
+    where: { id: proyecto.id, itemCounter: 0 },
     data: { itemCounter: items.length },
   });
+
+  if (reclamado.count === 1) {
+    for (const item of items) {
+      await prisma.workItem.upsert({
+        where: { reference: `MIR-${item.n}` },
+        update: {},
+        create: {
+          reference: `MIR-${item.n}`,
+          projectId: proyecto.id,
+          createdById: ada.id,
+          assigneeId: item.assignee,
+          title: item.title,
+          type: item.type,
+          status: item.status,
+          priority: item.priority,
+          estimate: item.estimate,
+          position: item.n,
+        },
+      });
+    }
+  }
 
   console.info(
     [
       '',
       'Seed aplicado.',
-      `  Proyecto: ${proyecto.name} (${proyecto.key}) con ${items.length} items`,
+      reclamado.count === 1
+        ? `  Proyecto: ${proyecto.name} (${proyecto.key}) creado con ${items.length} items`
+        : `  Proyecto: ${proyecto.name} (${proyecto.key}) ya existia: sus items no se tocan`,
       '  Usuarios de demostracion (misma contrasena para los tres):',
       '    ada@mira.dev    OWNER',
       '    alan@mira.dev   MEMBER',
