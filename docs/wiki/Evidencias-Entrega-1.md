@@ -5,8 +5,8 @@ No se editan a mano: se regeneran con `npm run wiki:evidencias -- entrega-1`.
 
 | | |
 | --- | --- |
-| Commit | [`8fa2c93`](https://github.com/MiraPdS/mira/commit/8fa2c937b5966e781fd831bd0d91f93d4150cb68) |
-| Run de CI | [37905529077](https://github.com/MiraPdS/mira/actions/runs/37905529077) (push, `develop`) |
+| Commit | [`1c94e87`](https://github.com/MiraPdS/mira/commit/1c94e87e671b97db77cdf876051d349c8d0dc6ff) |
+| Run de CI | [37910246418](https://github.com/MiraPdS/mira/actions/runs/37910246418) (pull_request, `feature/MIR-30-navegacion-creacion-elementos`) |
 | Fecha de la corrida | 2026-10-09 |
 | Resultado | ✅ todas las pruebas pasan |
 
@@ -21,8 +21,8 @@ Testing Library. Ver [Estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md).
 | `shared` | 5 | 107 | 0 | 0 |
 | `api-unit` | 5 | 155 | 0 | 0 |
 | `api-integration` | 10 | 212 | 0 | 0 |
-| `web` | 27 | 314 | 0 | 0 |
-| **Total** | **47** | **788** | **0** | **0** |
+| `web` | 28 | 320 | 0 | 0 |
+| **Total** | **48** | **794** | **0** | **0** |
 
 ## Cobertura por paquete
 
@@ -32,9 +32,9 @@ En la Entrega 1 se reporta sin umbral bloqueante.
 | Paquete | Líneas | Sentencias | Funciones | Ramas |
 | --- | --- | --- | --- | --- |
 | `apps/api` | 95.7 % | 95.7 % | 100.0 % | 87.6 % |
-| `apps/web` | 97.5 % | 97.5 % | 96.4 % | 89.9 % |
+| `apps/web` | 97.5 % | 97.5 % | 96.4 % | 90.0 % |
 | `packages/shared` | 100.0 % | 100.0 % | 100.0 % | 100.0 % |
-| **Total** | **97.0 %** | **97.0 %** | **97.8 %** | **89.2 %** |
+| **Total** | **97.0 %** | **97.0 %** | **97.8 %** | **89.3 %** |
 
 El reporte HTML completo es el artefacto `cobertura` del run (expira a los 90 días).
 

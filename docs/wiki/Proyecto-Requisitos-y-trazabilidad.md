@@ -51,6 +51,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-15 | Editar un elemento de trabajo | ✅ v1.0-entrega1 | [#9] | U [work-item.service] · I [work-item.integration] · C [WorkItemDetail] |
 | MIR-16 | Eliminar un elemento de trabajo | ✅ v1.0-entrega1 | [#14] | U [work-item.service] · I [work-item.integration] · C [WorkItemDetail] |
 | MIR-17 | Asignar un responsable | ✅ v1.0-entrega1 | [#27] | U [work-item.service] · I [work-item.assign.integration] · C [WorkItemDetail] |
+| MIR-30 | Crear desde el tablero y abrir el detalle desde el backlog | ✅ v1.0-entrega1 | [#35] | C [ProjectBoardPage], [ProjectBacklogPage], [App] |
 
 ## Épica 4 — Tablero Kanban
 
@@ -110,6 +111,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#29]: https://github.com/MiraPdS/mira/pull/29
 [#31]: https://github.com/MiraPdS/mira/pull/31
 [#32]: https://github.com/MiraPdS/mira/pull/32
+[#35]: https://github.com/MiraPdS/mira/pull/35
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -157,6 +159,8 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [WorkItemHistory]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemHistory.test.tsx
 [activityInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/activityInvalidation.test.tsx
 [App]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/App.test.tsx
+[ProjectBoardPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBoardPage.test.tsx
+[ProjectBacklogPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBacklogPage.test.tsx
 [work-item.assign.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.assign.integration.test.ts
 
 <!-- Generado desde docs/wiki/ en MiraPdS/mira. No editar aquí: se sobrescribe en el próximo sync. -->

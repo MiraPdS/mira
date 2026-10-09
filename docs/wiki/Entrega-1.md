@@ -34,6 +34,12 @@ responsable (MIR-17, [#27](https://github.com/MiraPdS/mira/pull/27)) y el histor
 [#29](https://github.com/MiraPdS/mira/pull/29)). Ninguna historia se movió a la Entrega 2. La cápsula de
 video (MIR-29) se graba sobre el release desplegado, después del tag.
 
+Al verificar el release se encontró que el detalle de un elemento solo se
+abría desde el tablero (los elementos en BACKLOG no tenían cómo abrirse) y que
+el tablero no permitía crear. Se agregó **MIR-30**
+([#35](https://github.com/MiraPdS/mira/pull/35)) antes de etiquetar: crear
+desde el tablero y abrir el detalle desde el backlog.
+
 ## Cómo ejecutar el sistema
 
 - **Demo desplegada:** [mira-pds.vercel.app](https://mira-pds.vercel.app),
@@ -70,8 +76,8 @@ npm run test:coverage     # coverage/index.html
 
 **Resultados:**
 
-**788 pruebas en 47 archivos, todas pasan; cobertura de líneas 97,0 %**
-(ramas 89,2 %). Tablas por proyecto y por paquete, congeladas desde CI, en
+**794 pruebas en 48 archivos, todas pasan; cobertura de líneas 97,0 %**
+(ramas 89,3 %). Tablas por proyecto y por paquete, congeladas desde CI, en
 [Evidencias de la Entrega 1](Evidencias-Entrega-1.md).
 
 | Proyecto de Vitest | Nivel | Pruebas |
@@ -79,12 +85,12 @@ npm run test:coverage     # coverage/index.html
 | `shared` | unitario | 107 |
 | `api-unit` | unitario | 155 |
 | `api-integration` | integración (PostgreSQL real) | 212 |
-| `web` | componente (RTL + MSW) | 314 |
+| `web` | componente (RTL + MSW) | 320 |
 
 La evidencia corresponde al commit
-[`8fa2c93`](https://github.com/MiraPdS/mira/commit/8fa2c937b5966e781fd831bd0d91f93d4150cb68) de `develop`
-([run de CI 37905529077](https://github.com/MiraPdS/mira/actions/runs/37905529077)). El tag `v1.0-entrega1`
-tiene el mismo código: entre ambos solo cambian la Wiki y la plantilla de PR.
+[`1c94e87`](https://github.com/MiraPdS/mira/commit/1c94e87e671b97db77cdf876051d349c8d0dc6ff) del PR de MIR-30
+([run de CI 37910246418](https://github.com/MiraPdS/mira/actions/runs/37910246418)). El tag `v1.0-entrega1`
+tiene el mismo código: después de ese commit solo cambia la documentación.
 
 ## Evidencia
 

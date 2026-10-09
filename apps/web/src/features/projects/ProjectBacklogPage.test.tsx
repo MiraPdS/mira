@@ -80,6 +80,17 @@ describe('ProjectBacklogPage', () => {
     },
   );
 
+  it('MIR-30: el titulo de cada fila abre el detalle del elemento', async () => {
+    conRol('VIEWER');
+    renderPagina();
+
+    const table = await screen.findByRole('table');
+    expect(within(table).getByRole('link', { name: 'Elemento existente' })).toHaveAttribute(
+      'href',
+      `/proyectos/${PROJECT_ID}/elementos/item_1`,
+    );
+  });
+
   it('VIEWER ve el backlog y sus filtros, sin CTA ni formulario de creacion', async () => {
     conRol('VIEWER');
     renderPagina();

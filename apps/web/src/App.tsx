@@ -1,15 +1,23 @@
-import { Link, Navigate, Route, Routes, useNavigate, useParams } from 'react-router-dom';
+import {
+  Link,
+  Navigate,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+  useParams,
+} from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { RequiereSesion, SoloInvitados } from '@/features/auth/guards';
 import { AppLayout } from '@/components/layout/AppLayout';
-import { KanbanBoard } from '@/features/board/KanbanBoard';
 import { ProjectMembersPage } from '@/features/projects/ProjectMembersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { CreateProjectPage } from '@/features/projects/CreateProjectPage';
 import { ProjectSettingsPage } from '@/features/projects/ProjectSettingsPage';
 import { ProjectSummaryPage } from '@/features/projects/ProjectSummaryPage';
 import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage';
+import { ProjectBoardPage } from '@/features/projects/ProjectBoardPage';
 import { WorkItemDetail } from '@/features/work-items/WorkItemDetail';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
@@ -24,37 +32,30 @@ function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   );
 }
 
-/** Pagina del tablero: traduce la URL al proyecto que recibe KanbanBoard. */
-function TableroPage() {
-  const { projectId = '' } = useParams();
-
-  return (
-    <main className="mx-auto w-full max-w-7xl min-w-0 px-4 py-6 sm:px-6">
-      <KanbanBoard projectId={projectId} />
-    </main>
-  );
-}
-
 /**
  * Detalle de un elemento (MIR-14), con sus comentarios (MIR-21) e historial
- * (MIR-22).  Se abre desde las tarjetas del tablero; al eliminarlo se vuelve
- * al tablero.
+ * (MIR-22). Se abre desde las tarjetas del tablero o desde el backlog (MIR-30):
+ * el backlog lo indica en el state de la navegacion, y tanto "Volver" como la
+ * eliminacion regresan a esa vista. Sin state (URL directa) se vuelve al tablero.
  */
 function ElementoPage() {
   const { projectId = '', workItemId = '' } = useParams();
   const navigate = useNavigate();
-  const tablero = `/proyectos/${encodeURIComponent(projectId)}/tablero`;
+  const { state } = useLocation();
+  const desdeBacklog = (state as { from?: string } | null)?.from === 'backlog';
+  const proyecto = `/proyectos/${encodeURIComponent(projectId)}`;
+  const origen = desdeBacklog ? `${proyecto}/backlog` : `${proyecto}/tablero`;
 
   return (
     <main className="mx-auto w-full max-w-xl min-w-0 px-4 py-6 sm:px-6">
-      <Link to={tablero} className="text-sm text-slate-600 underline-offset-4 hover:underline">
-        ← Volver al tablero
+      <Link to={origen} className="text-sm text-slate-600 underline-offset-4 hover:underline">
+        {desdeBacklog ? '← Volver al backlog' : '← Volver al tablero'}
       </Link>
       <div className="mt-4">
         <WorkItemDetail
           projectId={projectId}
           workItemId={workItemId}
-          onDeleted={() => navigate(tablero)}
+          onDeleted={() => navigate(origen)}
         />
       </div>
     </main>
@@ -103,8 +104,8 @@ export function App() {
         {/* MIR-9: Invitacion y listado de miembros */}
         <Route path="/proyectos/:projectId/miembros" element={<ProjectMembersPage />} />
 
-        {/* MIR-18: Tablero kanban */}
-        <Route path="/proyectos/:projectId/tablero" element={<TableroPage />} />
+        {/* MIR-18: Tablero kanban; MIR-30: crear elementos desde el tablero */}
+        <Route path="/proyectos/:projectId/tablero" element={<ProjectBoardPage />} />
 
         {/* MIR-14/MIR-22: detalle de un elemento con su historial */}
         <Route path="/proyectos/:projectId/elementos/:workItemId" element={<ElementoPage />} />

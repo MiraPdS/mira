@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import {
   PRIORITY_LABELS,
   STATUS_LABELS,
@@ -254,7 +255,17 @@ export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklog
               {data.map((item) => (
                 <tr key={item.id} className="border-b border-slate-100 text-slate-800">
                   <td className="px-3 py-2 font-medium whitespace-nowrap">{item.reference}</td>
-                  <td className="min-w-48 px-3 py-2">{item.title}</td>
+                  <td className="min-w-48 px-3 py-2">
+                    {/* MIR-30: el detalle se abria solo desde el tablero, y los
+                        elementos en BACKLOG no aparecen ahi. */}
+                    <Link
+                      to={`/proyectos/${encodeURIComponent(projectId)}/elementos/${encodeURIComponent(item.id)}`}
+                      state={{ from: 'backlog' }}
+                      className="text-blue-700 underline-offset-4 hover:underline"
+                    >
+                      {item.title}
+                    </Link>
+                  </td>
                   <td className="px-3 py-2">{TYPE_LABELS[item.type]}</td>
                   <td className="px-3 py-2">{STATUS_LABELS[item.status]}</td>
                   <td className="px-3 py-2">{PRIORITY_LABELS[item.priority]}</td>
