@@ -27,7 +27,7 @@ Santa María, segundo semestre 2026.
 | Benjamín Olguín | Cuenta, proyectos, infraestructura y entrega | [@nonmeeeeeeeeeeeeeee](https://github.com/nonmeeeeeeeeeeeeeee) |
 | Isaías | Elementos de trabajo (CRUD y backlog) | _(completar)_ |
 | Mauro | Tablero Kanban y experiencia de usuario | _(completar)_ |
-| Diego | Equipo, permisos y colaboración | _(completar)_ |
+| Diego Espinoza | Equipo, permisos y colaboración |[@diegoosky](https://github.com/diegoosky) |
 
 El reparto detallado de items, el DAG de dependencias y el orden sugerido
 están en [`docs/plan-trabajo.md`](./docs/plan-trabajo.md).
