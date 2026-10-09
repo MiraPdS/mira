@@ -29,14 +29,37 @@ dice "esto lo produjo CI, sobre este commit", y no "funcionaba en mi máquina".
 `main` exige Pull Request, una aprobación, conversaciones resueltas y los checks
 `Lint, tipos y pruebas` y `Build` en verde; no admite push forzado ni borrado.
 
-> ⏳ Se completa en MIR-28: captura de la regla de protección y enlace a un PR
-> bloqueado por un check en rojo (fallo controlado).
+Se puede verificar en cualquier momento con la API de GitHub (salida del
+2026-10-09, al preparar el release):
+
+```bash
+gh api repos/MiraPdS/mira/branches/main/protection
+```
+
+```json
+{
+  "required_status_checks": { "strict": false, "contexts": ["Lint, tipos y pruebas", "Build"] },
+  "required_approving_review_count": 1,
+  "dismiss_stale_reviews": true,
+  "required_conversation_resolution": true,
+  "allow_force_pushes": false,
+  "allow_deletions": false,
+  "enforce_admins": false
+}
+```
+
+`enforce_admins: false`: un administrador del repositorio podría saltarse la
+regla. El equipo no lo hace; todo lo que llegó a `main` entró por el PR de
+release.
 
 ## Entrega 1
 
-> ⏳ Se completa en MIR-28: tablas de cobertura y resultados congeladas
-> (`Evidencias-Entrega-1`), enlace al run de CI del release, release y tag
-> `v1.0-entrega1`, capturas de Jira y Slack/Discord.
+- **Pruebas y cobertura:** [Evidencias de la Entrega 1](Evidencias-Entrega-1.md)
+  — 788 pruebas, todas pasan; 97,0 % de líneas. Congeladas desde el
+  [run de CI 37905529077](https://github.com/MiraPdS/mira/actions/runs/37905529077) del commit `8fa2c93`.
+- **Release y tag:** [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1).
+- **Trazabilidad, PRs representativos, uso de IA y defectos:** en
+  [Entrega 1](Entrega-1.md#evidencia).
 
 ## Ambiente desplegado
 

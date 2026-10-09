@@ -16,7 +16,7 @@ Esta página es solo un índice. El detalle vive en cada página.
 
 ## Entregas
 
-- [Entrega 1](Entrega-1.md)
+- [Entrega 1](Entrega-1.md) — release [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1)
 - [Entrega 2](Entrega-2.md) _(pendiente)_
 - [Entrega 3](Entrega-3.md) _(pendiente)_
 
@@ -33,7 +33,8 @@ Esta página es solo un índice. El detalle vive en cada página.
 - [Proyecto - Evidencias](Proyecto-Evidencias.md)
 - [Integración continua (GitHub Actions)](https://github.com/MiraPdS/mira/actions/workflows/ci.yml)
 
-> ⏳ Se completa en MIR-28: enlace al release y tag `v1.0-entrega1`.
+- [Evidencias - Entrega 1](Evidencias-Entrega-1.md) (pruebas y cobertura congeladas)
+- [Releases y tags](https://github.com/MiraPdS/mira/releases)
 
 ## Equipo
 
