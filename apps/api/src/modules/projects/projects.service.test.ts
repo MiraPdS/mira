@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
 import type { Project, ProjectMember, User } from '@prisma/client';
 
@@ -287,6 +287,58 @@ describe('projectsService', () => {
         code: 'PROJECT_ACCESS_DENIED',
       });
       expect(repo.findById).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('delete - MIR-8', () => {
+    const proyecto = { id: 'project_1', key: 'MIR', name: 'Mira' };
+
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('el OWNER elimina el proyecto', async () => {
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'deleted', project: proyecto });
+      vi.spyOn(console, 'info').mockImplementation(() => {});
+
+      await expect(service.delete('project_1', 'owner_1')).resolves.toBeUndefined();
+
+      expect(repo.deleteIfMemberRole).toHaveBeenCalledWith('project_1', 'owner_1', ['OWNER']);
+    });
+
+    it('solo pide borrar si quien llama es OWNER (la matriz de permisos)', async () => {
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'forbidden' });
+
+      await service.delete('project_1', 'user_1').catch(() => undefined);
+
+      expect(repo.deleteIfMemberRole).toHaveBeenCalledWith('project_1', 'user_1', ['OWNER']);
+    });
+
+    it('responde 403 OWNER_REQUIRED a quien no es OWNER', async () => {
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'forbidden' });
+
+      await expect(service.delete('project_1', 'user_2')).rejects.toMatchObject({
+        status: 403,
+        code: 'OWNER_REQUIRED',
+      });
+    });
+
+    it('responde 404 si el proyecto ya no existe', async () => {
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'not_found' });
+
+      await expect(service.delete('project_1', 'owner_1')).rejects.toBeInstanceOf(NotFoundError);
+    });
+
+    it('deja constancia en el log de quien elimino el proyecto', async () => {
+      repo.deleteIfMemberRole.mockResolvedValue({ status: 'deleted', project: proyecto });
+      const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+
+      await service.delete('project_1', 'owner_1');
+
+      expect(info).toHaveBeenCalledWith(
+        '[auditoria] proyecto eliminado',
+        expect.stringContaining('"actorId":"owner_1"'),
+      );
     });
   });
 

@@ -100,9 +100,27 @@ export interface ProjectsRepository {
 
   removeMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<void>;
 
+  /**
+   * MIR-8: elimina el proyecto solo si `actorId` es miembro con alguno de
+   * `roles`. La condicion de rol va en el WHERE del propio DELETE, asi que
+   * comprobar y borrar es una sola sentencia atomica. Miembros, items,
+   * comentarios y bitacora caen en cascada por las FK del esquema.
+   */
+  deleteIfMemberRole(
+    projectId: string,
+    actorId: string,
+    roles: ProjectRole[],
+  ): Promise<DeleteProjectResult>;
+
   /** MIR-23: conteos por estado, tipo y prioridad, y la actividad reciente. */
   getProjectSummary(projectId: string): Promise<ProjectSummaryData>;
 }
+
+/** MIR-8: resultado de eliminar; el service lo traduce a 204, 403 o 404. */
+export type DeleteProjectResult =
+  | { status: 'deleted'; project: Pick<Project, 'id' | 'key' | 'name'> }
+  | { status: 'not_found' }
+  | { status: 'forbidden' };
 
 const transactionOptions = {
   isolationLevel: PrismaRuntime.TransactionIsolationLevel.Serializable,
@@ -497,6 +515,25 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         byPriority,
         recentActivity,
       };
+    },
+
+    // MIR-8: eliminar el proyecto con la condicion de rol en el mismo DELETE.
+    async deleteIfMemberRole(projectId, actorId, roles) {
+      // Solo para el registro de auditoria y para distinguir 404 de 403.
+      const project = await db.project.findUnique({
+        where: { id: projectId },
+        select: { id: true, key: true, name: true },
+      });
+      if (!project) return { status: 'not_found' };
+
+      const { count } = await db.project.deleteMany({
+        where: { id: projectId, members: { some: { userId: actorId, role: { in: roles } } } },
+      });
+      if (count > 0) return { status: 'deleted', project };
+
+      // No se borro: o ya no existe (otra peticion lo elimino) o no tiene el rol.
+      const sigueExistiendo = await db.project.count({ where: { id: projectId } });
+      return sigueExistiendo ? { status: 'forbidden' } : { status: 'not_found' };
     },
   };
 }
