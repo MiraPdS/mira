@@ -49,12 +49,15 @@ Criterios de aceptacion:
 - Dado que soy miembro de dos proyectos, entonces veo exactamente esos dos con mi rol en cada uno.
 - Dado un proyecto del que no soy miembro, entonces no aparece en la lista.
 - Dado que no participo en ninguno, entonces veo un estado vacio que invita a crear el primero."
-MIR-7 Ver y editar un proyecto,Story,High,3,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero modificar el nombre y la descripcion del proyecto.
+MIR-7 Ver y editar un proyecto,Story,High,5,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero modificar el nombre y la descripcion del proyecto.
 
 Criterios de aceptacion:
 - Dado que soy OWNER, cuando edito, entonces recibo 200 y los cambios persisten.
 - Dado que soy MEMBER o VIEWER, entonces recibo 403 y la interfaz no muestra el boton de editar.
-- Dado un campo desconocido en el PATCH, entonces recibo 422."
+- Dado un campo desconocido en el PATCH, entonces recibo 422.
+- Dado que soy miembro, cuando abro la configuracion, entonces veo el proyecto y mi rol; si no soy miembro recibo 403.
+- Dado que envio la clave en el PATCH, entonces recibo 422: la clave es inmutable.
+- Dado que un campo cambia, entonces queda en la bitacora (PROJECT_UPDATED) con su valor anterior y nuevo."
 MIR-8 Eliminar un proyecto,Story,Medium,3,,Proyectos y equipo,"backend,frontend,permisos","Como OWNER quiero eliminar un proyecto que ya no corresponde.
 
 Criterios de aceptacion:

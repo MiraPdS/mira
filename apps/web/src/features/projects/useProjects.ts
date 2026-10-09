@@ -1,5 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { AddMemberInput, CreateProjectInput, ProjectDto } from '@mira/shared';
+import type {
+  AddMemberInput,
+  CreateProjectInput,
+  ProjectDto,
+  UpdateProjectInput,
+} from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 
@@ -9,6 +14,7 @@ import { projectApi } from './project.api';
  */
 export const projectKeys = {
   all: ['projects'] as const,
+  detail: (projectId: string) => ['projects', projectId] as const,
   members: (projectId: string) => ['projects', projectId, 'members'] as const,
 };
 
@@ -28,6 +34,31 @@ export function useCreateProject() {
     mutationFn: projectApi.create,
     onSuccess: () => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.all });
+    },
+  });
+}
+
+/** Un proyecto con el rol del usuario en el (MIR-7). */
+export function useProject(projectId: string) {
+  return useQuery<ProjectDto, ApiRequestError>({
+    queryKey: projectKeys.detail(projectId),
+    queryFn: () => projectApi.get(projectId),
+    enabled: Boolean(projectId),
+  });
+}
+
+/**
+ * Edita un proyecto (MIR-7). La respuesta ya es el proyecto actualizado: se
+ * escribe en el detalle y se invalida la lista para que muestre el nombre nuevo.
+ */
+export function useUpdateProject(projectId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation<ProjectDto, ApiRequestError, UpdateProjectInput>({
+    mutationFn: (input) => projectApi.update(projectId, input),
+    onSuccess: (project) => {
+      queryClient.setQueryData(projectKeys.detail(projectId), project);
+      void queryClient.invalidateQueries({ queryKey: projectKeys.all, exact: true });
     },
   });
 }

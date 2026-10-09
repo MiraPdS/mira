@@ -168,13 +168,16 @@ Web:
 > quiero modificar su nombre y descripción
 > para mantener la información al día.
 
-**Tipo:** Historia · **Prioridad:** High · **Estimación:** 3
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 5
 
 **Criterios de aceptación**
 
 - **Dado** que soy OWNER, **cuando** edito nombre o descripción, **entonces** recibo 200 y los cambios persisten.
 - **Dado** que soy MEMBER o VIEWER, **cuando** intento editar, **entonces** recibo 403 y la interfaz **no** muestra el botón de editar.
 - **Dado** que envío un campo desconocido, **cuando** hago PATCH, **entonces** recibo 422.
+- **Dado** que soy miembro, **cuando** abro la configuración del proyecto, **entonces** veo nombre, clave, descripción y mi rol; si no soy miembro recibo 403.
+- **Dado** que envío la clave en el PATCH, **cuando** edito, **entonces** recibo 422: la clave es inmutable.
+- **Dado** que edito como OWNER, **cuando** un campo cambia, **entonces** queda registrado en la bitácora (`PROJECT_UPDATED`) con su valor anterior y nuevo.
 
 ---
 

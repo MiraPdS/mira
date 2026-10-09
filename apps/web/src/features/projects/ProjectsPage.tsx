@@ -90,9 +90,18 @@ function ProjectCard({ project }: { project: ProjectDto }) {
           </Link>
           <span className="font-mono text-xs text-slate-500">{project.key}</span>
         </div>
-        <span className="shrink-0 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
-          {ROLE_LABELS[project.myRole]}
-        </span>
+        <div className="flex shrink-0 items-center gap-3">
+          <Link
+            to={`/proyectos/${encodeURIComponent(project.id)}/configuracion`}
+            className="text-xs font-medium text-slate-600 hover:text-slate-900 hover:underline"
+            aria-label={`Configuracion de ${project.name}`}
+          >
+            Configuracion
+          </Link>
+          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
+            {ROLE_LABELS[project.myRole]}
+          </span>
+        </div>
       </div>
       {project.description && (
         <p className="mt-2 line-clamp-2 text-sm text-slate-600">{project.description}</p>

@@ -62,14 +62,14 @@ async function completarYEnviar(
 describe('CreateProjectPage', () => {
   beforeEach(() => navigateMock.mockClear());
 
-  it('crea el proyecto con la clave en mayusculas, sin descripcion vacia, y vuelve a la lista', async () => {
+  it('crea el proyecto con la clave en mayusculas, descripcion vacia como null, y vuelve a la lista', async () => {
     const cuerpos = capturarCreacion();
     const { user } = renderConProviders(<CreateProjectPage />);
 
     await completarYEnviar(user);
 
     await waitFor(() => expect(navigateMock).toHaveBeenCalledWith('/proyectos', { replace: true }));
-    expect(cuerpos).toEqual([{ name: 'Mira', key: 'MIR' }]);
+    expect(cuerpos).toEqual([{ name: 'Mira', key: 'MIR', description: null }]);
   });
 
   it('envia la descripcion sin espacios sobrantes', async () => {

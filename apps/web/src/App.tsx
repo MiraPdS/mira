@@ -6,6 +6,7 @@ import { AppLayout } from '@/components/layout/AppLayout';
 import { ProjectMembersPage } from '@/features/projects/ProjectMembersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { CreateProjectPage } from '@/features/projects/CreateProjectPage';
+import { ProjectSettingsPage } from '@/features/projects/ProjectSettingsPage';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   return (
@@ -56,6 +57,9 @@ export function App() {
           path="/proyectos/:projectId"
           element={<Pendiente item="MIR-23" titulo="Proyecto" />}
         />
+
+        {/* MIR-7: ver y editar el proyecto */}
+        <Route path="/proyectos/:projectId/configuracion" element={<ProjectSettingsPage />} />
 
         {/* MIR-9: Invitacion y listado de miembros */}
         <Route path="/proyectos/:projectId/miembros" element={<ProjectMembersPage />} />
