@@ -25,9 +25,9 @@ Santa María, segundo semestre 2026.
 | Integrante | Área a cargo | GitHub |
 | --- | --- | --- |
 | Benjamín Olguín | Cuenta, proyectos, infraestructura y entrega | [@Bolgunn](https://github.com/Bolgunn) |
-| Isaías Carte| Elementos de trabajo (CRUD y backlog) | [@IsaiasACF](https://github.com/IsaiasACF)|
+| Isaías Carte | Elementos de trabajo (CRUD y backlog) | [@IsaiasACF](https://github.com/IsaiasACF) |
 | Mauro Castillo | Tablero Kanban y experiencia de usuario | [@muitomou](https://github.com/muitomou) |
-| Diego Espinoza | Equipo, permisos y colaboración |[@diegoosky](https://github.com/diegoosky) |
+| Diego Espinoza | Equipo, permisos y colaboración | [@diegoosky](https://github.com/diegoosky) |
 
 El reparto detallado de items, el DAG de dependencias y el orden sugerido
 están en [`docs/plan-trabajo.md`](./docs/plan-trabajo.md).
