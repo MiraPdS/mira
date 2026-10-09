@@ -9,6 +9,7 @@ import {
   sessionCookie,
 } from '../../test/factories.js';
 import { prisma } from '../../lib/prisma.js';
+import { projectSummaryResponseSchema } from '@mira/shared';
 
 let app: Express;
 
@@ -211,5 +212,69 @@ describe('GET /api/projects/:projectId/summary (MIR-23)', () => {
     });
 
     expect(activities[0].createdAt).toBe(new Date(Date.UTC(2026, 0, 1, 0, 11)).toISOString());
+  });
+
+  it('muestra el nombre del miembro agregado, nunca su id', async () => {
+    const { project, owner } = await createProject();
+    const invitada = await createUser({ name: 'Grace Hopper', email: 'grace@mira.test' });
+
+    const invitar = await request(app)
+      .post(`/api/projects/${project.id}/members`)
+      .set('Cookie', sessionCookie(owner))
+      .send({ email: invitada.email });
+    expect(invitar.status).toBe(201);
+
+    const res = await request(app)
+      .get(`/api/projects/${project.id}/summary`)
+      .set('Cookie', sessionCookie(owner));
+
+    const [actividad] = res.body.summary.recentActivity;
+    expect(actividad).toMatchObject({
+      action: 'MEMBER_ADDED',
+      field: 'member',
+      fromValue: null,
+      toValue: 'Grace Hopper',
+    });
+    expect(JSON.stringify(res.body.summary.recentActivity)).not.toContain(invitada.id);
+  });
+
+  it('traduce el responsable de un item a nombres', async () => {
+    const { project, owner } = await createProject({
+      owner: await createUser({ name: 'Ada Lovelace' }),
+    });
+    const alan = await createUser({ name: 'Alan Turing' });
+    await addMember(project, alan);
+
+    await prisma.activityLog.create({
+      data: {
+        action: 'ITEM_UPDATED',
+        projectId: project.id,
+        actorId: owner.id,
+        field: 'assigneeId',
+        fromValue: owner.id,
+        toValue: alan.id,
+      },
+    });
+
+    const res = await request(app)
+      .get(`/api/projects/${project.id}/summary`)
+      .set('Cookie', sessionCookie(owner));
+
+    expect(res.body.summary.recentActivity[0]).toMatchObject({
+      field: 'assigneeId',
+      fromValue: 'Ada Lovelace',
+      toValue: 'Alan Turing',
+    });
+  });
+
+  it('cumple el contrato compartido projectSummaryResponseSchema', async () => {
+    const { project, owner } = await createProject();
+    await createWorkItem({ project, createdBy: owner });
+
+    const res = await request(app)
+      .get(`/api/projects/${project.id}/summary`)
+      .set('Cookie', sessionCookie(owner));
+
+    expect(projectSummaryResponseSchema.safeParse(res.body).success).toBe(true);
   });
 });

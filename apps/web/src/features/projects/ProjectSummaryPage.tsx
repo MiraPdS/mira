@@ -1,10 +1,16 @@
 import { Link, useParams } from 'react-router-dom';
-import { STATUS_LABELS, TYPE_LABELS, PRIORITY_LABELS } from '@mira/shared';
-import type { ProjectActivity } from './project.api';
+import {
+  PRIORITY_LABELS,
+  ROLE_LABELS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+  type ActivityAction,
+  type ProjectActivityDto,
+} from '@mira/shared';
 import { useProjectSummary } from './useProjects';
 
 // Descripciones de las acciones registradas en el proyecto.
-const actionLabels: Record<ProjectActivity['action'], string> = {
+const actionLabels: Record<ActivityAction, string> = {
   ITEM_CREATED: 'creó un ítem',
   ITEM_UPDATED: 'actualizó un ítem',
   ITEM_STATUS_CHANGED: 'cambió el estado de un ítem',
@@ -14,6 +20,7 @@ const actionLabels: Record<ProjectActivity['action'], string> = {
   MEMBER_ADDED: 'agregó un miembro',
   MEMBER_ROLE_CHANGED: 'cambió el rol de un miembro',
   MEMBER_REMOVED: 'eliminó un miembro',
+  PROJECT_UPDATED: 'actualizó el proyecto',
 };
 
 // Etiquetas de los campos que pueden aparecer en la actividad.
@@ -27,6 +34,8 @@ const fieldLabels: Record<string, string> = {
   dueDate: 'Fecha límite',
   assigneeId: 'Responsable',
   role: 'Rol',
+  member: 'Miembro',
+  name: 'Nombre',
   reference: 'Referencia',
 };
 
@@ -48,11 +57,15 @@ function formatoValor(field: string, value: string | null): string {
     return PRIORITY_LABELS[value as keyof typeof PRIORITY_LABELS];
   }
 
+  if (field === 'role' && value in ROLE_LABELS) {
+    return ROLE_LABELS[value as keyof typeof ROLE_LABELS];
+  }
+
   return value;
 }
 
 // Construye una descripcion mas especifica para cada actividad.
-function detalleActividad(activity: ProjectActivity): string | null {
+function detalleActividad(activity: ProjectActivityDto): string | null {
   const { field, fromValue, toValue, action } = activity;
 
   if (!field || (fromValue === null && toValue === null)) {
@@ -82,17 +95,21 @@ function detalleActividad(activity: ProjectActivity): string | null {
 
 // Componente reutilizable para mostrar los conteos.
 function SummarySection<K extends string>({
+  id,
   title,
   values,
   labels,
 }: {
+  id: string;
   title: string;
   values: Record<K, number>;
   labels: Record<K, string>;
 }) {
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="mb-4 text-lg font-semibold text-slate-900">{title}</h2>
+    <section aria-labelledby={id} className="rounded-xl border border-slate-200 bg-white p-5">
+      <h2 id={id} className="mb-4 text-lg font-semibold text-slate-900">
+        {title}
+      </h2>
 
       <div className="space-y-3">
         {(Object.keys(values) as K[]).map((key) => (
@@ -172,8 +189,13 @@ export function ProjectSummaryPage() {
       </header>
 
       {/* Total de elementos */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="text-sm font-medium text-slate-500">Total de ítems</h2>
+      <section
+        aria-labelledby="resumen-total"
+        className="rounded-xl border border-slate-200 bg-white p-6"
+      >
+        <h2 id="resumen-total" className="text-sm font-medium text-slate-500">
+          Total de ítems
+        </h2>
 
         <p className="mt-2 text-4xl font-bold text-slate-900">{summary.total}</p>
       </section>
@@ -192,11 +214,22 @@ export function ProjectSummaryPage() {
 
       {/* Estadisticas */}
       <div className="grid gap-5 md:grid-cols-3">
-        <SummarySection title="Por estado" values={summary.byStatus} labels={STATUS_LABELS} />
-
-        <SummarySection title="Por tipo" values={summary.byType} labels={TYPE_LABELS} />
+        <SummarySection
+          id="resumen-estado"
+          title="Por estado"
+          values={summary.byStatus}
+          labels={STATUS_LABELS}
+        />
 
         <SummarySection
+          id="resumen-tipo"
+          title="Por tipo"
+          values={summary.byType}
+          labels={TYPE_LABELS}
+        />
+
+        <SummarySection
+          id="resumen-prioridad"
           title="Por prioridad"
           values={summary.byPriority}
           labels={PRIORITY_LABELS}
@@ -204,8 +237,13 @@ export function ProjectSummaryPage() {
       </div>
 
       {/* Actividad reciente */}
-      <section className="rounded-xl border border-slate-200 bg-white p-6">
-        <h2 className="text-xl font-semibold text-slate-900">Actividad reciente</h2>
+      <section
+        aria-labelledby="resumen-actividad"
+        className="rounded-xl border border-slate-200 bg-white p-6"
+      >
+        <h2 id="resumen-actividad" className="text-xl font-semibold text-slate-900">
+          Actividad reciente
+        </h2>
 
         {summary.recentActivity.length === 0 ? (
           <p className="mt-4 text-sm text-slate-500">
@@ -238,13 +276,22 @@ export function ProjectSummaryPage() {
         )}
       </section>
 
-      {/* Navegacion hacia los miembros */}
-      <Link
-        to={`/proyectos/${projectId}/miembros`}
-        className="inline-block text-sm font-medium text-blue-600 hover:underline"
-      >
-        Ver miembros del proyecto →
-      </Link>
+      {/* Navegacion hacia el tablero y los miembros */}
+      <nav aria-label="Secciones del proyecto" className="flex flex-wrap gap-x-6 gap-y-2">
+        <Link
+          to={`/proyectos/${projectId}/tablero`}
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          Ver tablero →
+        </Link>
+
+        <Link
+          to={`/proyectos/${projectId}/miembros`}
+          className="text-sm font-medium text-blue-600 hover:underline"
+        >
+          Ver miembros del proyecto →
+        </Link>
+      </nav>
     </main>
   );
 }

@@ -10,6 +10,7 @@ import type {
   WorkItemStatus,
   WorkItemType,
 } from '@prisma/client';
+
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { prisma, type Db } from '../../lib/prisma.js';
 
@@ -26,15 +27,19 @@ export type ProjectMemberWithUser = Prisma.ProjectMemberGetPayload<{
   };
 }>;
 
-// MIR-23: Actividad reciente del proyecto.
+/** Un campo del proyecto que cambio, tal como queda en la bitacora. */
+export interface ProjectFieldChange {
+  field: 'name' | 'description';
+  fromValue: string | null;
+  toValue: string | null;
+}
+
+/** MIR-23: actividad reciente con el nombre de quien la hizo. */
 export type RecentProjectActivity = ActivityLog & {
-  actor: {
-    id: string;
-    name: string;
-  };
+  actor: { id: string; name: string };
 };
 
-// MIR-23: Datos del resumen estadistico.
+/** MIR-23: conteos del proyecto y su actividad reciente. */
 export interface ProjectSummaryData {
   total: number;
   byStatus: Record<WorkItemStatus, number>;
@@ -43,7 +48,18 @@ export interface ProjectSummaryData {
   recentActivity: RecentProjectActivity[];
 }
 
+/** MIR-23: cuantas actividades muestra el panel. */
+export const RECENT_ACTIVITY_LIMIT = 10;
+
+/**
+ * MIR-23: campos de la bitacora que guardan el id de un usuario. El panel los
+ * muestra con el nombre; un usuario que ya no existe se muestra como null.
+ */
+const USER_ID_FIELDS = new Set(['assigneeId', 'member']);
+
 export interface ProjectsRepository {
+  findById(projectId: string): Promise<Project | null>;
+
   findByKey(key: string): Promise<Project | null>;
 
   createWithOwner(
@@ -51,7 +67,7 @@ export interface ProjectsRepository {
     ownerId: string,
   ): Promise<Project>;
 
-  /** Membresias del usuario con su proyecto, ordenadas por nombre. */
+  /** Membresias del usuario con su proyecto, ordenadas por nombre del proyecto. */
   listMembershipsOf(userId: string): Promise<Array<{ role: ProjectRole; project: Project }>>;
 
   findMember(projectId: string, userId: string): Promise<ProjectMember | null>;
@@ -62,7 +78,19 @@ export interface ProjectsRepository {
 
   addMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<ProjectMember>;
 
-  // MIR-10: Cambiar rol y quitar miembros.
+  /**
+   * MIR-7: en UNA transaccion bloquea la fila del proyecto, calcula los cambios
+   * con `diff` sobre ese estado bloqueado, actualiza y registra una fila
+   * PROJECT_UPDATED por cambio. Devuelve null si el proyecto no existe.
+   */
+  updateWithActivity(
+    projectId: string,
+    data: { name?: string; description?: string | null },
+    actorId: string,
+    diff: (current: Project) => ProjectFieldChange[],
+  ): Promise<Project | null>;
+
+  // MIR-10: Cambiar rol y quitar miembros
   changeMemberRoleWithActivity(
     projectId: string,
     userId: string,
@@ -72,11 +100,10 @@ export interface ProjectsRepository {
 
   removeMemberWithActivity(projectId: string, userId: string, actorId: string): Promise<void>;
 
-  // MIR-23: Estadisticas completas y actividad reciente.
+  /** MIR-23: conteos por estado, tipo y prioridad, y la actividad reciente. */
   getProjectSummary(projectId: string): Promise<ProjectSummaryData>;
 }
 
-// MIR-10: Configuracion de transacciones.
 const transactionOptions = {
   isolationLevel: PrismaRuntime.TransactionIsolationLevel.Serializable,
 };
@@ -100,13 +127,18 @@ async function retryOnSerializationConflict<T>(operation: () => Promise<T>): Pro
 
 export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
   return {
-    // Buscar proyecto por clave.
+    findById: (projectId) =>
+      db.project.findUnique({
+        where: { id: projectId },
+      }),
+
+    // Buscar proyecto por clave
     findByKey: (key) =>
       db.project.findUnique({
         where: { key },
       }),
 
-    // Crear proyecto con OWNER.
+    // Crear proyecto con OWNER
     createWithOwner: (data, ownerId) =>
       db.project.create({
         data: {
@@ -120,7 +152,8 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         },
       }),
 
-    // Listar proyectos donde el usuario tiene membresia.
+    // Se parte de la membresia, no del proyecto: un proyecto ajeno no puede
+    // colarse en la lista porque nunca entra en la consulta.
     listMembershipsOf: (userId) =>
       db.projectMember.findMany({
         where: { userId },
@@ -128,7 +161,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         orderBy: { project: { name: 'asc' } },
       }),
 
-    // Buscar membresia de un usuario.
+    // Buscar membresia de un usuario
     findMember: (projectId, userId) =>
       db.projectMember.findUnique({
         where: {
@@ -139,13 +172,13 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         },
       }),
 
-    // Buscar usuario por correo.
+    // Buscar usuario por correo
     findUserByEmail: (email) =>
       db.user.findUnique({
         where: { email },
       }),
 
-    // Listar miembros del proyecto.
+    // Listar miembros del proyecto
     findMembersByProject: (projectId) =>
       db.projectMember.findMany({
         where: { projectId },
@@ -162,7 +195,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         orderBy: { joinedAt: 'asc' },
       }),
 
-    // MIR-9: Invitar miembro y registrar actividad.
+    // MIR-9: Invitar miembro y registrar actividad
     async addMemberWithActivity(projectId, userId, actorId) {
       if (!('$transaction' in db)) {
         const member = await db.projectMember.create({
@@ -209,7 +242,45 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       });
     },
 
-    // MIR-10: Cambiar el rol de un miembro.
+    async updateWithActivity(projectId, data, actorId, diff) {
+      const run = async (tx: Db) => {
+        // FOR UPDATE: un PATCH concurrente espera aqui hasta que este confirme,
+        // asi el diff (y el fromValue de la bitacora) parte del ultimo estado.
+        const locked = await tx.$queryRaw<Array<{ id: string }>>`
+          SELECT id FROM projects WHERE id = ${projectId} FOR UPDATE
+        `;
+        if (locked.length === 0) return null;
+
+        const current = await tx.project.findUniqueOrThrow({ where: { id: projectId } });
+        const changes = diff(current);
+
+        const project = await tx.project.update({
+          where: { id: projectId },
+          data,
+        });
+
+        if (changes.length > 0) {
+          await tx.activityLog.createMany({
+            data: changes.map((change) => ({
+              action: 'PROJECT_UPDATED' as const,
+              projectId,
+              actorId,
+              ...change,
+            })),
+          });
+        }
+
+        return project;
+      };
+
+      // Igual que addMemberWithActivity: si `db` ya es un cliente
+      // transaccional no se puede abrir otra transaccion.
+      if (!('$transaction' in db)) return run(db);
+
+      return db.$transaction((tx) => run(tx));
+    },
+
+    // MIR-10: Cambiar el rol de un miembro
     async changeMemberRoleWithActivity(projectId, userId, actorId, newRole) {
       if (!('$transaction' in db)) {
         throw new Error('Se requiere una transaccion para cambiar roles');
@@ -230,7 +301,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
           }
 
-          // Proteger al ultimo OWNER del proyecto.
+          // Solo se protege al ultimo OWNER del proyecto.
           if (member.role === 'OWNER' && newRole !== 'OWNER') {
             const ownerCount = await tx.projectMember.count({
               where: {
@@ -281,7 +352,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       );
     },
 
-    // MIR-10: Quitar miembro del proyecto.
+    // MIR-10: Quitar miembro del proyecto
     async removeMemberWithActivity(projectId, userId, actorId) {
       if (!('$transaction' in db)) {
         throw new Error('Se requiere una transaccion para quitar miembros');
@@ -302,7 +373,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
             throw new NotFoundError('Miembro', 'MEMBER_NOT_FOUND');
           }
 
-          // Proteger al ultimo OWNER del proyecto.
+          // Solo se protege al ultimo OWNER del proyecto.
           if (member.role === 'OWNER') {
             const ownerCount = await tx.projectMember.count({
               where: {
@@ -354,42 +425,22 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       );
     },
 
-    // MIR-23: Calcular estadisticas y consultar actividad reciente.
+    // MIR-23: Conteos y actividad reciente del proyecto.
     async getProjectSummary(projectId) {
-      const [statusGroups, typeGroups, priorityGroups, recentActivity] = await Promise.all([
-        db.workItem.groupBy({
-          by: ['status'],
-          where: { projectId },
-          _count: { _all: true },
-        }),
-
-        db.workItem.groupBy({
-          by: ['type'],
-          where: { projectId },
-          _count: { _all: true },
-        }),
-
-        db.workItem.groupBy({
-          by: ['priority'],
-          where: { projectId },
-          _count: { _all: true },
-        }),
-
+      const [statusGroups, typeGroups, priorityGroups, activities] = await Promise.all([
+        db.workItem.groupBy({ by: ['status'], where: { projectId }, _count: { _all: true } }),
+        db.workItem.groupBy({ by: ['type'], where: { projectId }, _count: { _all: true } }),
+        db.workItem.groupBy({ by: ['priority'], where: { projectId }, _count: { _all: true } }),
         db.activityLog.findMany({
           where: { projectId },
+          // El id desempata actividades creadas en el mismo milisegundo.
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          take: 10,
-          include: {
-            actor: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
+          take: RECENT_ACTIVITY_LIMIT,
+          include: { actor: { select: { id: true, name: true } } },
         }),
       ]);
 
+      // Partir de ceros: un proyecto vacio responde todas las claves.
       const byStatus: Record<WorkItemStatus, number> = {
         BACKLOG: 0,
         TODO: 0,
@@ -397,14 +448,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         IN_REVIEW: 0,
         DONE: 0,
       };
-
-      const byType: Record<WorkItemType, number> = {
-        EPIC: 0,
-        STORY: 0,
-        TASK: 0,
-        BUG: 0,
-      };
-
+      const byType: Record<WorkItemType, number> = { EPIC: 0, STORY: 0, TASK: 0, BUG: 0 };
       const byPriority: Record<WorkItemPriority, number> = {
         LOW: 0,
         MEDIUM: 0,
@@ -412,17 +456,39 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         CRITICAL: 0,
       };
 
-      for (const group of statusGroups) {
-        byStatus[group.status] = group._count._all;
+      for (const group of statusGroups) byStatus[group.status] = group._count._all;
+      for (const group of typeGroups) byType[group.type] = group._count._all;
+      for (const group of priorityGroups) byPriority[group.priority] = group._count._all;
+
+      // La bitacora guarda ids de usuario en algunos campos; se traducen a
+      // nombres en UNA consulta para que la UI nunca muestre un id crudo.
+      const userIds = new Set<string>();
+      for (const activity of activities) {
+        if (activity.field && USER_ID_FIELDS.has(activity.field)) {
+          if (activity.fromValue) userIds.add(activity.fromValue);
+          if (activity.toValue) userIds.add(activity.toValue);
+        }
       }
 
-      for (const group of typeGroups) {
-        byType[group.type] = group._count._all;
-      }
+      const users =
+        userIds.size > 0
+          ? await db.user.findMany({
+              where: { id: { in: [...userIds] } },
+              select: { id: true, name: true },
+            })
+          : [];
+      const nameById = new Map(users.map((user) => [user.id, user.name]));
+      const toName = (value: string | null) => (value ? (nameById.get(value) ?? null) : null);
 
-      for (const group of priorityGroups) {
-        byPriority[group.priority] = group._count._all;
-      }
+      const recentActivity = activities.map((activity) =>
+        activity.field && USER_ID_FIELDS.has(activity.field)
+          ? {
+              ...activity,
+              fromValue: toName(activity.fromValue),
+              toValue: toName(activity.toValue),
+            }
+          : activity,
+      );
 
       return {
         total: statusGroups.reduce((sum, group) => sum + group._count._all, 0),

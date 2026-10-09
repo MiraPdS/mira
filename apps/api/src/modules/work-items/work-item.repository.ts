@@ -68,6 +68,14 @@ export interface DeleteWorkItemData {
   reference: string;
 }
 
+export interface ChangeStatusData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  fromStatus: WorkItemStatus;
+  toStatus: WorkItemStatus;
+}
+
 export interface ListWorkItemsData extends Pick<
   WorkItemFilters,
   'q' | 'type' | 'status' | 'priority' | 'assigneeId'
@@ -96,6 +104,8 @@ export interface WorkItemRepository {
   createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
   updateAtomically(data: UpdateWorkItemData): Promise<WorkItemForDto>;
   deleteAtomically(data: DeleteWorkItemData): Promise<void>;
+  /** Cambia el estado y registra ITEM_STATUS_CHANGED como una sola unidad. */
+  changeStatusAtomically(data: ChangeStatusData): Promise<WorkItemForDto>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
   /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
   listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
@@ -232,6 +242,31 @@ async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<vo
   await db.workItem.delete({ where: { id: data.workItemId, projectId: data.projectId } });
 }
 
+async function changeStatusInTransaction(db: Db, data: ChangeStatusData): Promise<WorkItemForDto> {
+  const workItem = await db.workItem.update({
+    where: { id: data.workItemId, projectId: data.projectId },
+    data: { status: data.toStatus },
+    include: {
+      assignee: usersForDto,
+      createdBy: usersForDto,
+    },
+  });
+
+  await db.activityLog.create({
+    data: {
+      action: 'ITEM_STATUS_CHANGED',
+      projectId: data.projectId,
+      workItemId: data.workItemId,
+      actorId: data.actorId,
+      field: 'status',
+      fromValue: data.fromStatus,
+      toValue: data.toStatus,
+    },
+  });
+
+  return workItem;
+}
+
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
     async withTransaction(operation) {
@@ -290,6 +325,11 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
     async deleteAtomically(data) {
       if (!hasTransaction(db)) return deleteInTransaction(db, data);
       return db.$transaction((tx) => deleteInTransaction(tx, data));
+    },
+
+    async changeStatusAtomically(data) {
+      if (!hasTransaction(db)) return changeStatusInTransaction(db, data);
+      return db.$transaction((tx) => changeStatusInTransaction(tx, data));
     },
 
     async listByProject(data) {

@@ -1,19 +1,18 @@
 import type {
   AddMemberInput,
-  ActivityAction,
+  CreateProjectInput,
   ListProjectsResponse,
   ProjectDto,
   ProjectMemberDto,
-  WorkItemPriority,
-  WorkItemStatus,
-  WorkItemType,
+  ProjectResponse,
+  ProjectSummaryDto,
+  ProjectSummaryResponse,
+  UpdateProjectInput,
 } from '@mira/shared';
-
 import { api } from '@/lib/api-client';
 
 export type ProjectMemberRole = 'OWNER' | 'MEMBER' | 'VIEWER';
 
-// MIR-9: Respuesta al agregar un miembro.
 interface AddMemberResponse {
   member: {
     id: string;
@@ -24,7 +23,6 @@ interface AddMemberResponse {
   };
 }
 
-// MIR-9: Respuesta del listado de miembros.
 interface GetMembersResponse {
   members: (ProjectMemberDto & {
     userId: string;
@@ -32,7 +30,6 @@ interface GetMembersResponse {
   })[];
 }
 
-// MIR-10: Respuesta al cambiar el rol de un miembro.
 interface ChangeMemberRoleResponse {
   member: {
     id: string;
@@ -43,61 +40,45 @@ interface ChangeMemberRoleResponse {
   };
 }
 
-// MIR-23: Actividad reciente del proyecto.
-export interface ProjectActivity {
-  id: string;
-  action: ActivityAction;
-  workItemId: string | null;
-  actor: {
-    id: string;
-    name: string;
-  };
-  field: string | null;
-  fromValue: string | null;
-  toValue: string | null;
-  createdAt: string;
-}
-
-// MIR-23: Datos del panel de resumen.
-export interface ProjectSummary {
-  total: number;
-  byStatus: Record<WorkItemStatus, number>;
-  byType: Record<WorkItemType, number>;
-  byPriority: Record<WorkItemPriority, number>;
-  recentActivity: ProjectActivity[];
-}
-
-// MIR-23: Respuesta de la API del resumen.
-interface GetProjectSummaryResponse {
-  summary: ProjectSummary;
-}
-
 export const projectApi = {
-  // MIR-6: Listar proyectos del usuario.
+  /** Proyectos donde el usuario autenticado es miembro, con su rol en cada uno. */
   list: async (): Promise<ProjectDto[]> => {
     const { projects } = await api.get<ListProjectsResponse>('/projects');
     return projects;
   },
 
-  // MIR-9: Agregar miembro al proyecto.
+  /** Crea un proyecto; quien lo crea queda como OWNER. */
+  create: async (input: CreateProjectInput): Promise<ProjectDto> => {
+    const { project } = await api.post<ProjectResponse>('/projects', input);
+    return project;
+  },
+
+  /** Un proyecto con el rol del usuario autenticado. 403 si no es miembro. */
+  get: async (projectId: string): Promise<ProjectDto> => {
+    const { project } = await api.get<ProjectResponse>(`/projects/${projectId}`);
+    return project;
+  },
+
+  /** Edita nombre y/o descripcion. Solo el OWNER; 403 para el resto. */
+  update: async (projectId: string, input: UpdateProjectInput): Promise<ProjectDto> => {
+    const { project } = await api.patch<ProjectResponse>(`/projects/${projectId}`, input);
+    return project;
+  },
+
   addMember: (projectId: string, input: AddMemberInput) =>
     api.post<AddMemberResponse>(`/projects/${projectId}/members`, input),
 
-  // MIR-9: Obtener miembros del proyecto.
   getMembers: (projectId: string) => api.get<GetMembersResponse>(`/projects/${projectId}/members`),
 
-  // MIR-10: Cambiar rol de un miembro.
   changeMemberRole: (projectId: string, userId: string, role: ProjectMemberRole) =>
     api.patch<ChangeMemberRoleResponse>(`/projects/${projectId}/members/${userId}/role`, { role }),
 
-  // MIR-10: Quitar miembro del proyecto.
   removeMember: (projectId: string, userId: string) =>
     api.delete<void>(`/projects/${projectId}/members/${userId}`),
 
-  // MIR-23: Obtener estadisticas y actividad reciente.
-  getSummary: async (projectId: string): Promise<ProjectSummary> => {
-    const { summary } = await api.get<GetProjectSummaryResponse>(`/projects/${projectId}/summary`);
-
+  /** MIR-23: conteos del proyecto y su actividad reciente. */
+  getSummary: async (projectId: string): Promise<ProjectSummaryDto> => {
+    const { summary } = await api.get<ProjectSummaryResponse>(`/projects/${projectId}/summary`);
     return summary;
   },
 };

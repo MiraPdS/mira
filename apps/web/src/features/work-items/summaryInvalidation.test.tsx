@@ -7,6 +7,7 @@ import type { WorkItemDto } from '@mira/shared';
 
 import { server } from '@/test/msw/server';
 import { projectKeys } from '@/features/projects/useProjects';
+import { useMoveWorkItem } from '@/features/board/useBoard';
 import { useCreateWorkItem, useUpdateWorkItem, useDeleteWorkItem } from './useWorkItems';
 
 const BASE_URL = 'http://localhost:3000/api';
@@ -149,6 +150,51 @@ describe('Invalidacion del resumen - MIR-23', () => {
 
     await act(async () => {
       await result.current.mutateAsync();
+    });
+
+    await comprobarInvalidacion(queryClient);
+  });
+
+  it('invalida el resumen al mover una tarjeta en el tablero (MIR-19/MIR-20)', async () => {
+    const queryClient = prepararCache();
+
+    server.use(
+      http.patch(`${BASE_URL}/projects/${PROJECT_ID}/work-items/${WORK_ITEM_ID}/status`, () =>
+        HttpResponse.json({ item: { ...itemDePrueba(), status: 'IN_PROGRESS' } }),
+      ),
+    );
+
+    const { result } = renderHook(() => useMoveWorkItem(PROJECT_ID), {
+      wrapper: wrapper(queryClient),
+    });
+
+    await act(async () => {
+      await result.current.mutateAsync({ item: itemDePrueba(), status: 'IN_PROGRESS' });
+    });
+
+    await comprobarInvalidacion(queryClient);
+  });
+
+  it('invalida el resumen aunque el movimiento falle (la tarjeta vuelve y el panel se refresca)', async () => {
+    const queryClient = prepararCache();
+
+    server.use(
+      http.patch(`${BASE_URL}/projects/${PROJECT_ID}/work-items/${WORK_ITEM_ID}/status`, () =>
+        HttpResponse.json(
+          { error: { code: 'INTERNAL', message: 'Error inesperado' } },
+          { status: 500 },
+        ),
+      ),
+    );
+
+    const { result } = renderHook(() => useMoveWorkItem(PROJECT_ID), {
+      wrapper: wrapper(queryClient),
+    });
+
+    await act(async () => {
+      await result.current
+        .mutateAsync({ item: itemDePrueba(), status: 'IN_PROGRESS' })
+        .catch(() => undefined);
     });
 
     await comprobarInvalidacion(queryClient);

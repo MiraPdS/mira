@@ -51,10 +51,15 @@ export const updateWorkItemSchema = z
   .strict();
 export type UpdateWorkItemInput = z.infer<typeof updateWorkItemSchema>;
 
-/** Endpoint dedicado para mover una tarjeta en el tablero. */
-export const changeStatusSchema = z.object({
-  status: z.enum(WORK_ITEM_STATUSES),
-});
+/**
+ * Endpoint dedicado para mover una tarjeta en el tablero (MIR-19).
+ * Estricto: mover no es editar, asi que cualquier otro campo se rechaza.
+ */
+export const changeStatusSchema = z
+  .object({
+    status: z.enum(WORK_ITEM_STATUSES),
+  })
+  .strict();
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
 
 /** Busqueda y filtros del backlog (requisito explicito del tema). */

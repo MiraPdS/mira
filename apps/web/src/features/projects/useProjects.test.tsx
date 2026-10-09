@@ -2,7 +2,13 @@ import { describe, expect, it, vi } from 'vitest';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
-import { useAddMember, useChangeMemberRole, useRemoveMember, projectKeys } from './useProjects';
+import {
+  useAddMember,
+  useChangeMemberRole,
+  useRemoveMember,
+  useUpdateProject,
+  projectKeys,
+} from './useProjects';
 import { projectApi } from './project.api';
 
 vi.mock('./project.api', () => ({
@@ -10,6 +16,7 @@ vi.mock('./project.api', () => ({
     addMember: vi.fn(),
     changeMemberRole: vi.fn(),
     removeMember: vi.fn(),
+    update: vi.fn(),
   },
 }));
 
@@ -155,5 +162,38 @@ describe('Invalidacion de cache del resumen - MIR-23', () => {
     expect(queryClient.getQueryState(otherSummaryKey)?.isInvalidated).toBe(false);
     expect(queryClient.getQueryState(otherBacklogKey)?.isInvalidated).toBe(false);
     expect(queryClient.getQueryState(otherDetailKey)?.isInvalidated).toBe(false);
+  });
+});
+
+describe('useUpdateProject - MIR-7 + MIR-23', () => {
+  it('invalida el resumen: la edicion deja una actividad PROJECT_UPDATED', async () => {
+    const projectId = 'project_1';
+    const queryClient = createTestClient();
+
+    queryClient.setQueryData(projectKeys.summary(projectId), { total: 0 });
+    queryClient.setQueryData(projectKeys.summary('project_2'), { total: 5 });
+
+    vi.mocked(projectApi.update).mockResolvedValue({
+      id: projectId,
+      name: 'Mira 2',
+      key: 'MIR',
+      description: null,
+      createdAt: '2026-10-08T12:00:00.000Z',
+      updatedAt: '2026-10-08T12:00:00.000Z',
+      myRole: 'OWNER',
+    });
+
+    const { result } = renderHook(() => useUpdateProject(projectId), {
+      wrapper: createWrapper(queryClient),
+    });
+
+    result.current.mutate({ name: 'Mira 2' });
+
+    await waitFor(() => {
+      expect(result.current.isSuccess).toBe(true);
+    });
+
+    expect(queryClient.getQueryState(projectKeys.summary(projectId))?.isInvalidated).toBe(true);
+    expect(queryClient.getQueryState(projectKeys.summary('project_2'))?.isInvalidated).toBe(false);
   });
 });
