@@ -26,6 +26,15 @@ Detalle:
 - [ ] La rama sigue la convencion `<tipo>/MIR-<n>-<descripcion-kebab-case>`
 - [ ] No se agregaron secretos, `.env` reales ni datos personales
 - [ ] Documentacion o Wiki actualizada si el cambio lo amerita
+- [ ] Si cierra una historia: su fila en `docs/wiki/Proyecto-Requisitos-y-trazabilidad.md` (PR y pruebas)
+
+## Uso de IA
+
+<!-- Borra esta seccion si no hubo apoyo sustancial de IA. -->
+
+- Herramienta:
+- Que se genero o modifico:
+- Como se valido:
 
 ## Evidencia
 

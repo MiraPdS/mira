@@ -519,10 +519,18 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 **Tipo:** Documentación · **Prioridad:** High · **Estimación:** 5
 
 - Home como índice con enlaces a todas las páginas.
-- Páginas: Resumen, Tecnologías y Stack, Arquitectura, Estrategia de Pruebas,
-  Supuestos y Dependencias, Evidencias.
+- Páginas de `deliverables/entregas.md` §4.7: `Proyecto - Resumen y alcance`,
+  `Proyecto - Requisitos y trazabilidad`, `Proyecto - Arquitectura y
+  tecnologías`, `Proyecto - Estrategia de pruebas`, `Proyecto - Supuestos y
+  dependencias`, `Proyecto - Evidencias`, `Entrega 1`, `Entrega 2`, `Entrega 3`.
 - Página "Entrega 1" con H1 exactamente `Entrega 1`.
-- Contenido base disponible en `docs/`.
+- Contenido fuente en `docs/wiki/`, publicado a la Wiki por
+  `.github/workflows/wiki.yml` en cada push a `develop` (espejo exacto). La
+  Wiki no se edita en GitHub.
+- CI verifica en cada PR: sin `[[wikilinks]]`, sin enlaces rotos y el H1 de
+  cada entrega; en el PR de release a `main`, que no queden secciones ⏳.
+- Las secciones que dependen del release (resultados, evidencias, uso de IA)
+  quedan marcadas ⏳ y se completan en MIR-28.
 
 ---
 
@@ -548,6 +556,10 @@ hay asa. Las pruebas (`KanbanBoard.dnd.test.tsx`) simulan el layout con
 - Tag `v1.0-entrega1` sobre un commit estable de `main`.
 - GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y
   limitaciones conocidas.
+- Evidencia congelada con `npm run wiki:evidencias -- entrega-1` sobre el
+  commit del release, enlazada desde la Wiki.
+- Páginas de la Wiki sin secciones ⏳ (salvo Entrega 2 y 3): lo exige el check
+  "Verificar Wiki" del PR de release.
 
 ---
 

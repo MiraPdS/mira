@@ -14,7 +14,7 @@ Santa María, segundo semestre 2026.
 
 | Recurso | Enlace |
 | --- | --- |
-| Wiki del proyecto | _(pendiente)_ |
+| Wiki del proyecto | https://github.com/MiraPdS/mira/wiki |
 | Cápsula de video — Entrega 1 | _(pendiente)_ |
 | Tablero Jira | https://bolgunn.atlassian.net/jira/software/projects/MIR/boards |
 | Release `v1.0-entrega1` | _(pendiente)_ |
@@ -67,7 +67,7 @@ mira/
 │           └── test/        setup, handlers de MSW, helper de render
 ├── packages/
 │   └── shared/              esquemas Zod, tipos y permisos
-└── docs/                    backlog, decisiones y estrategia de pruebas
+└── docs/                    backlog, decisiones, estrategia de pruebas y fuente de la Wiki (docs/wiki/)
 ```
 
 Cada módulo del backend sigue la misma cadena:
