@@ -171,26 +171,30 @@ export function createWorkItemService(repo: WorkItemRepository) {
       workItemId: string,
       input: ChangeStatusInput,
     ): Promise<WorkItemDto> {
-      const role = await repo.findMemberRole(projectId, actorId);
-      // Misma politica de ocultacion que el detalle: el no miembro ve 404.
-      if (role === null) throw new NotFoundError('Elemento de trabajo');
-      if (!can(role, 'work-item:change-status')) throw new ForbiddenError();
+      // Lectura y escritura en la misma transaccion serializable: un movimiento
+      // concurrente obliga a reintentar con el estado vigente como fromValue.
+      return repo.withTransaction(async (transactionRepo) => {
+        const role = await transactionRepo.findMemberRole(projectId, actorId);
+        // Misma politica de ocultacion que el detalle: el no miembro ve 404.
+        if (role === null) throw new NotFoundError('Elemento de trabajo');
+        if (!can(role, 'work-item:change-status')) throw new ForbiddenError();
 
-      const workItem = await repo.findByIdInProject(projectId, workItemId);
-      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+        const workItem = await transactionRepo.findByIdInProject(projectId, workItemId);
+        if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
-      // Mover al mismo estado no es un cambio: no se escribe ni se registra
-      // historial, asi un doble envio no ensucia la trazabilidad.
-      if (workItem.status === input.status) return toWorkItemDto(workItem);
+        // Mover al mismo estado no es un cambio: no se escribe ni se registra
+        // historial, asi un doble envio no ensucia la trazabilidad.
+        if (workItem.status === input.status) return toWorkItemDto(workItem);
 
-      const updated = await repo.changeStatusAtomically({
-        projectId,
-        workItemId,
-        actorId,
-        fromStatus: workItem.status,
-        toStatus: input.status,
+        const updated = await transactionRepo.changeStatusAtomically({
+          projectId,
+          workItemId,
+          actorId,
+          fromStatus: workItem.status,
+          toStatus: input.status,
+        });
+        return toWorkItemDto(updated);
       });
-      return toWorkItemDto(updated);
     },
 
     async getById(projectId: string, actorId: string, workItemId: string): Promise<WorkItemDto> {

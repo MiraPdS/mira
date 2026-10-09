@@ -518,6 +518,22 @@ describe('workItemService', () => {
       },
     );
 
+    it('lee el estado vigente y mueve mediante el repository de la misma transaccion', async () => {
+      const transactionRepo = mock<WorkItemRepository>();
+      transactionRepo.findMemberRole.mockResolvedValue('MEMBER');
+      transactionRepo.findByIdInProject.mockResolvedValue(itemDePrueba({ status: 'IN_REVIEW' }));
+      transactionRepo.changeStatusAtomically.mockResolvedValue(itemDePrueba({ status: 'DONE' }));
+      repo.withTransaction.mockImplementation(async (operation) => operation(transactionRepo));
+
+      await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' });
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
+      expect(transactionRepo.changeStatusAtomically).toHaveBeenCalledWith(
+        expect.objectContaining({ fromStatus: 'IN_REVIEW', toStatus: 'DONE' }),
+      );
+    });
+
     it('rechaza VIEWER con ForbiddenError sin buscar ni mover el item', async () => {
       repo.findMemberRole.mockResolvedValue('VIEWER');
 
