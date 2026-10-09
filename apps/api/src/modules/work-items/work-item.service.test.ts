@@ -688,6 +688,76 @@ describe('workItemService', () => {
     });
   });
 
+  describe('activity', () => {
+    const entrada = {
+      id: 'activity_1',
+      action: 'ITEM_STATUS_CHANGED' as const,
+      projectId: PROJECT_ID,
+      workItemId: 'item_1',
+      actorId: ACTOR_ID,
+      actor: { id: ACTOR_ID, name: 'Ada Lovelace' },
+      field: 'status',
+      fromValue: 'TODO',
+      toValue: 'IN_PROGRESS',
+      createdAt: new Date('2026-02-02T09:00:00.000Z'),
+    };
+
+    it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)('%s puede ver el historial', async (role) => {
+      repo.findMemberRole.mockResolvedValue(role);
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.listActivity.mockResolvedValue({ activities: [entrada], truncated: false });
+
+      await expect(service.activity(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toEqual({
+        data: [
+          {
+            id: 'activity_1',
+            action: 'ITEM_STATUS_CHANGED',
+            workItemId: 'item_1',
+            actor: { id: ACTOR_ID, name: 'Ada Lovelace' },
+            field: 'status',
+            fromValue: 'TODO',
+            toValue: 'IN_PROGRESS',
+            createdAt: '2026-02-02T09:00:00.000Z',
+          },
+        ],
+        truncated: false,
+      });
+      expect(repo.listActivity).toHaveBeenCalledWith(PROJECT_ID, 'item_1');
+    });
+
+    it('propaga el indicador de truncado', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.findByIdInProject.mockResolvedValue(itemDePrueba());
+      repo.listActivity.mockResolvedValue({ activities: [], truncated: true });
+
+      await expect(service.activity(PROJECT_ID, ACTOR_ID, 'item_1')).resolves.toMatchObject({
+        truncated: true,
+      });
+    });
+
+    it('oculta al no miembro con NotFoundError sin leer el historial', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.activity(PROJECT_ID, ACTOR_ID, 'item_1')).rejects.toBeInstanceOf(
+        NotFoundError,
+      );
+
+      expect(repo.findByIdInProject).not.toHaveBeenCalled();
+      expect(repo.listActivity).not.toHaveBeenCalled();
+    });
+
+    it('responde NotFoundError si el item no existe en el proyecto', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+      repo.findByIdInProject.mockResolvedValue(null);
+
+      await expect(
+        service.activity(PROJECT_ID, ACTOR_ID, 'item_inexistente'),
+      ).rejects.toBeInstanceOf(NotFoundError);
+
+      expect(repo.listActivity).not.toHaveBeenCalled();
+    });
+  });
+
   describe('update', () => {
     const WORK_ITEM_ID = 'item_1';
 

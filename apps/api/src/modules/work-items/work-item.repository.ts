@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import {
+  ACTIVITY_LIST_LIMIT,
   BOARD_STATUSES,
   type CreateWorkItemInput,
   type ProjectRole,
@@ -9,6 +10,11 @@ import {
   type WorkItemStatus,
   type WorkItemType,
 } from '@mira/shared';
+import {
+  activityActorInclude,
+  resolveActivityUserNames,
+  type ActivityWithActor,
+} from '../../lib/activity.js';
 import { findMemberRole, hasTransaction, prisma, type Db } from '../../lib/prisma.js';
 
 /** Datos de usuario que necesita la representacion publica de un item. */
@@ -90,6 +96,13 @@ export interface ListWorkItemsResult {
   total: number;
 }
 
+/** MIR-22: entradas mas recientes del historial de un item. */
+export interface WorkItemActivityResult {
+  activities: ActivityWithActor[];
+  /** Hay mas entradas que `limit`; solo se devuelven las mas recientes. */
+  truncated: boolean;
+}
+
 /**
  * Puerto de persistencia del modulo de elementos de trabajo.
  *
@@ -109,6 +122,12 @@ export interface WorkItemRepository {
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
   /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
   listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
+  /** MIR-22: historial del item, del mas reciente al mas antiguo. */
+  listActivity(
+    projectId: string,
+    workItemId: string,
+    limit?: number,
+  ): Promise<WorkItemActivityResult>;
 }
 
 const usersForDto = {
@@ -355,6 +374,24 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
           assignee: usersForDto,
         },
       });
+    },
+
+    async listActivity(projectId, workItemId, limit = ACTIVITY_LIST_LIMIT) {
+      const rows = await db.activityLog.findMany({
+        // Usa el indice (workItemId, createdAt) del esquema.
+        where: { projectId, workItemId },
+        // El id desempata las filas ITEM_UPDATED de un mismo PATCH, que
+        // comparten timestamp.
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        // Una fila de mas basta para saber si el historial se corto.
+        take: limit + 1,
+        include: activityActorInclude,
+      });
+
+      return {
+        activities: await resolveActivityUserNames(db, rows.slice(0, limit)),
+        truncated: rows.length > limit,
+      };
     },
   };
 }
