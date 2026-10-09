@@ -144,7 +144,7 @@ describe('ProjectSummaryPage - MIR-23', () => {
   });
 
   // MIR-23: Verifica que la actividad muestre el detalle del cambio.
-  it('muestra el campo modificado y sus valores anteriores y nuevos', async () => {
+  it('describe el cambio de estado en lenguaje natural', async () => {
     server.use(
       http.get(ENDPOINT, () =>
         HttpResponse.json({
@@ -175,9 +175,8 @@ describe('ProjectSummaryPage - MIR-23', () => {
 
     expect(await screen.findByText('Ada Lovelace')).toBeInTheDocument();
 
-    expect(screen.getByText('cambió el estado de un ítem')).toBeInTheDocument();
-
-    expect(screen.getByText('Estado: Por hacer → En progreso')).toBeInTheDocument();
+    expect(screen.getByText('movió un ítem de Por hacer a En progreso')).toBeInTheDocument();
+    expect(screen.queryByText(/IN_PROGRESS|status/)).not.toBeInTheDocument();
   });
 
   function conActividad(actividad: Record<string, unknown>) {
@@ -213,7 +212,9 @@ describe('ProjectSummaryPage - MIR-23', () => {
 
     renderPagina();
 
-    expect(await screen.findByText('Rol: Miembro → Observador')).toBeInTheDocument();
+    expect(
+      await screen.findByText('cambió el rol de un miembro de Miembro a Observador'),
+    ).toBeInTheDocument();
     expect(screen.queryByText(/VIEWER/)).not.toBeInTheDocument();
   });
 
@@ -222,7 +223,7 @@ describe('ProjectSummaryPage - MIR-23', () => {
 
     renderPagina();
 
-    expect(await screen.findByText('Miembro: Grace Hopper')).toBeInTheDocument();
+    expect(await screen.findByText('agregó a Grace Hopper al proyecto')).toBeInTheDocument();
     expect(screen.queryByText(/member:/)).not.toBeInTheDocument();
   });
 
@@ -237,7 +238,7 @@ describe('ProjectSummaryPage - MIR-23', () => {
 
     renderPagina();
 
-    expect(await screen.findByText('Responsable: Ada Lovelace → Alan Turing')).toBeInTheDocument();
+    expect(await screen.findByText('asignó un ítem a Alan Turing')).toBeInTheDocument();
   });
 
   it('describe la edicion del proyecto (MIR-7)', async () => {
@@ -250,8 +251,9 @@ describe('ProjectSummaryPage - MIR-23', () => {
 
     renderPagina();
 
-    expect(await screen.findByText('actualizó el proyecto')).toBeInTheDocument();
-    expect(screen.getByText('Nombre: Mira → Mira 2')).toBeInTheDocument();
+    expect(
+      await screen.findByText('cambió el nombre del proyecto de «Mira» a «Mira 2»'),
+    ).toBeInTheDocument();
   });
 
   it('enlaza al tablero y a los miembros del proyecto', async () => {
