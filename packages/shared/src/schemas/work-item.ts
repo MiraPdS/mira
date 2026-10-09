@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  WORK_ITEM_PRIORITIES,
-  WORK_ITEM_STATUSES,
-  WORK_ITEM_TYPES,
-  ACTIVITY_ACTIONS,
-} from '../domain.js';
+import { WORK_ITEM_PRIORITIES, WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from '../domain.js';
 import { publicUserSchema } from './auth.js';
 import { paginationQuerySchema } from './common.js';
 
@@ -118,15 +113,3 @@ export const commentSchema = z.object({
   createdAt: z.string().datetime(),
 });
 export type CommentDto = z.infer<typeof commentSchema>;
-
-export const activityEntrySchema = z.object({
-  id: z.string(),
-  action: z.enum(ACTIVITY_ACTIONS),
-  actor: publicUserSchema,
-  /** Campo modificado, cuando aplica (por ejemplo "status"). */
-  field: z.string().nullable(),
-  fromValue: z.string().nullable(),
-  toValue: z.string().nullable(),
-  createdAt: z.string().datetime(),
-});
-export type ActivityEntryDto = z.infer<typeof activityEntrySchema>;

@@ -1,11 +1,11 @@
 import { z } from 'zod';
 import {
-  ACTIVITY_ACTIONS,
   PROJECT_ROLES,
   WORK_ITEM_PRIORITIES,
   WORK_ITEM_STATUSES,
   WORK_ITEM_TYPES,
 } from '../domain.js';
+import { activitySchema, type ActivityDto } from './activity.js';
 import { emailSchema, publicUserSchema } from './auth.js';
 
 /** Clave corta del proyecto: prefijo de las tarjetas, estilo MIR-12. */
@@ -106,21 +106,8 @@ function conteoPor<const T extends readonly [string, ...string[]]>(valores: T) {
 }
 
 /** MIR-23: una entrada de la actividad reciente del proyecto. */
-export const projectActivitySchema = z.object({
-  id: z.string(),
-  action: z.enum(ACTIVITY_ACTIONS),
-  workItemId: z.string().nullable(),
-  actor: z.object({ id: z.string(), name: z.string() }),
-  field: z.string().nullable(),
-  /**
-   * Valores legibles: cuando el campo guarda un usuario (responsable o
-   * miembro), el backend ya los entrega como nombre, nunca como id.
-   */
-  fromValue: z.string().nullable(),
-  toValue: z.string().nullable(),
-  createdAt: z.string().datetime(),
-});
-export type ProjectActivityDto = z.infer<typeof projectActivitySchema>;
+export const projectActivitySchema = activitySchema;
+export type ProjectActivityDto = ActivityDto;
 
 /** MIR-23: resumen del proyecto (conteos y actividad reciente). */
 export const projectSummarySchema = z.object({
