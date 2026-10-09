@@ -44,6 +44,22 @@ function renderPagina() {
 }
 
 describe('ProjectSummaryPage - MIR-23', () => {
+  it('enlaza al backlog antes del tablero y los miembros del proyecto', async () => {
+    server.use(http.get(ENDPOINT, () => HttpResponse.json({ summary: emptySummary })));
+    renderPagina();
+
+    const navigation = await screen.findByRole('navigation', { name: 'Secciones del proyecto' });
+    const links = within(navigation).getAllByRole('link');
+    expect(links.map((link) => link.textContent)).toEqual([
+      'Ver backlog →',
+      'Ver tablero →',
+      'Ver miembros del proyecto →',
+    ]);
+    expect(links[0]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/backlog`);
+    expect(links[1]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/tablero`);
+    expect(links[2]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/miembros`);
+  });
+
   it('muestra los conteos por estado, tipo y prioridad', async () => {
     server.use(
       http.get(ENDPOINT, () =>

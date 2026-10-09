@@ -9,6 +9,7 @@ import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { CreateProjectPage } from '@/features/projects/CreateProjectPage';
 import { ProjectSettingsPage } from '@/features/projects/ProjectSettingsPage';
 import { ProjectSummaryPage } from '@/features/projects/ProjectSummaryPage';
+import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
   return (
@@ -67,6 +68,7 @@ export function App() {
         <Route path="/proyectos" element={<ProjectsPage />} />
         <Route path="/proyectos/nuevo" element={<CreateProjectPage />} />
         <Route path="/proyectos/:projectId" element={<ProjectSummaryPage />} />
+        <Route path="/proyectos/:projectId/backlog" element={<ProjectBacklogPage />} />
 
         {/* MIR-7: ver y editar el proyecto */}
         <Route path="/proyectos/:projectId/configuracion" element={<ProjectSettingsPage />} />
