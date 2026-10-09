@@ -52,6 +52,33 @@ describe('App', () => {
     expect(screen.getByLabelText(/contrasena/i)).toBeInTheDocument();
   });
 
+  it('en /proyectos/:projectId/backlog renderiza el backlog dentro del layout protegido', async () => {
+    let proyectoSolicitado: string | undefined;
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/work-items`, ({ params }) => {
+        proyectoSolicitado = String(params.projectId);
+        return HttpResponse.json({ data: [], total: 0, page: 1, pageSize: 20 });
+      }),
+      http.get(`${BASE_URL}/projects/:projectId/members`, () => HttpResponse.json({ members: [] })),
+    );
+
+    renderConProviders(<App />, { route: '/proyectos/project_123/backlog' });
+
+    expect(await screen.findByText('Aun no hay elementos en este proyecto.')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Backlog', level: 1 })).toBeInTheDocument();
+    expect(proyectoSolicitado).toBe('project_123');
+    expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ Crear elemento' })).toBeInTheDocument();
+  });
+
+  it('sin sesion, la ruta del backlog redirige a login', async () => {
+    renderConProviders(<App />, { route: '/proyectos/project_123/backlog' });
+
+    expect(await screen.findByRole('heading', { name: /iniciar sesion/i })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Backlog' })).not.toBeInTheDocument();
+  });
+
   it('en /proyectos/:projectId/tablero muestra el tablero de ese proyecto', async () => {
     let proyectoSolicitado: string | undefined;
     conCookieDeSesion();
