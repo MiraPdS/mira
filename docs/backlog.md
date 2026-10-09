@@ -127,7 +127,7 @@ de rutas completo.
 > quiero crear un proyecto con nombre y clave
 > para empezar a organizar el trabajo de mi equipo.
 
-**Tipo:** Historia · **Prioridad:** Highest · **Estimación:** 8 (API 5 + pantalla web 3)
+**Tipo:** Historia · **Prioridad:** Highest · **Estimación:** 5
 
 **Criterios de aceptación**
 
@@ -168,7 +168,7 @@ Web:
 > quiero modificar su nombre y descripción
 > para mantener la información al día.
 
-**Tipo:** Historia · **Prioridad:** High · **Estimación:** 5
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 3
 
 **Criterios de aceptación**
 

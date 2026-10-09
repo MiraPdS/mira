@@ -156,6 +156,21 @@ describe('CreateProjectPage', () => {
     expect(navigateMock).not.toHaveBeenCalled();
   });
 
+  it('si la red falla, muestra el banner de conexion y conserva lo escrito', async () => {
+    server.use(http.post(`${BASE_URL}/projects`, () => HttpResponse.error()));
+    const { user } = renderConProviders(<CreateProjectPage />);
+
+    await completarYEnviar(user);
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      /no se pudo conectar con el servidor/i,
+    );
+    const { nombre, clave } = campos();
+    expect(nombre).toHaveValue('Mira');
+    expect(clave).toHaveValue('mir');
+    expect(navigateMock).not.toHaveBeenCalled();
+  });
+
   it('deshabilita el boton mientras se crea', async () => {
     server.use(
       http.post(`${BASE_URL}/projects`, async () => {
