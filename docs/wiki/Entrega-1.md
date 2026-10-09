@@ -37,7 +37,7 @@ video (MIR-29) se graba sobre el release desplegado, después del tag.
 Al verificar el release se encontró que el detalle de un elemento solo se
 abría desde el tablero (los elementos en BACKLOG no tenían cómo abrirse) y que
 el tablero no permitía crear. Se agregó **MIR-30**
-([#34](https://github.com/MiraPdS/mira/pull/34)) antes de etiquetar: crear
+([#35](https://github.com/MiraPdS/mira/pull/35)) antes de etiquetar: crear
 desde el tablero y abrir el detalle desde el backlog.
 
 ## Cómo ejecutar el sistema

@@ -51,7 +51,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-15 | Editar un elemento de trabajo | ✅ v1.0-entrega1 | [#9] | U [work-item.service] · I [work-item.integration] · C [WorkItemDetail] |
 | MIR-16 | Eliminar un elemento de trabajo | ✅ v1.0-entrega1 | [#14] | U [work-item.service] · I [work-item.integration] · C [WorkItemDetail] |
 | MIR-17 | Asignar un responsable | ✅ v1.0-entrega1 | [#27] | U [work-item.service] · I [work-item.assign.integration] · C [WorkItemDetail] |
-| MIR-30 | Crear desde el tablero y abrir el detalle desde el backlog | ✅ v1.0-entrega1 | [#34] | C [ProjectBoardPage], [ProjectBacklogPage], [App] |
+| MIR-30 | Crear desde el tablero y abrir el detalle desde el backlog | ✅ v1.0-entrega1 | [#35] | C [ProjectBoardPage], [ProjectBacklogPage], [App] |
 
 ## Épica 4 — Tablero Kanban
 
@@ -111,7 +111,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#29]: https://github.com/MiraPdS/mira/pull/29
 [#31]: https://github.com/MiraPdS/mira/pull/31
 [#32]: https://github.com/MiraPdS/mira/pull/32
-[#34]: https://github.com/MiraPdS/mira/pull/34
+[#35]: https://github.com/MiraPdS/mira/pull/35
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 

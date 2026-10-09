@@ -48,9 +48,17 @@ gh api repos/MiraPdS/mira/branches/main/protection
 }
 ```
 
-`enforce_admins: false`: un administrador del repositorio podría saltarse la
-regla. El equipo no lo hace; todo lo que llegó a `main` entró por el PR de
-release.
+`enforce_admins: false`: los administradores del repositorio pueden saltarse
+la regla, y en la Entrega 1 ocurrió dos veces:
+
+- El PR de release [#33](https://github.com/MiraPdS/mira/pull/33) se fusionó
+  sin una aprobación registrada (sus checks obligatorios estaban en verde).
+- Cuatro commits que solo tocan el `README.md` (datos del equipo) se empujaron
+  directo a `main` el 2026-10-09; se integraron de vuelta a `develop` en
+  [#35](https://github.com/MiraPdS/mira/pull/35).
+
+Pendiente para la Entrega 2: activar `enforce_admins` para que la regla
+aplique también a los administradores.
 
 ## Entrega 1
 
