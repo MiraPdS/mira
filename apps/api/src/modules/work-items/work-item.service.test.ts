@@ -375,6 +375,57 @@ describe('workItemService', () => {
     });
   });
 
+  describe('board', () => {
+    it.each(['OWNER', 'MEMBER', 'VIEWER'] as const)('%s puede ver el tablero', async (role) => {
+      const item = itemDePrueba();
+      repo.findMemberRole.mockResolvedValue(role);
+      repo.listBoardByProject.mockResolvedValue([item]);
+
+      const result = await service.board(PROJECT_ID, ACTOR_ID);
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.listBoardByProject).toHaveBeenCalledWith(PROJECT_ID);
+      expect(result).toEqual([toWorkItemDto(item)]);
+    });
+
+    it('rechaza a un usuario que no pertenece al proyecto sin consultar el tablero', async () => {
+      repo.findMemberRole.mockResolvedValue(null);
+
+      await expect(service.board(PROJECT_ID, ACTOR_ID)).rejects.toBeInstanceOf(ForbiddenError);
+      expect(repo.listBoardByProject).not.toHaveBeenCalled();
+    });
+
+    it('convierte cada item a DTO conservando el orden y el responsable', async () => {
+      const assignee = usuarioDePrueba({
+        id: 'user_2',
+        name: 'Grace Hopper',
+        email: 'grace@mira.dev',
+      });
+      const enProgreso = itemDePrueba({ id: 'item_2', status: 'IN_PROGRESS', assignee });
+      const hecho = itemDePrueba({ id: 'item_3', status: 'DONE' });
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.listBoardByProject.mockResolvedValue([enProgreso, hecho]);
+
+      const result = await service.board(PROJECT_ID, ACTOR_ID);
+
+      expect(result.map((item) => item.id)).toEqual(['item_2', 'item_3']);
+      expect(result[0]?.assignee).toEqual({
+        id: 'user_2',
+        name: 'Grace Hopper',
+        email: 'grace@mira.dev',
+        createdAt: '2026-01-01T00:00:00.000Z',
+      });
+      expect(result[1]?.assignee).toBeNull();
+    });
+
+    it('devuelve un arreglo vacio cuando no hay items en el tablero', async () => {
+      repo.findMemberRole.mockResolvedValue('VIEWER');
+      repo.listBoardByProject.mockResolvedValue([]);
+
+      await expect(service.board(PROJECT_ID, ACTOR_ID)).resolves.toEqual([]);
+    });
+  });
+
   describe('delete', () => {
     it.each(['OWNER', 'MEMBER'] as const)('%s puede eliminar el item', async (role) => {
       repo.findMemberRole.mockResolvedValue(role);

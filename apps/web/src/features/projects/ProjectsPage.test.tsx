@@ -55,6 +55,22 @@ describe('ProjectsPage', () => {
     expect(beta.getByText('Observador')).toBeInTheDocument();
   });
 
+  it('MIR-18: cada proyecto ofrece un acceso a su tablero, tambien para VIEWER', async () => {
+    conProyectos([ALFA, BETA]);
+    renderConProviders(<ProjectsPage />, { route: '/proyectos' });
+
+    const items = await screen.findAllByRole('listitem');
+
+    expect(within(items[0]!).getByRole('link', { name: 'Ver tablero de Alfa' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_alfa/tablero',
+    );
+    expect(within(items[1]!).getByRole('link', { name: 'Ver tablero de Beta' })).toHaveAttribute(
+      'href',
+      '/proyectos/p_beta/tablero',
+    );
+  });
+
   it('CA3: sin proyectos, muestra un estado vacio que invita a crear el primero', async () => {
     renderConProviders(<ProjectsPage />, { route: '/proyectos' });
 

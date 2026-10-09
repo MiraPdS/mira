@@ -101,6 +101,14 @@ function ProjectCard({ project }: { project: ProjectDto }) {
           <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-700">
             {ROLE_LABELS[project.myRole]}
           </span>
+          {/* MIR-18: cualquier miembro (incluido VIEWER) puede ver el tablero. */}
+          <Link
+            to={`/proyectos/${encodeURIComponent(project.id)}/tablero`}
+            aria-label={`Ver tablero de ${project.name}`}
+            className="inline-flex h-8 items-center justify-center rounded-md border border-slate-300 px-3 text-sm font-medium text-slate-900 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-slate-400 focus-visible:outline-none"
+          >
+            Ver tablero
+          </Link>
         </div>
       </div>
       {project.description && (

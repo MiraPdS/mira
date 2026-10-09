@@ -8,6 +8,7 @@ import type {
 import type { ApiRequestError } from '@/lib/api-client';
 import { projectApi } from './project.api';
 import type { ProjectMemberRole } from './project.api';
+import { boardKeys } from '@/features/board/useBoard';
 
 /**
  * Claves de cache de proyectos. `all` es prefijo de las demas: crear o editar
@@ -137,6 +138,11 @@ export function useRemoveMember(projectId: string) {
       // Invalidar los detalles de tareas de este proyecto.
       await queryClient.invalidateQueries({
         queryKey: ['work-item', projectId],
+      });
+
+      // Invalidar el tablero: sus tarjetas muestran al responsable eliminado.
+      await queryClient.invalidateQueries({
+        queryKey: boardKeys.project(projectId),
       });
     },
   });

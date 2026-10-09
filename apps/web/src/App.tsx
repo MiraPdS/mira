@@ -1,8 +1,9 @@
-import { Navigate, Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { LoginPage } from '@/features/auth/LoginPage';
 import { RegisterPage } from '@/features/auth/RegisterPage';
 import { RequiereSesion, SoloInvitados } from '@/features/auth/guards';
 import { AppLayout } from '@/components/layout/AppLayout';
+import { KanbanBoard } from '@/features/board/KanbanBoard';
 import { ProjectMembersPage } from '@/features/projects/ProjectMembersPage';
 import { ProjectsPage } from '@/features/projects/ProjectsPage';
 import { CreateProjectPage } from '@/features/projects/CreateProjectPage';
@@ -16,6 +17,17 @@ function Pendiente({ item, titulo }: { item: string; titulo: string }) {
       <p className="mt-2 text-sm text-slate-500">
         Pantalla pendiente. Item de Jira asociado: <code className="font-mono">{item}</code>
       </p>
+    </main>
+  );
+}
+
+/** Pagina del tablero: traduce la URL al proyecto que recibe KanbanBoard. */
+function TableroPage() {
+  const { projectId = '' } = useParams();
+
+  return (
+    <main className="mx-auto w-full max-w-7xl min-w-0 px-4 py-6 sm:px-6">
+      <KanbanBoard projectId={projectId} />
     </main>
   );
 }
@@ -63,6 +75,9 @@ export function App() {
 
         {/* MIR-9: Invitacion y listado de miembros */}
         <Route path="/proyectos/:projectId/miembros" element={<ProjectMembersPage />} />
+
+        {/* MIR-18: Tablero kanban */}
+        <Route path="/proyectos/:projectId/tablero" element={<TableroPage />} />
       </Route>
 
       <Route path="*" element={<Pendiente item="-" titulo="Pagina no encontrada" />} />

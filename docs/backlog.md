@@ -355,7 +355,7 @@ Web:
 
 ## Épica 4 — Tablero Kanban
 
-### MIR-18 · Visualizar el tablero
+### MIR-18 · Visualizar el tablero — ✅ implementado
 
 > Como miembro
 > quiero ver los items en columnas por estado
@@ -369,6 +369,12 @@ Web:
 - **Dado** una tarjeta, **cuando** la miro, **entonces** muestra referencia, título, tipo, prioridad y responsable.
 - **Dado** una columna sin items, **cuando** abro el tablero, **entonces** la columna se muestra vacía y sigue siendo destino válido.
 - **Dado** que abro el tablero en un teléfono, **cuando** se renderiza, **entonces** las columnas se desplazan horizontalmente sin romper el diseño.
+
+**Notas.** `GET /api/projects/:projectId/board` devuelve `{ items }` sin
+paginar, solo con los estados de `BOARD_STATUSES` (el backlog no aparece);
+cualquier miembro, incluido VIEWER, puede verlo. La pantalla vive en
+`/proyectos/:projectId/tablero`; las columnas salen de `BOARD_STATUSES`, no de
+los items, por eso una columna vacía siempre existe.
 
 ---
 
