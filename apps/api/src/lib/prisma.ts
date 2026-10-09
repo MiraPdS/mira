@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type ProjectRole } from '@prisma/client';
 import { env, isTest } from '../env.js';
 
 /**
@@ -22,3 +22,24 @@ export type PrismaTx = Omit<
 >;
 
 export type Db = PrismaClient | PrismaTx;
+
+/** `Db` tambien puede representar una transaccion que ya fue abierta. */
+export function hasTransaction(db: Db): db is PrismaClient {
+  return '$transaction' in db;
+}
+
+/**
+ * Rol del usuario en el proyecto, o null si no es miembro. Compartido por los
+ * repositorios que autorizan por proyecto (elementos de trabajo, comentarios).
+ */
+export async function findMemberRole(
+  db: Db,
+  projectId: string,
+  userId: string,
+): Promise<ProjectRole | null> {
+  const member = await db.projectMember.findUnique({
+    where: { userId_projectId: { userId, projectId } },
+    select: { role: true },
+  });
+  return member?.role ?? null;
+}

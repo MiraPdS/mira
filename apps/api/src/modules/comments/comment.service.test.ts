@@ -40,7 +40,6 @@ describe('commentService', () => {
   describe('create', () => {
     it.each(['OWNER', 'MEMBER'] as const)('%s puede crear comentarios', async (role) => {
       repo.findMemberRole.mockResolvedValue(role);
-      repo.workItemExists.mockResolvedValue(true);
       repo.createAtomically.mockResolvedValue(comentarioDePrueba());
 
       const result = await service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, INPUT);
@@ -75,49 +74,9 @@ describe('commentService', () => {
       expect(repo.createAtomically).not.toHaveBeenCalled();
     });
 
-    it('rechaza elementos inexistentes', async () => {
+    it('responde 404 si el elemento no existe en el proyecto', async () => {
       repo.findMemberRole.mockResolvedValue('MEMBER');
-      repo.workItemExists.mockResolvedValue(false);
-
-      await expect(
-        service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, INPUT),
-      ).rejects.toBeInstanceOf(NotFoundError);
-
-      expect(repo.createAtomically).not.toHaveBeenCalled();
-    });
-
-    it('consulta la membresia y existencia del elemento con los IDs correctos', async () => {
-      repo.findMemberRole.mockResolvedValue('OWNER');
-      repo.workItemExists.mockResolvedValue(true);
-      repo.createAtomically.mockResolvedValue(comentarioDePrueba());
-
-      await service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, INPUT);
-
-      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
-
-      expect(repo.workItemExists).toHaveBeenCalledWith(PROJECT_ID, WORK_ITEM_ID);
-    });
-
-    it('elimina espacios al inicio y final antes de persistir', async () => {
-      repo.findMemberRole.mockResolvedValue('MEMBER');
-      repo.workItemExists.mockResolvedValue(true);
-      repo.createAtomically.mockResolvedValue(comentarioDePrueba());
-
-      await service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, {
-        body: '  Comentario con espacios  ',
-      });
-
-      expect(repo.createAtomically).toHaveBeenCalledExactlyOnceWith({
-        projectId: PROJECT_ID,
-        workItemId: WORK_ITEM_ID,
-        actorId: ACTOR_ID,
-        body: 'Comentario con espacios',
-      });
-    });
-
-    it('responde 404 si el elemento se elimina antes de la transaccion', async () => {
-      repo.findMemberRole.mockResolvedValue('MEMBER');
-      repo.workItemExists.mockResolvedValue(true);
+      // createAtomically verifica y bloquea el elemento dentro de la transaccion.
       repo.createAtomically.mockResolvedValue(null);
 
       await expect(
@@ -125,11 +84,34 @@ describe('commentService', () => {
       ).rejects.toBeInstanceOf(NotFoundError);
     });
 
+    it('no hace una consulta extra de existencia: la cubre la transaccion', async () => {
+      repo.findMemberRole.mockResolvedValue('OWNER');
+      repo.createAtomically.mockResolvedValue(comentarioDePrueba());
+
+      await service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, INPUT);
+
+      expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
+      expect(repo.workItemExists).not.toHaveBeenCalled();
+    });
+
+    it('persiste el body tal como lo entrega la validacion', async () => {
+      repo.findMemberRole.mockResolvedValue('MEMBER');
+      repo.createAtomically.mockResolvedValue(comentarioDePrueba());
+
+      await service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, { body: 'Comentario' });
+
+      expect(repo.createAtomically).toHaveBeenCalledExactlyOnceWith({
+        projectId: PROJECT_ID,
+        workItemId: WORK_ITEM_ID,
+        actorId: ACTOR_ID,
+        body: 'Comentario',
+      });
+    });
+
     it('propaga errores de persistencia', async () => {
       const error = new Error('Error de base de datos');
 
       repo.findMemberRole.mockResolvedValue('OWNER');
-      repo.workItemExists.mockResolvedValue(true);
       repo.createAtomically.mockRejectedValue(error);
 
       await expect(service.create(PROJECT_ID, ACTOR_ID, WORK_ITEM_ID, INPUT)).rejects.toBe(error);

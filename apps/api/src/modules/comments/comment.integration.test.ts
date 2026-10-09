@@ -292,6 +292,30 @@ describe('POST /api/projects/:projectId/work-items/:workItemId/comments', () => 
 });
 
 describe('GET /api/projects/:projectId/work-items/:workItemId/comments', () => {
+  it('limita el listado a los comentarios mas recientes, en orden cronologico', async () => {
+    const { project, owner } = await createProject();
+    const workItem = await createWorkItem({ project, createdBy: owner });
+
+    for (let i = 0; i < 5; i++) {
+      await prisma.comment.create({
+        data: {
+          body: `Comentario ${i}`,
+          workItemId: workItem.id,
+          authorId: owner.id,
+          createdAt: new Date(Date.UTC(2026, 9, 1, 10, i)),
+        },
+      });
+    }
+
+    const comments = await createCommentRepository().listByWorkItem(workItem.id, 3);
+
+    expect(comments.map((comment) => comment.body)).toEqual([
+      'Comentario 2',
+      'Comentario 3',
+      'Comentario 4',
+    ]);
+  });
+
   it('devuelve comentarios del mas antiguo al mas reciente', async () => {
     const { project, owner } = await createProject();
     const workItem = await createWorkItem({

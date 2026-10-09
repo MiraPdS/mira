@@ -1,5 +1,12 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
-import { can, PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
+import {
+  can,
+  COMMENT_MAX_LENGTH,
+  createCommentSchema,
+  PRIORITY_LABELS,
+  STATUS_LABELS,
+  TYPE_LABELS,
+} from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { useCurrentUser } from '@/features/auth/useAuth';
 import { useProjectMembers } from '@/features/projects/useProjects';
@@ -72,12 +79,17 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
     refetch: refetchComments,
   } = useComments(projectId, workItemId);
   const commentCreation = useCreateComment(projectId, workItemId);
+  // Una sola regla para el boton y el envio: el mismo esquema que valida la API.
+  const commentInput = createCommentSchema.safeParse({ body: commentBody });
+  // 404 (elemento eliminado) y 403 (sin acceso) no se arreglan reintentando.
+  const commentsErrorStatus =
+    commentsError instanceof ApiRequestError ? commentsError.status : null;
+  const commentsUnavailable = commentsErrorStatus === 403 || commentsErrorStatus === 404;
 
   function publicarComentario(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const body = commentBody.trim();
-    if (!body || body.length > 5000 || !canComment || commentCreation.isPending) return;
-    commentCreation.mutate({ body }, { onSuccess: () => setCommentBody('') });
+    if (!commentInput.success || !canComment || commentCreation.isPending) return;
+    commentCreation.mutate(commentInput.data, { onSuccess: () => setCommentBody('') });
   }
 
   if (deletion.isSuccess) {
@@ -260,6 +272,12 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
           <p role="status" className="mt-4 text-sm text-slate-500">
             Cargando comentarios...
           </p>
+        ) : commentsUnavailable ? (
+          <p role="alert" className="mt-4 text-sm text-red-700">
+            {commentsErrorStatus === 404
+              ? 'Este elemento ya no existe.'
+              : 'No tienes acceso a los comentarios de este elemento.'}
+          </p>
         ) : commentsError ? (
           <div className="mt-4">
             <p role="alert" className="text-sm text-red-700">
@@ -294,7 +312,11 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         )}
 
         {canComment && (
-          <form onSubmit={publicarComentario} className="mt-6 border-t border-slate-200 pt-5">
+          <form
+            aria-label="Nuevo comentario"
+            onSubmit={publicarComentario}
+            className="mt-6 border-t border-slate-200 pt-5"
+          >
             <label htmlFor={commentInputId} className="block text-sm font-medium text-slate-900">
               Escribir comentario
             </label>
@@ -307,13 +329,15 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
                 if (commentCreation.isError) commentCreation.reset();
               }}
               rows={4}
-              maxLength={5000}
+              maxLength={COMMENT_MAX_LENGTH}
               placeholder="Escribe un comentario..."
               disabled={commentCreation.isPending}
               className="mt-2 w-full resize-y rounded-md border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:opacity-50"
             />
 
-            <p className="mt-1 text-xs text-slate-500">{commentBody.length}/5000 caracteres</p>
+            <p className="mt-1 text-xs text-slate-500">
+              {commentBody.length}/{COMMENT_MAX_LENGTH} caracteres
+            </p>
 
             {commentCreation.error && (
               <p role="alert" className="mt-2 text-sm text-red-700">
@@ -324,9 +348,7 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             <Button
               type="submit"
               className="mt-3"
-              disabled={
-                !commentBody.trim() || commentBody.length > 5000 || commentCreation.isPending
-              }
+              disabled={!commentInput.success || commentCreation.isPending}
             >
               {commentCreation.isPending ? 'Publicando...' : 'Publicar comentario'}
             </Button>

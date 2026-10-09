@@ -103,8 +103,11 @@ export const boardResponseSchema = z.object({
 });
 export type BoardResponse = z.infer<typeof boardResponseSchema>;
 
+/** MIR-21: largo maximo de un comentario; lo usan la API y el formulario. */
+export const COMMENT_MAX_LENGTH = 5000;
+
 export const createCommentSchema = z.object({
-  body: z.string().trim().min(1, 'El comentario no puede estar vacio').max(5000),
+  body: z.string().trim().min(1, 'El comentario no puede estar vacio').max(COMMENT_MAX_LENGTH),
 });
 export type CreateCommentInput = z.infer<typeof createCommentSchema>;
 

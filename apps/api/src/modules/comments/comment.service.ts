@@ -1,4 +1,4 @@
-import { can, type CommentDto, type CreateCommentInput } from '@mira/shared';
+import { can, type CommentDto, type CreateCommentInput, type Permission } from '@mira/shared';
 import { ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { CommentForDto, CommentRepository } from './comment.repository.js';
 
@@ -17,6 +17,22 @@ export function toCommentDto(comment: CommentForDto): CommentDto {
 }
 
 export function createCommentService(repo: CommentRepository) {
+  /**
+   * Autorizacion comun de create y list. Un no miembro recibe 404 (no se
+   * revela que el elemento existe); un miembro sin el permiso, 403.
+   */
+  async function assertAccess(projectId: string, actorId: string, permission: Permission) {
+    const role = await repo.findMemberRole(projectId, actorId);
+
+    if (role === null) {
+      throw new NotFoundError('Elemento de trabajo');
+    }
+
+    if (!can(role, permission)) {
+      throw new ForbiddenError();
+    }
+  }
+
   return {
     async create(
       projectId: string,
@@ -24,30 +40,18 @@ export function createCommentService(repo: CommentRepository) {
       workItemId: string,
       input: CreateCommentInput,
     ): Promise<CommentDto> {
-      const role = await repo.findMemberRole(projectId, actorId);
+      await assertAccess(projectId, actorId, 'comment:create');
 
-      if (role === null) {
-        throw new NotFoundError('Elemento de trabajo');
-      }
-
-      if (!can(role, 'comment:create')) {
-        throw new ForbiddenError();
-      }
-
-      const exists = await repo.workItemExists(projectId, workItemId);
-
-      if (!exists) {
-        throw new NotFoundError('Elemento de trabajo');
-      }
-
+      // createAtomically verifica y bloquea el elemento dentro de la
+      // transaccion: null si no existe en este proyecto. El body ya llega
+      // recortado por createCommentSchema.
       const comment = await repo.createAtomically({
         projectId,
         workItemId,
         actorId,
-        body: input.body.trim(),
+        body: input.body,
       });
 
-      // El elemento pudo eliminarse entre la verificacion y la transaccion.
       if (!comment) {
         throw new NotFoundError('Elemento de trabajo');
       }
@@ -56,15 +60,7 @@ export function createCommentService(repo: CommentRepository) {
     },
 
     async list(projectId: string, actorId: string, workItemId: string): Promise<CommentDto[]> {
-      const role = await repo.findMemberRole(projectId, actorId);
-
-      if (role === null) {
-        throw new NotFoundError('Elemento de trabajo');
-      }
-
-      if (!can(role, 'work-item:view')) {
-        throw new ForbiddenError();
-      }
+      await assertAccess(projectId, actorId, 'work-item:view');
 
       const exists = await repo.workItemExists(projectId, workItemId);
 

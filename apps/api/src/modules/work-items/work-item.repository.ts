@@ -1,4 +1,4 @@
-import { Prisma, type PrismaClient } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import {
   BOARD_STATUSES,
   type CreateWorkItemInput,
@@ -9,7 +9,7 @@ import {
   type WorkItemStatus,
   type WorkItemType,
 } from '@mira/shared';
-import { prisma, type Db } from '../../lib/prisma.js';
+import { findMemberRole, hasTransaction, prisma, type Db } from '../../lib/prisma.js';
 
 /** Datos de usuario que necesita la representacion publica de un item. */
 export interface WorkItemUser {
@@ -144,11 +144,6 @@ export function workItemWhereForList({
     ...(priority ? { priority } : {}),
     ...(assigneeId ? { assigneeId } : {}),
   };
-}
-
-/** `Db` tambien puede representar una transaccion que ya fue abierta. */
-function hasTransaction(db: Db): db is PrismaClient {
-  return '$transaction' in db;
 }
 
 async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<WorkItemForDto> {
@@ -289,13 +284,7 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       }
     },
 
-    async findMemberRole(projectId, userId) {
-      const member = await db.projectMember.findUnique({
-        where: { userId_projectId: { userId, projectId } },
-        select: { role: true },
-      });
-      return member?.role ?? null;
-    },
+    findMemberRole: (projectId, userId) => findMemberRole(db, projectId, userId),
 
     async findByIdInProject(projectId, workItemId) {
       return db.workItem.findFirst({

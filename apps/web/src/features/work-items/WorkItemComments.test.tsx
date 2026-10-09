@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import type { CommentDto, ProjectRole, WorkItemDto } from '@mira/shared';
-import { renderConProviders, screen, waitFor, within } from '@/test/render';
+import { fireEvent, renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemDetail } from './WorkItemDetail';
@@ -204,8 +204,8 @@ describe('MIR-21 - comentarios de elementos de trabajo', () => {
 
     expect(button).toBeDisabled();
 
-    await user.click(input);
-    await user.keyboard('{Enter}');
+    // Enviar el formulario directamente: el boton deshabilitado no basta como prueba.
+    fireEvent.submit(screen.getByRole('form', { name: 'Nuevo comentario' }));
 
     expect(postRequests).toBe(0);
   });
@@ -236,5 +236,33 @@ describe('MIR-21 - comentarios de elementos de trabajo', () => {
     renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />);
 
     expect(await screen.findByText('Todavía no hay comentarios.')).toBeInTheDocument();
+  });
+
+  it.each([
+    [404, 'NOT_FOUND', 'Este elemento ya no existe.'],
+    [403, 'FORBIDDEN', 'No tienes acceso a los comentarios de este elemento.'],
+  ] as const)(
+    'ante un %i al cargar comentarios no ofrece reintentar',
+    async (status, code, mensaje) => {
+      server.use(http.get(COMMENTS_URL, () => apiError(status, code, 'Error')));
+
+      renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />);
+
+      const seccion = await screen.findByRole('region', { name: 'Comentarios' });
+      expect(await within(seccion).findByRole('alert')).toHaveTextContent(mensaje);
+      expect(within(seccion).queryByRole('button', { name: 'Reintentar' })).not.toBeInTheDocument();
+    },
+  );
+
+  it('ante un error del servidor ofrece reintentar', async () => {
+    server.use(http.get(COMMENTS_URL, () => apiError(500, 'INTERNAL_ERROR', 'Error inesperado')));
+
+    renderConProviders(<WorkItemDetail projectId={PROJECT_ID} workItemId={WORK_ITEM_ID} />);
+
+    const seccion = await screen.findByRole('region', { name: 'Comentarios' });
+    expect(await within(seccion).findByRole('alert')).toHaveTextContent(
+      'No se pudieron cargar los comentarios.',
+    );
+    expect(within(seccion).getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
   });
 });
