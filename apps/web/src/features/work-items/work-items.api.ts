@@ -4,6 +4,7 @@ import type {
   CreateWorkItemInput,
   Paginated,
   UpdateWorkItemInput,
+  WorkItemActivityResponse,
   WorkItemDto,
   WorkItemFilters,
 } from '@mira/shared';
@@ -125,4 +126,14 @@ export async function createComment(
     input,
   );
   return comment;
+}
+
+/** MIR-22: historial del elemento, del cambio mas reciente al mas antiguo. */
+export function getWorkItemActivity(
+  projectId: string,
+  workItemId: string,
+): Promise<WorkItemActivityResponse> {
+  return api.get<WorkItemActivityResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/activity`,
+  );
 }

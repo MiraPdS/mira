@@ -6,9 +6,11 @@ import {
   type Paginated,
   type PublicUser,
   type UpdateWorkItemInput,
+  type WorkItemActivityResponse,
   type WorkItemDto,
   type WorkItemFilters,
 } from '@mira/shared';
+import { toActivityDto } from '../../lib/activity.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   WorkItemForDto,
@@ -253,6 +255,26 @@ export function createWorkItemService(repo: WorkItemRepository) {
       if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
       return toWorkItemDto(workItem);
+    },
+
+    /** MIR-22: historial del item, con la misma autorizacion que el detalle. */
+    async activity(
+      projectId: string,
+      actorId: string,
+      workItemId: string,
+    ): Promise<WorkItemActivityResponse> {
+      const role = await repo.findMemberRole(projectId, actorId);
+      if (role === null) throw new NotFoundError('Elemento de trabajo');
+      if (!can(role, 'work-item:view')) throw new ForbiddenError();
+
+      // Independientes: la existencia del item y su historial van en paralelo.
+      const [workItem, { activities, truncated }] = await Promise.all([
+        repo.findByIdInProject(projectId, workItemId),
+        repo.listActivity(projectId, workItemId),
+      ]);
+      if (!workItem) throw new NotFoundError('Elemento de trabajo');
+
+      return { data: activities.map(toActivityDto), truncated };
     },
 
     async board(projectId: string, actorId: string): Promise<WorkItemDto[]> {

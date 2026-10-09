@@ -11,6 +11,7 @@ import type {
   CreateWorkItemInput,
   Paginated,
   UpdateWorkItemInput,
+  WorkItemActivityResponse,
   WorkItemDto,
 } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
@@ -21,6 +22,7 @@ import {
   deleteWorkItem,
   getComments,
   getWorkItem,
+  getWorkItemActivity,
   listWorkItems,
   updateWorkItem,
   normalizeWorkItemListFilters,
@@ -49,13 +51,14 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
       // MIR-21: igual que el detalle, sin refetch de los comentarios del
       // elemento eliminado mientras su consumidor sigue montado (daria 404).
-      const commentsKey = commentsQueryKey(projectId, workItemId);
-      await queryClient.cancelQueries({ queryKey: commentsKey, exact: true });
-      await queryClient.invalidateQueries({
-        queryKey: commentsKey,
-        exact: true,
-        refetchType: 'none',
-      });
+      // MIR-22: lo mismo para su historial.
+      for (const key of [
+        commentsQueryKey(projectId, workItemId),
+        activityQueryKey(projectId, workItemId),
+      ]) {
+        await queryClient.cancelQueries({ queryKey: key, exact: true });
+        await queryClient.invalidateQueries({ queryKey: key, exact: true, refetchType: 'none' });
+      }
     },
   });
 }
@@ -150,6 +153,11 @@ function syncWorkItemCaches(
   void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
   void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
   void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+  // MIR-22: editar deja ITEM_UPDATED y asignar ITEM_ASSIGNED en el historial.
+  void queryClient.invalidateQueries({
+    queryKey: activityQueryKey(projectId, workItemId),
+    exact: true,
+  });
 }
 
 /**
@@ -190,8 +198,31 @@ export function useCreateComment(projectId: string, workItemId: string) {
         queryKey: commentsQueryKey(projectId, workItemId),
         exact: true,
       });
-      // El comentario deja una actividad COMMENT_ADDED en el panel del proyecto.
+      // El comentario deja una actividad COMMENT_ADDED en el panel del proyecto
+      // y en el historial del elemento (MIR-22).
       void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+      void queryClient.invalidateQueries({
+        queryKey: activityQueryKey(projectId, workItemId),
+        exact: true,
+      });
     },
+  });
+}
+
+/**
+ * MIR-22: clave de cache del historial de un elemento.  Va con prefijo propio
+ * (no bajo workItemKeys) porque el tablero la invalida por predicado y
+ * useBoard no puede importar este modulo sin crear un ciclo.
+ */
+export function activityQueryKey(projectId: string, workItemId: string) {
+  return ['work-item-activity', projectId, workItemId] as const;
+}
+
+/** MIR-22: historial del elemento, del cambio mas reciente al mas antiguo. */
+export function useWorkItemActivity(projectId: string, workItemId: string) {
+  return useQuery<WorkItemActivityResponse, ApiRequestError>({
+    queryKey: activityQueryKey(projectId, workItemId),
+    queryFn: () => getWorkItemActivity(projectId, workItemId),
+    enabled: Boolean(projectId && workItemId),
   });
 }

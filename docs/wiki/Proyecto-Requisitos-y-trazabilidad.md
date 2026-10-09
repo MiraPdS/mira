@@ -63,7 +63,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | Item | Historia | Estado | PR | Pruebas |
 | --- | --- | --- | --- | --- |
 | MIR-21 | Comentar un elemento | ✅ develop | [#15] | U [comment.service] · I [comment.integration] · C [WorkItemComments] |
-| MIR-22 | Historial de cambios de un elemento | ⏳ pendiente | — | ⏳ |
+| MIR-22 | Historial de cambios de un elemento | 🔄 en curso | [#29] | U [work-item.service], [describeActivity], [activity (shared)] · I [work-item.activity.integration], [summary.integration] · C [WorkItemHistory], [activityInvalidation], [App] |
 | MIR-23 | Panel del proyecto | ✅ develop | [#17] | U [projects.service] · I [summary.integration] · C [ProjectSummaryPage], [summaryInvalidation] |
 
 ## Épica 6 — Calidad, infraestructura y entrega
@@ -102,6 +102,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#23]: https://github.com/MiraPdS/mira/pull/23
 [#24]: https://github.com/MiraPdS/mira/pull/24
 [#25]: https://github.com/MiraPdS/mira/pull/25
+[#29]: https://github.com/MiraPdS/mira/pull/29
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -143,5 +144,11 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [WorkItemComments]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemComments.test.tsx
 [WorkItemDetail]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemDetail.test.tsx
 [summaryInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/summaryInvalidation.test.tsx
+[describeActivity]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/activity/describeActivity.test.ts
+[activity (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/activity.test.ts
+[work-item.activity.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.activity.integration.test.ts
+[WorkItemHistory]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemHistory.test.tsx
+[activityInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/activityInvalidation.test.tsx
+[App]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/App.test.tsx
 
 <!-- Generado desde docs/wiki/ en MiraPdS/mira. No editar aquí: se sobrescribe en el próximo sync. -->

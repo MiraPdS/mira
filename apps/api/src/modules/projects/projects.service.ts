@@ -8,6 +8,7 @@ import {
   type ProjectSummaryDto,
   type UpdateProjectInput,
 } from '@mira/shared';
+import { toActivityDto } from '../../lib/activity.js';
 import { ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type { ProjectFieldChange, ProjectsRepository } from './projects.repository.js';
 
@@ -243,16 +244,7 @@ export function createProjectsService(repo: ProjectsRepository) {
 
       return {
         ...summary,
-        recentActivity: summary.recentActivity.map((activity) => ({
-          id: activity.id,
-          action: activity.action,
-          workItemId: activity.workItemId,
-          actor: activity.actor,
-          field: activity.field,
-          fromValue: activity.fromValue,
-          toValue: activity.toValue,
-          createdAt: activity.createdAt.toISOString(),
-        })),
+        recentActivity: summary.recentActivity.map(toActivityDto),
       };
     },
   };

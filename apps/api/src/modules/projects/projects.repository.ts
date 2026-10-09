@@ -1,6 +1,5 @@
 import { Prisma as PrismaRuntime } from '@prisma/client';
 import type {
-  ActivityLog,
   Prisma,
   Project,
   ProjectMember,
@@ -11,6 +10,11 @@ import type {
   WorkItemType,
 } from '@prisma/client';
 
+import {
+  activityActorInclude,
+  resolveActivityUserNames,
+  type ActivityWithActor,
+} from '../../lib/activity.js';
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
 import { prisma, type Db } from '../../lib/prisma.js';
 
@@ -35,9 +39,7 @@ export interface ProjectFieldChange {
 }
 
 /** MIR-23: actividad reciente con el nombre de quien la hizo. */
-export type RecentProjectActivity = ActivityLog & {
-  actor: { id: string; name: string };
-};
+export type RecentProjectActivity = ActivityWithActor;
 
 /** MIR-23: conteos del proyecto y su actividad reciente. */
 export interface ProjectSummaryData {
@@ -50,12 +52,6 @@ export interface ProjectSummaryData {
 
 /** MIR-23: cuantas actividades muestra el panel. */
 export const RECENT_ACTIVITY_LIMIT = 10;
-
-/**
- * MIR-23: campos de la bitacora que guardan el id de un usuario. El panel los
- * muestra con el nombre; un usuario que ya no existe se muestra como null.
- */
-const USER_ID_FIELDS = new Set(['assigneeId', 'member']);
 
 export interface ProjectsRepository {
   findById(projectId: string): Promise<Project | null>;
@@ -454,7 +450,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
           // El id desempata actividades creadas en el mismo milisegundo.
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
           take: RECENT_ACTIVITY_LIMIT,
-          include: { actor: { select: { id: true, name: true } } },
+          include: activityActorInclude,
         }),
       ]);
 
@@ -478,35 +474,8 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       for (const group of typeGroups) byType[group.type] = group._count._all;
       for (const group of priorityGroups) byPriority[group.priority] = group._count._all;
 
-      // La bitacora guarda ids de usuario en algunos campos; se traducen a
-      // nombres en UNA consulta para que la UI nunca muestre un id crudo.
-      const userIds = new Set<string>();
-      for (const activity of activities) {
-        if (activity.field && USER_ID_FIELDS.has(activity.field)) {
-          if (activity.fromValue) userIds.add(activity.fromValue);
-          if (activity.toValue) userIds.add(activity.toValue);
-        }
-      }
-
-      const users =
-        userIds.size > 0
-          ? await db.user.findMany({
-              where: { id: { in: [...userIds] } },
-              select: { id: true, name: true },
-            })
-          : [];
-      const nameById = new Map(users.map((user) => [user.id, user.name]));
-      const toName = (value: string | null) => (value ? (nameById.get(value) ?? null) : null);
-
-      const recentActivity = activities.map((activity) =>
-        activity.field && USER_ID_FIELDS.has(activity.field)
-          ? {
-              ...activity,
-              fromValue: toName(activity.fromValue),
-              toValue: toName(activity.toValue),
-            }
-          : activity,
-      );
+      // La bitacora guarda ids de usuario en algunos campos: se muestran como nombre.
+      const recentActivity = await resolveActivityUserNames(db, activities);
 
       return {
         total: statusGroups.reduce((sum, group) => sum + group._count._all, 0),
