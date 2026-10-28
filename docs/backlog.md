@@ -1,12 +1,14 @@
 # Backlog — Mira
 
-Backlog de la Entrega 1. **Ya está cargado en Jira**, con los mismos IDs que
-aparecen en este documento:
+Backlog de las Entregas 1 y 2. **Ya está cargado en Jira**, con los mismos IDs
+que aparecen en este documento:
 
 - Tablero: https://bolgunn.atlassian.net/jira/software/projects/MIR/boards
-- `MIR-1` … `MIR-29` — Entrega 1
-- `MIR-30` … `MIR-33` — reservado para la Entrega 2
-- `MIR-34` … `MIR-40` — las épicas
+- `MIR-1` … `MIR-30` — Entrega 1 (`MIR-30` se agregó al verificar el release)
+- `MIR-31`, `MIR-33` y `MIR-43` … `MIR-58` — Entrega 2 (`MIR-31` y `MIR-33`
+  eran reservas y se reutilizaron)
+- `MIR-32` — organizaciones y multi-equipo, fuera de alcance
+- `MIR-34` … `MIR-42` — las épicas (`MIR-40` a `MIR-42` son de la Entrega 2)
 
 Los items se crearon antes que las épicas precisamente para que esta
 numeración coincida: si las épicas se hubieran creado primero, se habrían
@@ -599,18 +601,312 @@ Ampliados al planificar (ver `docs/plans/MIR-22-historial-elemento.md`):
 
 ---
 
-## Reservado para la Entrega 2
+# Entrega 2
 
-No se trabaja ahora. Se documenta aquí para que el esquema de datos y las
-decisiones ya lo contemplen, y porque la Entrega 2 exige **dos requerimientos
-funcionales nuevos**.
+La Entrega 2 ([`deliverables/entrega2.md`](../deliverables/entrega2.md)) pide
+llevar el proyecto a CI/CD con Jenkins, integrado con GitHub y Slack, y
+desarrollar **dos requerimientos funcionales nuevos** con sus pruebas. Los
+elegidos son los dos que ya estaban previstos en el esquema y en las decisiones:
 
-| ID | Requerimiento | Por qué se reservó |
-| --- | --- | --- |
-| MIR-30 | Sprints: crear, asignar items, cerrar | `WorkItem.sprintId` ya existe como campo nullable |
-| MIR-31 | Columnas del tablero configurables por proyecto | Migración de enum a tabla `BoardColumn`, ya prevista en D8 |
-| MIR-32 | Organizaciones y multi-equipo | `Project.organizationId` ya existe como campo nullable |
-| MIR-33 | Jenkins: instalación, pipeline e integración con Slack | Es el objeto central de la Entrega 2 |
+- **Sprints:** el enunciado del tema (`requirements/tema2.md`) los pide como
+  requisito base ("Creación y gestión de Sprints", "Asignación de elementos de
+  trabajo a un Sprint") y es lo único obligatorio que quedó fuera de la
+  Entrega 1. `WorkItem.sprintId` ya existe como campo nullable.
+- **Columnas del tablero configurables por proyecto:** el reemplazo del enum
+  fijo que D8 dejó reservado para esta entrega.
+
+Organizaciones y multi-equipo (`Project.organizationId`) queda fuera: es un
+aspecto abierto del tema, no un requisito.
+
+También cierra el compromiso que quedó de la Entrega 1: el umbral de cobertura
+que rompe el build (ver "Decisiones pendientes" en
+[`decisiones-tecnicas.md`](./decisiones-tecnicas.md)).
+
+El reparto, el DAG de dependencias y el orden sugerido están en
+[`plan-trabajo-entrega2.md`](./plan-trabajo-entrega2.md).
+
+---
+
+## Épica 7 — Sprints
+
+### MIR-43 · Modelo y API de Sprints
+
+> Como miembro
+> quiero que el proyecto tenga sprints con nombre, fechas y objetivo
+> para planificar el trabajo en iteraciones.
+
+**Tipo:** Historia · **Prioridad:** Highest · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** que soy OWNER o MEMBER, **cuando** hago POST a `/api/projects/:id/sprints` con nombre, fecha de inicio y fecha de término, **entonces** recibo 201 y el sprint nace en estado `PLANNED`.
+- **Dado** que la fecha de término es anterior a la de inicio, **cuando** creo o edito el sprint, **entonces** recibo 422 indicando el campo `endDate`.
+- **Dado** que soy VIEWER, **cuando** intento crear, editar o eliminar un sprint, **entonces** recibo 403.
+- **Dado** el proyecto, **cuando** listo sus sprints, **entonces** los veo ordenados por fecha de inicio con su estado y la cantidad de items y de puntos de cada uno.
+- **Dado** un sprint, **cuando** consulto la base de datos, **entonces** `WorkItem.sprintId` es una FK real hacia `Sprint` (la migración agrega la relación que hoy falta).
+
+---
+
+### MIR-44 · Pantalla de Sprints
+
+> Como miembro
+> quiero ver y administrar los sprints del proyecto en una pantalla
+> para no tener que hacerlo a través de la API.
+
+**Tipo:** Historia · **Prioridad:** Highest · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** el proyecto, **cuando** abro "Sprints", **entonces** veo el sprint activo arriba, los planificados después y los cerrados al final.
+- **Dado** que soy OWNER o MEMBER, **cuando** creo o edito un sprint desde el formulario, **entonces** aparece en la lista sin recargar.
+- **Dado** que soy VIEWER, **cuando** abro la pantalla, **entonces** no veo los botones de crear ni de editar.
+- **Dado** un formulario con datos inválidos, **cuando** lo envío, **entonces** veo el error junto al campo que corresponde.
+
+---
+
+### MIR-45 · Asignar elementos a un sprint
+
+> Como miembro
+> quiero mover elementos del backlog a un sprint
+> para decidir qué entra en cada iteración.
+
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** un elemento, **cuando** le asigno un sprint `PLANNED` o `ACTIVE` desde el detalle, **entonces** queda en ese sprint y se registra en su historial.
+- **Dado** un sprint `CLOSED`, **cuando** intento asignarle un elemento, **entonces** recibo 409 y el elemento no cambia.
+- **Dado** un elemento de otro proyecto, **cuando** intento asignarlo al sprint, **entonces** recibo 400.
+- **Dado** el backlog, **cuando** filtro por sprint (o por "sin sprint"), **entonces** veo solo esos elementos.
+
+---
+
+### MIR-46 · Iniciar y cerrar un sprint
+
+> Como miembro
+> quiero iniciar un sprint y cerrarlo al terminar
+> para que el equipo trabaje sobre una sola iteración a la vez.
+
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** un sprint `PLANNED`, **cuando** lo inicio, **entonces** pasa a `ACTIVE`.
+- **Dado** que el proyecto ya tiene un sprint `ACTIVE`, **cuando** intento iniciar otro, **entonces** recibo 409 `SPRINT_ALREADY_ACTIVE`.
+- **Dado** un sprint `ACTIVE`, **cuando** lo cierro, **entonces** pasa a `CLOSED` y sus elementos no terminados vuelven al backlog o pasan al sprint planificado que yo elija.
+- **Dado** un sprint cerrado, **cuando** lo consulto, **entonces** veo cuántos puntos se comprometieron y cuántos se completaron.
+
+---
+
+### MIR-47 · Tablero del sprint activo
+
+> Como miembro
+> quiero que el tablero muestre por defecto el sprint activo
+> para concentrarme en lo que el equipo comprometió.
+
+**Tipo:** Historia · **Prioridad:** Medium · **Estimación:** 3
+
+**Criterios de aceptación**
+
+- **Dado** un proyecto con sprint activo, **cuando** abro el tablero, **entonces** veo solo los elementos de ese sprint y su nombre y fechas en el encabezado.
+- **Dado** el tablero, **cuando** elijo "Todos los elementos", **entonces** vuelvo a la vista sin filtro de la Entrega 1.
+- **Dado** un proyecto sin sprint activo, **cuando** abro el tablero, **entonces** veo todos los elementos, como en la Entrega 1.
+
+---
+
+## Épica 8 — Columnas configurables del tablero
+
+### MIR-31 · Migrar los estados a columnas por proyecto
+
+> Como equipo
+> queremos que los estados del tablero vivan en una tabla por proyecto
+> para poder adaptarlos al flujo de cada equipo.
+
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 8
+
+Reemplaza el enum fijo de D8 por la tabla `BoardColumn` (nombre, orden y una
+categoría `TODO`, `IN_PROGRESS` o `DONE`). La categoría es lo que permite que el
+panel (MIR-23) y el cierre de sprint (MIR-46) sigan sabiendo qué está terminado
+aunque la columna se llame distinto.
+
+**Criterios de aceptación**
+
+- **Dado** un proyecto existente, **cuando** se aplica la migración, **entonces** recibe las columnas Por hacer, En progreso, En revisión y Hecho, y cada elemento queda en la columna que corresponde a su estado anterior, sin perder ninguno.
+- **Dado** un proyecto nuevo, **cuando** se crea, **entonces** nace con esas mismas cuatro columnas.
+- **Dado** el backlog, **cuando** un elemento no está en ninguna columna, **entonces** se sigue considerando BACKLOG y no aparece en el tablero.
+- **Dado** el historial y el panel, **cuando** un elemento cambia de columna, **entonces** se sigue registrando `ITEM_STATUS_CHANGED` y el panel cuenta por categoría.
+- **Dado** la suite de la Entrega 1, **cuando** corre después de la migración, **entonces** sigue en verde.
+
+---
+
+### MIR-48 · API de columnas
+
+> Como OWNER
+> quiero crear, renombrar, reordenar y eliminar columnas
+> para que el tablero refleje el flujo real del equipo.
+
+**Tipo:** Historia · **Prioridad:** Highest · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** que soy OWNER, **cuando** creo una columna con nombre y categoría, **entonces** recibo 201 y queda al final del tablero.
+- **Dado** que soy MEMBER o VIEWER, **cuando** intento modificar las columnas, **entonces** recibo 403.
+- **Dado** dos columnas, **cuando** cambio su orden, **entonces** el nuevo orden se conserva al recargar.
+- **Dado** una columna con elementos, **cuando** la elimino, **entonces** debo indicar a qué columna se mueven; sin destino recibo 409.
+- **Dado** un proyecto, **cuando** intento dejarlo sin ninguna columna de categoría `DONE`, **entonces** recibo 409.
+
+---
+
+### MIR-49 · Tablero y backlog con las columnas del proyecto
+
+> Como miembro
+> quiero que el tablero muestre las columnas de mi proyecto
+> para trabajar con mi propio flujo.
+
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** un proyecto con columnas personalizadas, **cuando** abro el tablero, **entonces** veo esas columnas en su orden.
+- **Dado** una tarjeta, **cuando** la muevo por el menú o arrastrándola, **entonces** puede ir a cualquier columna del proyecto.
+- **Dado** el backlog y sus filtros, **cuando** filtro por estado, **entonces** las opciones son las columnas del proyecto.
+- **Dado** un teléfono de 375 px, **cuando** el proyecto tiene más de cuatro columnas, **entonces** el tablero se desplaza horizontalmente de forma legible.
+
+---
+
+### MIR-50 · Pantalla de configuración de columnas
+
+> Como OWNER
+> quiero administrar las columnas desde la configuración del proyecto
+> para cambiarlas sin pedirle nada al equipo de desarrollo.
+
+**Tipo:** Historia · **Prioridad:** High · **Estimación:** 5
+
+**Criterios de aceptación**
+
+- **Dado** que soy OWNER, **cuando** abro la configuración del proyecto, **entonces** puedo agregar, renombrar, reordenar y eliminar columnas.
+- **Dado** que elimino una columna con elementos, **cuando** confirmo, **entonces** se me pide elegir la columna de destino.
+- **Dado** que soy MEMBER o VIEWER, **cuando** abro la configuración, **entonces** veo las columnas pero no puedo modificarlas.
+
+---
+
+## Épica 9 — Integración y despliegue continuo
+
+### MIR-33 · Jenkins en la nube
+
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 5
+
+- Jenkins instalado en una máquina virtual en la nube, con HTTPS y acceso
+  autenticado (sin usuarios anónimos).
+- Node 20 y Docker disponibles en el agente, para levantar el Postgres efímero
+  de las pruebas de integración igual que en GitHub Actions.
+- Credenciales (token de GitHub, webhook de Slack, deploy hooks) guardadas en
+  el almacén de credenciales de Jenkins, nunca en el repositorio.
+- Instalación y configuración documentadas en `docs/jenkins.md` para poder
+  recrearlo.
+
+---
+
+### MIR-51 · Pipeline en `Jenkinsfile`
+
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 5
+
+- `Jenkinsfile` declarativo versionado en la raíz del repositorio.
+- Etapas: instalación (`npm ci`), lint, tipos, pruebas unitarias, de
+  integración (con Postgres efímero) y de componentes (RTL), y build.
+- Falla rápido: si una etapa falla, las siguientes no corren y el build queda
+  rojo.
+- Publica los reportes de pruebas (JUnit) y de cobertura como artefactos del
+  build, para dejar trazabilidad de cada ejecución.
+
+---
+
+### MIR-52 · Webhook de GitHub y estado en el commit
+
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 3
+
+- Un webhook de GitHub dispara el pipeline en cada push y en cada Pull Request
+  hacia `develop` y `main` (multibranch pipeline).
+- El resultado queda asociado al commit y al PR como check verde o rojo.
+- El check de Jenkins se agrega como obligatorio en la protección de `main`
+  (junto al de GitHub Actions de MIR-25).
+
+---
+
+### MIR-53 · Notificaciones a Slack
+
+**Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 2
+
+- Jenkins avisa en el canal del equipo cuando un build falla, cuando vuelve a
+  pasar después de un fallo y cuando termina un despliegue.
+- El mensaje incluye la rama, el commit, el autor y un enlace al build.
+
+---
+
+### MIR-54 · Despliegue desde Jenkins
+
+**Tipo:** Tarea técnica · **Prioridad:** Medium · **Estimación:** 3
+
+- Un build verde en `main` despliega la API en Render y el frontend en Vercel
+  mediante sus deploy hooks, y después verifica `/api/health`.
+- Un build rojo no despliega.
+- Se documentan las dependencias entre Jenkins y la aplicación (qué usa cada
+  etapa y de dónde sale cada credencial).
+
+---
+
+### MIR-55 · Umbral de cobertura que rompe el build
+
+**Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 2
+
+Compromiso pendiente de la Entrega 1.
+
+- Umbral de cobertura fijado en `vitest.config.ts` a partir de la línea base
+  real medida al inicio de la entrega.
+- Si la cobertura baja del umbral, el pipeline queda rojo, tanto en Jenkins
+  como en GitHub Actions.
+- El umbral y su justificación quedan en la estrategia de pruebas.
+
+---
+
+## Épica 6 — Calidad, infraestructura y entrega (Entrega 2)
+
+### MIR-56 · Wiki de la Entrega 2
+
+**Tipo:** Documentación · **Prioridad:** High · **Estimación:** 3
+
+- Página `Entrega 2` con los nueve puntos del Anexo A del enunciado: objetivo,
+  qué se implementó, arquitectura e infraestructura (obligatoria), pipeline,
+  integraciones, cómo ejecutar, mejoras en la aplicación, pruebas y su
+  relación con CI, y problemas encontrados con sus soluciones.
+- Diagrama de la infraestructura: dónde corren la app y Jenkins, y cómo se
+  conectan GitHub, Jenkins, Slack, Render y Vercel.
+- Evidencias del pipeline: capturas, logs y el historial de builds.
+- Trazabilidad actualizada con los requerimientos nuevos.
+
+---
+
+### MIR-57 · Release `v2.0-entrega2`
+
+**Tipo:** Tarea · **Prioridad:** Highest · **Estimación:** 2
+
+- Pull Request de release de `develop` a `main`, con los checks de Jenkins y de
+  GitHub Actions en verde.
+- Tag `v2.0-entrega2` sobre el merge commit, desplegado por el pipeline.
+- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y
+  limitaciones conocidas.
+- Evidencia congelada con `npm run wiki:evidencias -- entrega-2`.
+
+---
+
+### MIR-58 · Cápsula de video de la Entrega 2
+
+**Tipo:** Documentación · **Prioridad:** High · **Estimación:** 3
+
+- Cubre alcance de la herramienta, trabajo realizado (proyecto y dependencias
+  entre Jenkins y la aplicación), uso de Jenkins y problemas encontrados con
+  sus soluciones.
+- Enlace publicado en el README y en la Wiki.
 
 ---
 
@@ -625,3 +921,8 @@ funcionales nuevos**.
 | 5 — Colaboración y trazabilidad | 3 | 15 |
 | 6 — Calidad y entrega | 6 | 22 |
 | **Total Entrega 1** | **30** | **133** |
+| 7 — Sprints | 5 | 23 |
+| 8 — Columnas configurables | 4 | 23 |
+| 9 — Integración y despliegue continuo | 6 | 20 |
+| 6 — Calidad y entrega (Entrega 2) | 3 | 8 |
+| **Total Entrega 2** | **18** | **74** |
