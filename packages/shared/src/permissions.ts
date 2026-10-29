@@ -27,6 +27,10 @@ export const PERMISSIONS = [
   'work-item:delete',
   'work-item:change-status',
   'comment:create',
+  'sprint:view',
+  'sprint:create',
+  'sprint:update',
+  'sprint:delete',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -52,6 +56,10 @@ const MATRIX: Record<ProjectRole, ReadonlySet<Permission>> = {
     'work-item:delete',
     'work-item:change-status',
     'comment:create',
+    'sprint:view',
+    'sprint:create',
+    'sprint:update',
+    'sprint:delete',
   ]),
   MEMBER: new Set<Permission>([
     'project:view',
@@ -61,8 +69,12 @@ const MATRIX: Record<ProjectRole, ReadonlySet<Permission>> = {
     'work-item:delete',
     'work-item:change-status',
     'comment:create',
+    'sprint:view',
+    'sprint:create',
+    'sprint:update',
+    'sprint:delete',
   ]),
-  VIEWER: new Set<Permission>(['project:view', 'work-item:view']),
+  VIEWER: new Set<Permission>(['project:view', 'work-item:view', 'sprint:view']),
 };
 
 /**
