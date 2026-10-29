@@ -251,6 +251,6 @@ producción.
 | Tema | Cuándo se decide |
 | --- | --- |
 | Dónde corre Jenkins (nube o local con ngrok) | Entrega 2 |
-| Los dos requerimientos nuevos de la Entrega 2 | candidatos: Sprints (D8) y columnas configurables |
+| Los dos requerimientos nuevos de la Entrega 2 | Resuelto: Sprints (épica MIR-41) y columnas configurables (épica MIR-42) |
 | Herramienta E2E: Selenium o Playwright | Entrega 3 |
-| Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real |
+| Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real (MIR-55) |
