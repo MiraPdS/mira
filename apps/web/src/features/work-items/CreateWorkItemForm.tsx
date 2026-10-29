@@ -9,7 +9,6 @@ import {
   WORK_ITEM_TYPES,
   type CreateWorkItemInput,
   type WorkItemDto,
-  type WorkItemStatus,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { Field } from '@/components/ui/field';
@@ -23,10 +22,11 @@ export interface CreateWorkItemFormProps {
   projectId: string;
   onCreated?: (item: WorkItemDto) => void;
   /**
-   * Estado con el que nace el elemento. El backlog usa BACKLOG; el tablero
-   * (MIR-30) usa su primera columna, porque BACKLOG no se muestra en el tablero.
+   * Columna donde nace el elemento. El backlog no la indica (null: nace en el
+   * backlog); el tablero (MIR-30) usa su primera columna, porque el backlog no
+   * se muestra en el tablero. MIR-49: es una columna del proyecto.
    */
-  initialStatus?: WorkItemStatus;
+  initialColumnId?: string | null;
 }
 
 const DEFAULT_VALUES: CreateWorkItemInput = {
@@ -34,7 +34,6 @@ const DEFAULT_VALUES: CreateWorkItemInput = {
   description: '',
   type: 'TASK',
   priority: 'MEDIUM',
-  status: 'BACKLOG',
 };
 
 /**
@@ -44,10 +43,10 @@ const DEFAULT_VALUES: CreateWorkItemInput = {
 export function CreateWorkItemForm({
   projectId,
   onCreated,
-  initialStatus = 'BACKLOG',
+  initialColumnId = null,
 }: CreateWorkItemFormProps) {
   const createWorkItem = useCreateWorkItem(projectId);
-  const defaultValues = { ...DEFAULT_VALUES, status: initialStatus };
+  const defaultValues = DEFAULT_VALUES;
   const [createdReference, setCreatedReference] = useState<string | null>(null);
   const {
     register,
@@ -64,7 +63,9 @@ export function CreateWorkItemForm({
     setCreatedReference(null);
 
     try {
-      const item = await createWorkItem.mutateAsync(values);
+      // La columna no es un campo del formulario: se lee al enviar, asi vale
+      // aunque las columnas lleguen despues de montar el formulario.
+      const item = await createWorkItem.mutateAsync({ ...values, columnId: initialColumnId });
       reset(defaultValues);
       setCreatedReference(item.reference);
       onCreated?.(item);

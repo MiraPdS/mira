@@ -10,11 +10,10 @@ const ENDPOINT = `http://localhost:3000/api/projects/${PROJECT_ID}/summary`;
 
 const emptySummary = {
   total: 0,
-  byStatus: {
+  byCategory: {
     BACKLOG: 0,
     TODO: 0,
     IN_PROGRESS: 0,
-    IN_REVIEW: 0,
     DONE: 0,
   },
   byType: {
@@ -67,11 +66,10 @@ describe('ProjectSummaryPage - MIR-23', () => {
           summary: {
             ...emptySummary,
             total: 5,
-            byStatus: {
+            byCategory: {
               BACKLOG: 1,
               TODO: 1,
-              IN_PROGRESS: 1,
-              IN_REVIEW: 1,
+              IN_PROGRESS: 2,
               DONE: 1,
             },
             byType: {
@@ -102,7 +100,8 @@ describe('ProjectSummaryPage - MIR-23', () => {
     const tipo = screen.getByRole('region', { name: 'Por tipo' });
     const prioridad = screen.getByRole('region', { name: 'Por prioridad' });
 
-    expect(within(estado).getByText('En progreso')).toBeInTheDocument();
+    // MIR-49: el panel cuenta por categoria, que no cambia al renombrar columnas.
+    expect(within(estado).getByText('En curso')).toBeInTheDocument();
     expect(within(tipo).getByText('Historia')).toBeInTheDocument();
     expect(within(prioridad).getByText('Alta')).toBeInTheDocument();
 
@@ -122,7 +121,7 @@ describe('ProjectSummaryPage - MIR-23', () => {
     ).toBeInTheDocument();
 
     const estado = screen.getByRole('region', { name: 'Por estado' });
-    expect(within(estado).getAllByText('0')).toHaveLength(5);
+    expect(within(estado).getAllByText('0')).toHaveLength(4);
   });
 
   it('muestra la actividad reciente del proyecto', async () => {
@@ -177,8 +176,8 @@ describe('ProjectSummaryPage - MIR-23', () => {
                   name: 'Ada Lovelace',
                 },
                 field: 'status',
-                fromValue: 'TODO',
-                toValue: 'IN_PROGRESS',
+                fromValue: 'Por hacer',
+                toValue: 'En progreso',
                 createdAt: '2026-10-08T12:00:00.000Z',
               },
             ],

@@ -44,16 +44,6 @@ enum WorkItemType {
   BUG
 }
 
-/// Desde MIR-31 ya no es una columna de work_items: solo lo usa
-/// BoardColumn.legacyStatus, el puente que MIR-49 elimina junto con este enum.
-enum WorkItemStatus {
-  BACKLOG
-  TODO
-  IN_PROGRESS
-  IN_REVIEW
-  DONE
-}
-
 /// MIR-31: lo que significa una columna, se llame como se llame.
 enum ColumnCategory {
   TODO
@@ -212,11 +202,6 @@ model BoardColumn {
   position  Int
   category  ColumnCategory
 
-  /// Puente MIR-31 -> MIR-49: estado antiguo al que equivale una columna por
-  /// defecto, para que la API siga entregando `status`. Null en columnas
-  /// creadas despues. Unico por proyecto (Postgres admite varios null).
-  legacyStatus WorkItemStatus?
-
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -225,7 +210,6 @@ model BoardColumn {
 
   // Destino de la llave compuesta de WorkItem.column.
   @@unique([id, projectId])
-  @@unique([projectId, legacyStatus])
   @@index([projectId, position])
   @@map("board_columns")
 }
@@ -259,7 +243,8 @@ model ActivityLog {
   workItemId String?
   actorId   String
 
-  /// Campo modificado y sus valores, cuando aplica. Ej: "status", "TODO", "DONE".
+  /// Campo modificado y sus valores, cuando aplica. Ej: "priority", "LOW", "HIGH".
+  /// En ITEM_STATUS_CHANGED (MIR-49) son nombres de columna, o "BACKLOG".
   field     String?
   fromValue String?
   toValue   String?

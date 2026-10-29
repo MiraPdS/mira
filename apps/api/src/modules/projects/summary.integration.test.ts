@@ -64,13 +64,6 @@ describe('GET /api/projects/:projectId/summary (MIR-23)', () => {
 
     expect(res.body.summary).toEqual({
       total: 0,
-      byStatus: {
-        BACKLOG: 0,
-        TODO: 0,
-        IN_PROGRESS: 0,
-        IN_REVIEW: 0,
-        DONE: 0,
-      },
       byCategory: {
         BACKLOG: 0,
         TODO: 0,
@@ -135,13 +128,13 @@ describe('GET /api/projects/:projectId/summary (MIR-23)', () => {
     expect(res.status).toBe(200);
     expect(res.body.summary.total).toBe(4);
 
-    expect(res.body.summary.byStatus).toEqual({
+    expect(res.body.summary.byCategory).toEqual({
       BACKLOG: 1,
       TODO: 0,
       IN_PROGRESS: 1,
-      IN_REVIEW: 0,
       DONE: 2,
     });
+    expect(res.body.summary).not.toHaveProperty('byStatus');
 
     expect(res.body.summary.byType).toEqual({
       EPIC: 0,
@@ -180,8 +173,8 @@ describe('GET /api/projects/:projectId/summary (MIR-23)', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.summary.total).toBe(1);
-    expect(res.body.summary.byStatus.TODO).toBe(1);
-    expect(res.body.summary.byStatus.DONE).toBe(0);
+    expect(res.body.summary.byCategory.TODO).toBe(1);
+    expect(res.body.summary.byCategory.DONE).toBe(0);
   });
 
   it('devuelve solo las 10 actividades mas recientes del proyecto', async () => {

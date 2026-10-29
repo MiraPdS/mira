@@ -1,6 +1,5 @@
 import {
   can,
-  legacyStatusOf,
   type AssignWorkItemInput,
   type BoardColumnDto,
   type BoardResponse,
@@ -12,10 +11,9 @@ import {
   type WorkItemActivityResponse,
   type WorkItemDto,
   type WorkItemFilters,
-  type WorkItemStatus,
 } from '@mira/shared';
 import { toActivityDto } from '../../lib/activity.js';
-import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   BoardColumnRecord,
   WorkItemForDto,
@@ -35,7 +33,7 @@ function toPublicUser(user: WorkItemUser): PublicUser {
   };
 }
 
-/** MIR-31: columna publica; `legacyStatus` es interno del puente. */
+/** MIR-31: columna publica, sin las fechas de auditoria. */
 export function toBoardColumnDto(column: BoardColumnRecord): BoardColumnDto {
   return {
     id: column.id,
@@ -54,7 +52,6 @@ export function toWorkItemDto(workItem: WorkItemForDto): WorkItemDto {
     title: workItem.title,
     description: workItem.description,
     type: workItem.type,
-    status: legacyStatusOf(workItem.column),
     columnId: workItem.columnId,
     column: workItem.column ? toBoardColumnDto(workItem.column) : null,
     priority: workItem.priority,
@@ -131,39 +128,19 @@ export function prepareWorkItemUpdate(
 }
 
 /**
- * MIR-31: a donde va un elemento. `columnId` manda; si no viene, el estado
- * antiguo (puente hasta MIR-49) se traduce a su columna por defecto.
- */
-type TargetColumn = { columnId?: string | null; status?: WorkItemStatus };
-
-/**
- * MIR-31: resuelve el destino a una columna del proyecto, o null (backlog).
- * Una columna de otro proyecto es 400, como un responsable que no es miembro.
- * Un estado antiguo cuya columna por defecto ya no existe (MIR-48 permite
- * borrarla) es 409: la peticion era valida, pero choca con el tablero actual.
+ * MIR-31: resuelve el destino a una columna del proyecto, o null (backlog,
+ * tambien si no viene). Una columna de otro proyecto es 400, como un
+ * responsable que no es miembro.
  */
 async function resolveTargetColumn(
   repo: WorkItemRepository,
   projectId: string,
-  target: TargetColumn,
+  columnId: string | null | undefined,
 ): Promise<BoardColumnRecord | null> {
-  if (target.columnId !== undefined) {
-    if (target.columnId === null) return null;
-    const column = await repo.findColumnInProject(projectId, target.columnId);
-    if (!column) {
-      throw new BadRequestError('La columna no pertenece al proyecto', 'COLUMN_NOT_IN_PROJECT');
-    }
-    return column;
-  }
-
-  const status = target.status ?? 'BACKLOG';
-  if (status === 'BACKLOG') return null;
-  const column = await repo.findColumnByLegacyStatus(projectId, status);
+  if (columnId === undefined || columnId === null) return null;
+  const column = await repo.findColumnInProject(projectId, columnId);
   if (!column) {
-    throw new ConflictError(
-      'El proyecto ya no tiene la columna de ese estado; indica la columna',
-      'STATUS_COLUMN_MISSING',
-    );
+    throw new BadRequestError('La columna no pertenece al proyecto', 'COLUMN_NOT_IN_PROJECT');
   }
   return column;
 }
@@ -184,7 +161,7 @@ export function createWorkItemService(repo: WorkItemRepository) {
       const role = await repo.findMemberRole(projectId, actorId);
       if (!can(role, 'work-item:create')) throw new ForbiddenError();
 
-      const column = await resolveTargetColumn(repo, projectId, input);
+      const column = await resolveTargetColumn(repo, projectId, input.columnId);
       const workItem = await repo.createAtomically({
         projectId,
         actorId,
@@ -246,7 +223,7 @@ export function createWorkItemService(repo: WorkItemRepository) {
         const workItem = await transactionRepo.findByIdInProject(projectId, workItemId);
         if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
-        const toColumn = await resolveTargetColumn(transactionRepo, projectId, input);
+        const toColumn = await resolveTargetColumn(transactionRepo, projectId, input.columnId);
 
         // Mover a la misma columna no es un cambio: no se escribe ni se
         // registra historial, asi un doble envio no ensucia la trazabilidad.
@@ -341,7 +318,7 @@ export function createWorkItemService(repo: WorkItemRepository) {
     },
 
     /** MIR-31: items del tablero junto con las columnas del proyecto. */
-    async board(projectId: string, actorId: string): Promise<Required<BoardResponse>> {
+    async board(projectId: string, actorId: string): Promise<BoardResponse> {
       const role = await repo.findMemberRole(projectId, actorId);
       if (!can(role, 'work-item:view')) throw new ForbiddenError();
 

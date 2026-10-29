@@ -1,5 +1,5 @@
 import type { Project, ProjectRole, User, WorkItem } from '@prisma/client';
-import type { WorkItemStatus } from '@mira/shared';
+import { DEFAULT_BOARD_COLUMNS } from '@mira/shared';
 import { prisma } from '../lib/prisma.js';
 import { defaultBoardColumnsData } from '../modules/projects/projects.repository.js';
 import { hashPassword } from '../lib/password.js';
@@ -87,10 +87,10 @@ export async function createWorkItem(options: {
   title?: string;
   description?: string | null;
   /**
-   * Estado antiguo: se traduce a la columna por defecto del proyecto (MIR-31).
-   * Asi las pruebas de la Entrega 1 siguen declarando 'TODO', 'DONE', etc.
+   * Atajo de las pruebas: el estado de la Entrega 1 se traduce a la columna
+   * por defecto del proyecto (MIR-31). Asi siguen declarando 'TODO', 'DONE'...
    */
-  status?: WorkItemStatus;
+  status?: EstadoDePrueba;
   /** MIR-31: columna exacta; tiene prioridad sobre `status`. */
   columnId?: string | null;
   type?: WorkItem['type'];
@@ -128,14 +128,27 @@ export async function createWorkItem(options: {
   });
 }
 
-/** MIR-31: id de la columna por defecto que equivale a un estado antiguo. */
+/**
+ * Estados de la Entrega 1, solo para las pruebas: cada uno es una columna por
+ * defecto (en el orden de DEFAULT_BOARD_COLUMNS) y BACKLOG es no tener columna.
+ * MIR-49 quito el enum de la API; aqui sobrevive como atajo.
+ */
+const ESTADOS_DE_PRUEBA = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
+export type EstadoDePrueba = 'BACKLOG' | (typeof ESTADOS_DE_PRUEBA)[number];
+
+/** Nombre de la columna por defecto que equivale a un estado de prueba. */
+export function columnNameOfStatus(status: Exclude<EstadoDePrueba, 'BACKLOG'>): string {
+  return DEFAULT_BOARD_COLUMNS[ESTADOS_DE_PRUEBA.indexOf(status)]!.name;
+}
+
+/** MIR-31: id de la columna por defecto que equivale a un estado de prueba. */
 export async function columnIdOfStatus(
   project: Project,
-  status: WorkItemStatus,
+  status: EstadoDePrueba,
 ): Promise<string | null> {
   if (status === 'BACKLOG') return null;
-  const column = await prisma.boardColumn.findUniqueOrThrow({
-    where: { projectId_legacyStatus: { projectId: project.id, legacyStatus: status } },
+  const column = await prisma.boardColumn.findFirstOrThrow({
+    where: { projectId: project.id, name: columnNameOfStatus(status) },
     select: { id: true },
   });
   return column.id;

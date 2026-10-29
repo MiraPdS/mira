@@ -6,6 +6,7 @@ import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemDetail } from './WorkItemDetail';
 import { useWorkItems } from './useWorkItems';
+import { enColumna } from '@/test/columns';
 
 /**
  * NIVEL 3 de la piramide: componente con React Testing Library + MSW.
@@ -76,7 +77,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Ver el detalle de un elemento',
     description: 'Como miembro quiero revisar toda la informacion del elemento.',
     type: 'STORY',
-    status: 'IN_PROGRESS',
+    ...enColumna('IN_PROGRESS'),
     priority: 'HIGH',
     estimate: 5,
     dueDate: '2026-03-15T12:00:00.000Z',

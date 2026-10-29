@@ -26,32 +26,12 @@ describe('workItemWhereForList', () => {
     });
   });
 
-  // MIR-31: el estado ya no es una columna de work_items; se deriva de la
-  // columna del tablero (ver legacyStatusOf en packages/shared).
+  // MIR-49: el filtro "Estado" del backlog es una columna; BACKLOG es no
+  // estar en ninguna.
   it('filtra BACKLOG como elementos sin columna', () => {
-    expect(workItemWhereForList({ ...PAGE, status: 'BACKLOG' })).toEqual({
+    expect(workItemWhereForList({ ...PAGE, columnId: 'BACKLOG' })).toEqual({
       projectId: 'project_1',
-      AND: [{ columnId: null }],
-    });
-  });
-
-  it('filtra un estado que tambien es categoria por su columna por defecto o por categoria', () => {
-    expect(workItemWhereForList({ ...PAGE, status: 'IN_PROGRESS' })).toEqual({
-      projectId: 'project_1',
-      AND: [
-        {
-          column: {
-            OR: [{ legacyStatus: 'IN_PROGRESS' }, { legacyStatus: null, category: 'IN_PROGRESS' }],
-          },
-        },
-      ],
-    });
-  });
-
-  it('filtra IN_REVIEW solo por su columna por defecto (no es una categoria)', () => {
-    expect(workItemWhereForList({ ...PAGE, status: 'IN_REVIEW' })).toEqual({
-      projectId: 'project_1',
-      AND: [{ column: { legacyStatus: 'IN_REVIEW' } }],
+      columnId: null,
     });
   });
 

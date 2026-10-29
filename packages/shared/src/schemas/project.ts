@@ -3,7 +3,6 @@ import {
   ITEM_CATEGORIES,
   PROJECT_ROLES,
   WORK_ITEM_PRIORITIES,
-  WORK_ITEM_STATUSES,
   WORK_ITEM_TYPES,
 } from '../domain.js';
 import { activitySchema, type ActivityDto } from './activity.js';
@@ -113,14 +112,11 @@ export type ProjectActivityDto = ActivityDto;
 /** MIR-23: resumen del proyecto (conteos y actividad reciente). */
 export const projectSummarySchema = z.object({
   total: z.number().int().nonnegative(),
-  /** Conteo por estado antiguo (puente MIR-31; se quita en MIR-49). */
-  byStatus: conteoPor(WORK_ITEM_STATUSES),
   /**
    * MIR-31: conteo por categoria de columna, mas BACKLOG. Es el que sigue
-   * valiendo cuando las columnas se renombran. Opcional solo durante el
-   * puente; la API lo envia siempre.
+   * valiendo cuando las columnas se renombran.
    */
-  byCategory: conteoPor(ITEM_CATEGORIES).optional(),
+  byCategory: conteoPor(ITEM_CATEGORIES),
   byType: conteoPor(WORK_ITEM_TYPES),
   byPriority: conteoPor(WORK_ITEM_PRIORITIES),
   recentActivity: z.array(projectActivitySchema),

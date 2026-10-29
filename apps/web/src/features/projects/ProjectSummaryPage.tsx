@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
+import { CATEGORY_LABELS, PRIORITY_LABELS, TYPE_LABELS } from '@mira/shared';
 import { describeActivity } from '@/features/activity/describeActivity';
 import { useProjectSummary } from './useProjects';
 
@@ -141,8 +141,8 @@ export function ProjectSummaryPage() {
         <SummarySection
           id="resumen-estado"
           title="Por estado"
-          values={summary.byStatus}
-          labels={STATUS_LABELS}
+          values={summary.byCategory}
+          labels={CATEGORY_LABELS}
         />
 
         <SummarySection

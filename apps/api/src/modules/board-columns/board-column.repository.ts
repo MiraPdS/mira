@@ -58,7 +58,6 @@ const columnSelect = {
   name: true,
   position: true,
   category: true,
-  legacyStatus: true,
 } as const;
 
 export function createBoardColumnRepository(db: Db = prisma): BoardColumnRepository {

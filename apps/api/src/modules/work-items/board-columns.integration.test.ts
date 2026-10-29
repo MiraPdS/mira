@@ -55,17 +55,12 @@ describe('MIR-31: columnas por proyecto', () => {
         orderBy: { position: 'asc' },
       });
       expect(
-        columnas.map(({ name, position, category, legacyStatus }) => ({
-          name,
-          position,
-          category,
-          legacyStatus,
-        })),
+        columnas.map(({ name, position, category }) => ({ name, position, category })),
       ).toEqual([
-        { name: 'Por hacer', position: 0, category: 'TODO', legacyStatus: 'TODO' },
-        { name: 'En progreso', position: 1, category: 'IN_PROGRESS', legacyStatus: 'IN_PROGRESS' },
-        { name: 'En revision', position: 2, category: 'IN_PROGRESS', legacyStatus: 'IN_REVIEW' },
-        { name: 'Hecho', position: 3, category: 'DONE', legacyStatus: 'DONE' },
+        { name: 'Por hacer', position: 0, category: 'TODO' },
+        { name: 'En progreso', position: 1, category: 'IN_PROGRESS' },
+        { name: 'En revision', position: 2, category: 'IN_PROGRESS' },
+        { name: 'Hecho', position: 3, category: 'DONE' },
       ]);
     });
 
@@ -80,7 +75,6 @@ describe('MIR-31: columnas por proyecto', () => {
       expect(res.body.columns.map((c: { name: string }) => c.name)).toEqual(
         DEFAULT_BOARD_COLUMNS.map((c) => c.name),
       );
-      // legacyStatus es interno del puente: no sale por la API.
       expect(res.body.columns[0]).toEqual({
         id: expect.any(String),
         name: 'Por hacer',
@@ -91,7 +85,7 @@ describe('MIR-31: columnas por proyecto', () => {
   });
 
   describe('backlog', () => {
-    it('un elemento sin columna es BACKLOG y no aparece en el tablero', async () => {
+    it('un elemento sin columna esta en el backlog y no aparece en el tablero', async () => {
       const { project, owner } = await createProject();
       const enBacklog = await createWorkItem({ project, createdBy: owner, status: 'BACKLOG' });
       const enTablero = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
@@ -104,10 +98,11 @@ describe('MIR-31: columnas por proyecto', () => {
         .set('Cookie', sessionCookie(owner));
 
       expect(tablero.body.items.map((item: { id: string }) => item.id)).toEqual([enTablero.id]);
-      expect(detalle.body.item).toMatchObject({ status: 'BACKLOG', columnId: null, column: null });
+      expect(detalle.body.item).toMatchObject({ columnId: null, column: null });
+      expect(detalle.body.item).not.toHaveProperty('status');
     });
 
-    it('crear sin estado ni columna deja el elemento en el backlog', async () => {
+    it('crear sin columna deja el elemento en el backlog', async () => {
       const { project, owner } = await createProject();
 
       const res = await request(app)
@@ -116,12 +111,12 @@ describe('MIR-31: columnas por proyecto', () => {
         .send({ title: 'Sin columna' });
 
       expect(res.status).toBe(201);
-      expect(res.body.item).toMatchObject({ status: 'BACKLOG', columnId: null, column: null });
+      expect(res.body.item).toMatchObject({ columnId: null, column: null });
     });
   });
 
   describe('crear en una columna', () => {
-    it('acepta columnId y deriva el estado de la columna', async () => {
+    it('acepta columnId y devuelve la columna', async () => {
       const { project, owner } = await createProject();
       const enRevision = await columnIdOfStatus(project, 'IN_REVIEW');
 
@@ -132,13 +127,13 @@ describe('MIR-31: columnas por proyecto', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.item).toMatchObject({
-        status: 'IN_REVIEW',
         columnId: enRevision,
         column: { name: 'En revision', category: 'IN_PROGRESS' },
       });
     });
 
-    it('el estado antiguo se traduce a su columna por defecto', async () => {
+    // MIR-49: el estado antiguo ya no es parte del contrato; se ignora.
+    it('ignora el estado antiguo al crear', async () => {
       const { project, owner } = await createProject();
 
       const res = await request(app)
@@ -147,7 +142,7 @@ describe('MIR-31: columnas por proyecto', () => {
         .send({ title: 'Por estado', status: 'DONE' });
 
       expect(res.status).toBe(201);
-      expect(res.body.item.columnId).toBe(await columnIdOfStatus(project, 'DONE'));
+      expect(res.body.item.columnId).toBeNull();
     });
 
     it('rechaza con 400 una columna de otro proyecto', async () => {
@@ -177,10 +172,15 @@ describe('MIR-31: columnas por proyecto', () => {
         .send({ columnId: hecho });
 
       expect(res.status).toBe(200);
-      expect(res.body.item).toMatchObject({ status: 'DONE', columnId: hecho });
+      expect(res.body.item).toMatchObject({ columnId: hecho, column: { name: 'Hecho' } });
       const actividad = await prisma.activityLog.findMany({ where: { workItemId: item.id } });
       expect(actividad).toMatchObject([
-        { action: 'ITEM_STATUS_CHANGED', field: 'status', fromValue: 'TODO', toValue: 'DONE' },
+        {
+          action: 'ITEM_STATUS_CHANGED',
+          field: 'status',
+          fromValue: 'Por hacer',
+          toValue: 'Hecho',
+        },
       ]);
     });
 
@@ -194,14 +194,14 @@ describe('MIR-31: columnas por proyecto', () => {
         .send({ columnId: null });
 
       expect(res.status).toBe(200);
-      expect(res.body.item).toMatchObject({ status: 'BACKLOG', columnId: null });
+      expect(res.body.item).toMatchObject({ columnId: null, column: null });
       expect(await prisma.activityLog.findFirst()).toMatchObject({
-        fromValue: 'IN_PROGRESS',
+        fromValue: 'En progreso',
         toValue: 'BACKLOG',
       });
     });
 
-    it('en una columna nueva registra su nombre y deriva el estado de la categoria', async () => {
+    it('en una columna nueva registra su nombre', async () => {
       const { project, owner } = await createProject();
       const item = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
       const desplegado = await crearColumna(project, {
@@ -217,11 +217,10 @@ describe('MIR-31: columnas por proyecto', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.item).toMatchObject({
-        status: 'DONE',
         column: { name: 'Desplegado', category: 'DONE' },
       });
       expect(await prisma.activityLog.findFirst()).toMatchObject({
-        fromValue: 'TODO',
+        fromValue: 'Por hacer',
         toValue: 'Desplegado',
       });
     });
@@ -269,32 +268,30 @@ describe('MIR-31: columnas por proyecto', () => {
       expect(res.status).toBe(422);
     });
 
-    it('responde 409 si el estado antiguo ya no tiene su columna por defecto', async () => {
+    // MIR-49: mover por el estado antiguo ya no existe.
+    it('rechaza con 422 un movimiento por estado antiguo', async () => {
       const { project, owner } = await createProject();
       const item = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
-      // Simula a MIR-48 eliminando la columna En revision (vacia).
-      await prisma.boardColumn.deleteMany({
-        where: { projectId: project.id, legacyStatus: 'IN_REVIEW' },
-      });
 
       const res = await request(app)
         .patch(rutaDeEstado(project.id, item.id))
         .set('Cookie', sessionCookie(owner))
-        .send({ status: 'IN_REVIEW' });
+        .send({ status: 'DONE' });
 
-      expect(res.status).toBe(409);
-      expect(res.body.error.code).toBe('STATUS_COLUMN_MISSING');
+      expect(res.status).toBe(422);
+      expect(await prisma.activityLog.count()).toBe(0);
     });
   });
 
   describe('filtros del backlog', () => {
-    it('filtra por columnId y por estado, incluyendo columnas nuevas de esa categoria', async () => {
+    // MIR-49: el filtro "Estado" son las columnas del proyecto, mas BACKLOG.
+    it('filtra por cualquier columna del proyecto y por BACKLOG', async () => {
       const { project, owner } = await createProject();
       const enProgreso = await createWorkItem({ project, createdBy: owner, status: 'IN_PROGRESS' });
       const enRevision = await createWorkItem({ project, createdBy: owner, status: 'IN_REVIEW' });
       const qa = await crearColumna(project, { name: 'QA', position: 4, category: 'IN_PROGRESS' });
       const enQa = await createWorkItem({ project, createdBy: owner, columnId: qa.id });
-      await createWorkItem({ project, createdBy: owner, status: 'BACKLOG' });
+      const enBacklog = await createWorkItem({ project, createdBy: owner, status: 'BACKLOG' });
       const cookie = sessionCookie(owner);
       const listar = async (query: string) => {
         const res = await request(app)
@@ -305,10 +302,13 @@ describe('MIR-31: columnas por proyecto', () => {
       };
 
       expect(await listar(`columnId=${qa.id}`)).toEqual([enQa.id]);
-      expect(await listar('status=IN_PROGRESS')).toEqual([enProgreso.id, enQa.id].sort());
-      expect(await listar('status=IN_REVIEW')).toEqual([enRevision.id]);
-      expect(await listar('status=BACKLOG')).toHaveLength(1);
-      expect(await listar(`status=BACKLOG&columnId=${qa.id}`)).toEqual([]);
+      expect(await listar(`columnId=${await columnIdOfStatus(project, 'IN_PROGRESS')}`)).toEqual([
+        enProgreso.id,
+      ]);
+      expect(await listar(`columnId=${await columnIdOfStatus(project, 'IN_REVIEW')}`)).toEqual([
+        enRevision.id,
+      ]);
+      expect(await listar('columnId=BACKLOG')).toEqual([enBacklog.id]);
     });
   });
 
@@ -327,7 +327,7 @@ describe('MIR-31: columnas por proyecto', () => {
       });
       await createWorkItem({ project, createdBy: owner, columnId: desplegado.id });
       await prisma.boardColumn.updateMany({
-        where: { projectId: project.id, legacyStatus: 'DONE' },
+        where: { projectId: project.id, name: 'Hecho' },
         data: { name: 'Terminado' },
       });
 
@@ -339,7 +339,6 @@ describe('MIR-31: columnas por proyecto', () => {
       expect(res.body.summary).toMatchObject({
         total: 6,
         byCategory: { BACKLOG: 1, TODO: 1, IN_PROGRESS: 2, DONE: 2 },
-        byStatus: { BACKLOG: 1, TODO: 1, IN_PROGRESS: 1, IN_REVIEW: 1, DONE: 2 },
       });
     });
   });
@@ -363,7 +362,7 @@ describe('MIR-31: columnas por proyecto', () => {
       await createWorkItem({ project, createdBy: owner, status: 'TODO' });
 
       await expect(
-        prisma.boardColumn.deleteMany({ where: { projectId: project.id, legacyStatus: 'TODO' } }),
+        prisma.boardColumn.deleteMany({ where: { projectId: project.id, name: 'Por hacer' } }),
       ).rejects.toThrow();
     });
 

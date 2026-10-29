@@ -5,6 +5,7 @@ import { renderConProviders, screen, waitFor } from '@/test/render';
 import { apiError } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { CreateWorkItemForm } from './CreateWorkItemForm';
+import { enColumna } from '@/test/columns';
 
 /**
  * NIVEL 3 de la piramide: componente con React Testing Library + MSW.
@@ -25,7 +26,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Implementar login',
     description: 'Formulario de acceso.',
     type: 'TASK',
-    status: 'BACKLOG',
+    ...enColumna('BACKLOG'),
     priority: 'MEDIUM',
     estimate: null,
     dueDate: null,
@@ -117,7 +118,8 @@ describe('CreateWorkItemForm', () => {
       description: 'Como usuario quiero iniciar sesion.',
       type: 'STORY',
       priority: 'HIGH',
-      status: 'BACKLOG',
+      // MIR-49: sin columna, nace en el backlog.
+      columnId: null,
     });
   });
 

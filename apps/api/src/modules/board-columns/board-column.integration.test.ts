@@ -101,7 +101,7 @@ describe('MIR-48: API de columnas', () => {
       expect(res.status).toBe(422);
     });
 
-    it('un elemento se puede mover a la columna nueva y su estado sale de la categoria', async () => {
+    it('un elemento se puede mover a la columna nueva', async () => {
       const { project, owner } = await createProject();
       const item = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
       const creada = await request(app)
@@ -115,7 +115,10 @@ describe('MIR-48: API de columnas', () => {
         .send({ columnId: creada.body.column.id });
 
       expect(res.status).toBe(200);
-      expect(res.body.item).toMatchObject({ status: 'IN_PROGRESS', column: { name: 'QA' } });
+      expect(res.body.item).toMatchObject({
+        columnId: creada.body.column.id,
+        column: { name: 'QA', category: 'IN_PROGRESS' },
+      });
     });
   });
 
@@ -182,11 +185,7 @@ describe('MIR-48: API de columnas', () => {
       const detalle = await request(app)
         .get(`/api/projects/${project.id}/work-items/${item.id}`)
         .set('Cookie', sessionCookie(owner));
-      // El puente sigue funcionando: la columna por defecto conserva su estado.
-      expect(detalle.body.item).toMatchObject({
-        status: 'IN_PROGRESS',
-        column: { name: 'Haciendo' },
-      });
+      expect(detalle.body.item).toMatchObject({ columnId, column: { name: 'Haciendo' } });
     });
 
     it('una columna de otro proyecto es 404', async () => {
@@ -311,8 +310,8 @@ describe('MIR-48: API de columnas', () => {
               action: 'ITEM_STATUS_CHANGED',
               workItemId: item.id,
               actorId: owner.id,
-              fromValue: 'IN_PROGRESS',
-              toValue: 'TODO',
+              fromValue: 'En progreso',
+              toValue: 'Por hacer',
             }),
           ),
         ),
@@ -336,24 +335,6 @@ describe('MIR-48: API de columnas', () => {
 
       expect(res.status).toBe(400);
       expect(res.body.error.code).toBe('COLUMN_NOT_IN_PROJECT');
-    });
-
-    it('tras borrar la columna por defecto, mover por su estado antiguo es 409', async () => {
-      const { project, owner } = await createProject();
-      const enRevision = (await columnIdOfStatus(project, 'IN_REVIEW'))!;
-      const item = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
-      await request(app)
-        .delete(rutaColumna(project.id, enRevision))
-        .set('Cookie', sessionCookie(owner))
-        .expect(204);
-
-      const res = await request(app)
-        .patch(`/api/projects/${project.id}/work-items/${item.id}/status`)
-        .set('Cookie', sessionCookie(owner))
-        .send({ status: 'IN_REVIEW' });
-
-      expect(res.status).toBe(409);
-      expect(res.body.error.code).toBe('STATUS_COLUMN_MISSING');
     });
   });
 
