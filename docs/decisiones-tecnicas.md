@@ -159,6 +159,13 @@ traspasa cada elemento a la de su estado anterior. Los cambios se reparten así:
   (columna puente `BoardColumn.legacyStatus`), así la web no cambia todavía.
 - MIR-49 pasa la web a columnas y elimina el puente: `status`,
   `legacyStatus`, `byStatus` y el enum `WorkItemStatus`.
+- MIR-48 abre la API de columnas (`/api/projects/:projectId/columns`), solo
+  para el OWNER (permiso `column:manage`). Reordenar recibe la lista completa
+  de columnas, no "mover X a N", para que el resultado no dependa del orden de
+  llegada. Eliminar una columna con elementos exige `?moveTo=<columnId>` y cada
+  elemento movido deja su `ITEM_STATUS_CHANGED`. El proyecto siempre conserva
+  una columna `DONE`; esa regla se decide en una transacción serializable para
+  que dos eliminaciones simultáneas no la burlen.
 
 ---
 

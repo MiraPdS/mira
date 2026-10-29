@@ -26,6 +26,7 @@ const EXPECTED: Expectation = {
   'work-item:delete': ['OWNER', 'MEMBER'],
   'work-item:change-status': ['OWNER', 'MEMBER'],
   'comment:create': ['OWNER', 'MEMBER'],
+  'column:manage': ['OWNER'],
 };
 
 describe('can()', () => {
