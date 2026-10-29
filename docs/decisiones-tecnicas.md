@@ -192,7 +192,9 @@ directamente con construir el MVP.
 
 **Consecuencia.** En la Entrega 2 hay que evitar que el `Jenkinsfile` y el
 workflow se contradigan: Jenkins pasa a ser el CI/CD oficial con build y
-despliegue, y Actions queda como verificación rápida de PR.
+despliegue, y Actions queda como verificación rápida de PR. **Reemplazada en
+la Entrega 2 por [D14](#d14--github-actions-como-cicd-oficial):** Actions pasa a
+ser el CI/CD oficial y no hay Jenkins.
 
 ---
 
@@ -246,11 +248,45 @@ producción.
 
 ---
 
+## D14 — GitHub Actions como CI/CD oficial
+
+**Decisión.** En la Entrega 2 el CI/CD oficial es GitHub Actions, no Jenkins,
+y las notificaciones van a Discord, no a Slack. El profesor lo autorizó en el
+Slack del curso: _"si se puede usar Github Actions, tambien se puede usar
+Discord"_, aunque dejó dicho que prefiere Jenkins porque la experiencia de
+aprendizaje es más rica. Los despliegues usan un environment `deploy` atado a
+`main`, y la protección de `main` aplica también a los administradores.
+
+**Por qué.** Los runners `ubuntu-latest` ya traen Node 20 y Docker, y el
+Postgres efímero de las pruebas de integración ya corre como `services:` en
+`ci.yml`: el pipeline existe desde MIR-25 y es el check obligatorio de `main`.
+Jenkins obligaría a mantener una máquina encendida, con HTTPS, credenciales y
+actualizaciones, la misma carga que D12 descartó para el despliegue. Discord es
+donde el equipo ya recibe la actividad del repositorio.
+
+**Descartado.** Jenkins en una VM en la nube: costo y mantención (ver D12), y
+duplicaría lo que el workflow ya hace. Jenkins local expuesto con ngrok:
+depende de que un PC del equipo esté encendido y la URL cambia en cada
+arranque, así que el webhook de GitHub se rompería. Se pierde la experiencia
+"más rica" que menciona el profesor.
+
+**Consecuencia.** El environment se llama `deploy` y no `production`, porque
+los nombres de environment no distinguen mayúsculas y `Production` ya es el de
+Vercel. Solo `main` puede usarlo y no pide revisores: el control está en que a
+`main` solo se llega por PR revisado, y por eso `enforce_admins` queda activo.
+Los secretos (`RENDER_DEPLOY_HOOK_URL` y `VERCEL_DEPLOY_HOOK_URL` en `deploy`,
+`NOTIFY_WEBHOOK_URL` a nivel de repositorio) y cómo recrearlos están en
+[ci-cd.md](./ci-cd.md). `MIR-33` pasa de "Jenkins en la nube" a la base de
+este CI/CD, y `MIR-51` a `MIR-55` se reescriben para Actions y Discord.
+
+---
+
 ## Decisiones pendientes
 
 | Tema | Cuándo se decide |
 | --- | --- |
-| Dónde corre Jenkins (nube o local con ngrok) | Entrega 2 |
+| Dónde corre Jenkins (nube o local con ngrok) | Resuelto: no hay Jenkins, el CI/CD es GitHub Actions (D14) |
+| Canal de notificaciones: Slack o Discord | Resuelto: Discord (D14) |
 | Los dos requerimientos nuevos de la Entrega 2 | Resuelto: Sprints (épica MIR-41) y columnas configurables (épica MIR-42) |
 | Herramienta E2E: Selenium o Playwright | Entrega 3 |
 | Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real (MIR-55) |
