@@ -5,11 +5,11 @@ orden en que conviene abordarlos según sus dependencias reales. El detalle de
 cada item (historia y criterios de aceptación) está en
 [`backlog.md`](./backlog.md#entrega-2).
 
-**Alcance:** **18 items · 74 story points**, en tres frentes:
+**Alcance:** **18 items · 72 story points**, en tres frentes:
 
 - **Sprints** (épica 7, 23 pts): requerimiento funcional nuevo.
 - **Columnas configurables** (épica 8, 23 pts): requerimiento funcional nuevo.
-- **CI/CD con Jenkins** (épica 9, 20 pts) más el cierre de la entrega (8 pts).
+- **CI/CD con Jenkins** (épica 9, 18 pts) más el cierre de la entrega (8 pts).
 
 ---
 
@@ -18,11 +18,11 @@ cada item (historia y criterios de aceptación) está en
 Mismo criterio que en la Entrega 1: cada persona es dueña de un **módulo
 completo**, para que trabaje casi siempre en sus propios archivos.
 
-### Benjamín — CI/CD y release · 20 pts
+### Benjamín — CI/CD y release · 18 pts
 
 | Item | Pts | Prioridad | Descripción |
 | --- | --- | --- | --- |
-| `MIR-33` | 5 | Highest | Jenkins en la nube |
+| `MIR-33` | 3 | Highest | CI/CD oficial en GitHub Actions |
 | `MIR-51` | 5 | Highest | Pipeline en `Jenkinsfile` |
 | `MIR-52` | 3 | Highest | Webhook de GitHub y estado en el commit |
 | `MIR-53` | 2 | High | Notificaciones a Slack |
@@ -86,7 +86,7 @@ flowchart LR
   classDef mauro  fill:#fef3c7,stroke:#d97706,color:#78350f
   classDef diego  fill:#f5d0fe,stroke:#c026d3,color:#701a75
 
-  J10["MIR-33 Jenkins en la nube · 5"]:::benja
+  J10["MIR-33 CI/CD en Actions · 3"]:::benja
   J11["MIR-51 Jenkinsfile · 5"]:::benja
   J12["MIR-52 Webhook GitHub · 3"]:::benja
   J13["MIR-53 Slack · 2"]:::benja
@@ -163,7 +163,7 @@ MIR-31 → MIR-48 → MIR-50 → MIR-57 → MIR-58
   8       5       5       2       3              = 23 pts
 ```
 
-La de Jenkins (`MIR-33 → MIR-52 → MIR-54 → MIR-56 → MIR-57 → MIR-58`) suma 19 y
+La de Jenkins (`MIR-33 → MIR-52 → MIR-54 → MIR-56 → MIR-57 → MIR-58`) suma 17 y
 tiene holgura, pero `MIR-52` igual tiene que llegar temprano por la flecha
 punteada.
 
@@ -188,7 +188,7 @@ punteada.
 
 | Quién | Item |
 | --- | --- |
-| Benjamín | `MIR-33` Jenkins y `MIR-51` Jenkinsfile, en paralelo |
+| Benjamín | `MIR-33` Actions y `MIR-51` Jenkinsfile, en paralelo |
 | Isaías | `MIR-43` modelo y API de Sprints ← **desbloquea a Diego** |
 | Mauro | `MIR-31` migración a columnas ← **el item más grande** |
 | Diego | Medir la línea base de cobertura (`MIR-55`) y maquetar la pantalla de Sprints con MSW |
