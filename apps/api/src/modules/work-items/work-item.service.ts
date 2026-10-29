@@ -1,6 +1,9 @@
 import {
   can,
+  legacyStatusOf,
   type AssignWorkItemInput,
+  type BoardColumnDto,
+  type BoardResponse,
   type ChangeStatusInput,
   type CreateWorkItemInput,
   type Paginated,
@@ -9,10 +12,12 @@ import {
   type WorkItemActivityResponse,
   type WorkItemDto,
   type WorkItemFilters,
+  type WorkItemStatus,
 } from '@mira/shared';
 import { toActivityDto } from '../../lib/activity.js';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
+  BoardColumnRecord,
   WorkItemForDto,
   WorkItemRepository,
   WorkItemUpdateChange,
@@ -30,6 +35,16 @@ function toPublicUser(user: WorkItemUser): PublicUser {
   };
 }
 
+/** MIR-31: columna publica; `legacyStatus` es interno del puente. */
+export function toBoardColumnDto(column: BoardColumnRecord): BoardColumnDto {
+  return {
+    id: column.id,
+    name: column.name,
+    position: column.position,
+    category: column.category,
+  };
+}
+
 /** Serializa el resultado de persistencia al contrato compartido de la API. */
 export function toWorkItemDto(workItem: WorkItemForDto): WorkItemDto {
   return {
@@ -39,7 +54,9 @@ export function toWorkItemDto(workItem: WorkItemForDto): WorkItemDto {
     title: workItem.title,
     description: workItem.description,
     type: workItem.type,
-    status: workItem.status,
+    status: legacyStatusOf(workItem.column),
+    columnId: workItem.columnId,
+    column: workItem.column ? toBoardColumnDto(workItem.column) : null,
     priority: workItem.priority,
     estimate: workItem.estimate,
     dueDate: workItem.dueDate?.toISOString() ?? null,
@@ -114,6 +131,44 @@ export function prepareWorkItemUpdate(
 }
 
 /**
+ * MIR-31: a donde va un elemento. `columnId` manda; si no viene, el estado
+ * antiguo (puente hasta MIR-49) se traduce a su columna por defecto.
+ */
+type TargetColumn = { columnId?: string | null; status?: WorkItemStatus };
+
+/**
+ * MIR-31: resuelve el destino a una columna del proyecto, o null (backlog).
+ * Una columna de otro proyecto es 400, como un responsable que no es miembro.
+ * Un estado antiguo cuya columna por defecto ya no existe (MIR-48 permite
+ * borrarla) es 409: la peticion era valida, pero choca con el tablero actual.
+ */
+async function resolveTargetColumn(
+  repo: WorkItemRepository,
+  projectId: string,
+  target: TargetColumn,
+): Promise<BoardColumnRecord | null> {
+  if (target.columnId !== undefined) {
+    if (target.columnId === null) return null;
+    const column = await repo.findColumnInProject(projectId, target.columnId);
+    if (!column) {
+      throw new BadRequestError('La columna no pertenece al proyecto', 'COLUMN_NOT_IN_PROJECT');
+    }
+    return column;
+  }
+
+  const status = target.status ?? 'BACKLOG';
+  if (status === 'BACKLOG') return null;
+  const column = await repo.findColumnByLegacyStatus(projectId, status);
+  if (!column) {
+    throw new ConflictError(
+      'El proyecto ya no tiene la columna de ese estado; indica la columna',
+      'STATUS_COLUMN_MISSING',
+    );
+  }
+  return column;
+}
+
+/**
  * Reglas de negocio para elementos de trabajo.
  *
  * No conoce Express ni Prisma: recibe el repositorio por parametro, verifica
@@ -129,7 +184,13 @@ export function createWorkItemService(repo: WorkItemRepository) {
       const role = await repo.findMemberRole(projectId, actorId);
       if (!can(role, 'work-item:create')) throw new ForbiddenError();
 
-      const workItem = await repo.createAtomically({ projectId, actorId, input });
+      const column = await resolveTargetColumn(repo, projectId, input);
+      const workItem = await repo.createAtomically({
+        projectId,
+        actorId,
+        input,
+        columnId: column?.id ?? null,
+      });
       return toWorkItemDto(workItem);
     },
 
@@ -185,16 +246,18 @@ export function createWorkItemService(repo: WorkItemRepository) {
         const workItem = await transactionRepo.findByIdInProject(projectId, workItemId);
         if (!workItem) throw new NotFoundError('Elemento de trabajo');
 
-        // Mover al mismo estado no es un cambio: no se escribe ni se registra
-        // historial, asi un doble envio no ensucia la trazabilidad.
-        if (workItem.status === input.status) return toWorkItemDto(workItem);
+        const toColumn = await resolveTargetColumn(transactionRepo, projectId, input);
+
+        // Mover a la misma columna no es un cambio: no se escribe ni se
+        // registra historial, asi un doble envio no ensucia la trazabilidad.
+        if (workItem.columnId === (toColumn?.id ?? null)) return toWorkItemDto(workItem);
 
         const updated = await transactionRepo.changeStatusAtomically({
           projectId,
           workItemId,
           actorId,
-          fromStatus: workItem.status,
-          toStatus: input.status,
+          fromColumn: workItem.column,
+          toColumn,
         });
         return toWorkItemDto(updated);
       });
@@ -277,12 +340,16 @@ export function createWorkItemService(repo: WorkItemRepository) {
       return { data: activities.map(toActivityDto), truncated };
     },
 
-    async board(projectId: string, actorId: string): Promise<WorkItemDto[]> {
+    /** MIR-31: items del tablero junto con las columnas del proyecto. */
+    async board(projectId: string, actorId: string): Promise<Required<BoardResponse>> {
       const role = await repo.findMemberRole(projectId, actorId);
       if (!can(role, 'work-item:view')) throw new ForbiddenError();
 
-      const items = await repo.listBoardByProject(projectId);
-      return items.map(toWorkItemDto);
+      const [items, columns] = await Promise.all([
+        repo.listBoardByProject(projectId),
+        repo.listColumns(projectId),
+      ]);
+      return { items: items.map(toWorkItemDto), columns: columns.map(toBoardColumnDto) };
     },
 
     async update(

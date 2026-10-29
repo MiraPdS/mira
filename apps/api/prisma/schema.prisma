@@ -7,6 +7,9 @@
 // que en E2 solo haya que crear la tabla y agregar la relacion, en vez de
 // migrar datos existentes.
 //
+// Entrega 2 (MIR-31): los estados del tablero viven en BoardColumn, por
+// proyecto. Un WorkItem sin columna es BACKLOG.
+//
 // Si cambias un enum aqui, cambialo tambien en packages/shared/src/domain.ts
 // en el MISMO commit: el frontend no importa @prisma/client a proposito.
 // =============================================================================
@@ -41,11 +44,20 @@ enum WorkItemType {
   BUG
 }
 
+/// Desde MIR-31 ya no es una columna de work_items: solo lo usa
+/// BoardColumn.legacyStatus, el puente que MIR-49 elimina junto con este enum.
 enum WorkItemStatus {
   BACKLOG
   TODO
   IN_PROGRESS
   IN_REVIEW
+  DONE
+}
+
+/// MIR-31: lo que significa una columna, se llame como se llame.
+enum ColumnCategory {
+  TODO
+  IN_PROGRESS
   DONE
 }
 
@@ -111,9 +123,10 @@ model Project {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  members    ProjectMember[]
-  workItems  WorkItem[]
-  activities ActivityLog[]
+  members      ProjectMember[]
+  workItems    WorkItem[]
+  activities   ActivityLog[]
+  boardColumns BoardColumn[]
 
   @@index([organizationId])
   @@map("projects")
@@ -150,8 +163,10 @@ model WorkItem {
   description String?
 
   type     WorkItemType     @default(TASK)
-  status   WorkItemStatus   @default(BACKLOG)
   priority WorkItemPriority @default(MEDIUM)
+
+  /// MIR-31: columna del tablero. Null = BACKLOG (no aparece en el tablero).
+  columnId String?
 
   /// Story points. Null = sin estimar.
   estimate Int?
@@ -169,17 +184,50 @@ model WorkItem {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  project   Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee  User?         @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
-  createdBy User          @relation("WorkItemCreatedBy", fields: [createdById], references: [id])
-  comments  Comment[]
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  /// La llave incluye projectId: la base impide poner un elemento en la
+  /// columna de otro proyecto. NoAction: borrar una columna con elementos
+  /// falla; MIR-48 exige mover primero sus elementos a otra columna.
+  column     BoardColumn?  @relation(fields: [columnId, projectId], references: [id, projectId], onDelete: NoAction)
+  assignee   User?         @relation("WorkItemAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  createdBy  User          @relation("WorkItemCreatedBy", fields: [createdById], references: [id])
+  comments   Comment[]
   activities ActivityLog[]
 
-  // El tablero siempre consulta por proyecto + estado: ese es el indice que importa.
-  @@index([projectId, status])
+  // El tablero siempre consulta por proyecto + columna: ese es el indice que importa.
+  @@index([projectId, columnId])
   @@index([projectId, sprintId])
   @@index([assigneeId])
   @@map("work_items")
+}
+
+/// MIR-31: columna del tablero de un proyecto (reemplaza al enum fijo de D8).
+model BoardColumn {
+  id String @id @default(cuid())
+
+  projectId String
+  name      String
+  /// Orden en el tablero, de izquierda a derecha. Sin unique a proposito:
+  /// reordenar (MIR-48) reescribe varias posiciones en una transaccion.
+  position  Int
+  category  ColumnCategory
+
+  /// Puente MIR-31 -> MIR-49: estado antiguo al que equivale una columna por
+  /// defecto, para que la API siga entregando `status`. Null en columnas
+  /// creadas despues. Unico por proyecto (Postgres admite varios null).
+  legacyStatus WorkItemStatus?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItems WorkItem[]
+
+  // Destino de la llave compuesta de WorkItem.column.
+  @@unique([id, projectId])
+  @@unique([projectId, legacyStatus])
+  @@index([projectId, position])
+  @@map("board_columns")
 }
 
 model Comment {

@@ -1,5 +1,7 @@
 import type { Project, ProjectRole, User, WorkItem } from '@prisma/client';
+import type { WorkItemStatus } from '@mira/shared';
 import { prisma } from '../lib/prisma.js';
+import { defaultBoardColumnsData } from '../modules/projects/projects.repository.js';
 import { hashPassword } from '../lib/password.js';
 import { AUTH_COOKIE, signToken } from '../lib/jwt.js';
 
@@ -61,6 +63,8 @@ export async function createProject(
       key: options.key ?? `P${n}`,
       description: options.description ?? null,
       members: { create: { userId: owner.id, role: 'OWNER' } },
+      // MIR-31: igual que crear un proyecto por la API.
+      boardColumns: { create: defaultBoardColumnsData() },
     },
   });
 
@@ -82,7 +86,13 @@ export async function createWorkItem(options: {
   createdBy: User;
   title?: string;
   description?: string | null;
-  status?: WorkItem['status'];
+  /**
+   * Estado antiguo: se traduce a la columna por defecto del proyecto (MIR-31).
+   * Asi las pruebas de la Entrega 1 siguen declarando 'TODO', 'DONE', etc.
+   */
+  status?: WorkItemStatus;
+  /** MIR-31: columna exacta; tiene prioridad sobre `status`. */
+  columnId?: string | null;
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
   estimate?: WorkItem['estimate'];
@@ -94,6 +104,10 @@ export async function createWorkItem(options: {
   createdAt?: Date;
 }): Promise<WorkItem> {
   const n = siguiente();
+  const columnId =
+    options.columnId !== undefined
+      ? options.columnId
+      : await columnIdOfStatus(options.project, options.status ?? 'BACKLOG');
   return prisma.workItem.create({
     data: {
       id: options.id,
@@ -104,7 +118,7 @@ export async function createWorkItem(options: {
       createdById: options.createdBy.id,
       title: options.title ?? `Item ${n}`,
       description: options.description ?? null,
-      status: options.status ?? 'BACKLOG',
+      columnId,
       type: options.type ?? 'TASK',
       priority: options.priority ?? 'MEDIUM',
       estimate: options.estimate ?? null,
@@ -112,4 +126,17 @@ export async function createWorkItem(options: {
       assigneeId: options.assigneeId ?? null,
     },
   });
+}
+
+/** MIR-31: id de la columna por defecto que equivale a un estado antiguo. */
+export async function columnIdOfStatus(
+  project: Project,
+  status: WorkItemStatus,
+): Promise<string | null> {
+  if (status === 'BACKLOG') return null;
+  const column = await prisma.boardColumn.findUniqueOrThrow({
+    where: { projectId_legacyStatus: { projectId: project.id, legacyStatus: status } },
+    select: { id: true },
+  });
+  return column.id;
 }

@@ -12,7 +12,15 @@ import { prisma } from '../lib/prisma.js';
  * pelea con las llaves foraneas.  RESTART IDENTITY deja los contadores en
  * cero para que los ids autoincrementales sean predecibles.
  */
-const TABLAS = ['activity_log', 'comments', 'work_items', 'project_members', 'projects', 'users'];
+const TABLAS = [
+  'activity_log',
+  'comments',
+  'work_items',
+  'board_columns',
+  'project_members',
+  'projects',
+  'users',
+];
 
 export async function resetDb(): Promise<void> {
   const lista = TABLAS.map((t) => `"public"."${t}"`).join(', ');

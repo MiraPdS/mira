@@ -9,6 +9,7 @@ import type {
   WorkItemStatus,
   WorkItemType,
 } from '@prisma/client';
+import { DEFAULT_BOARD_COLUMNS, legacyStatusOf, type ItemCategory } from '@mira/shared';
 
 import {
   activityActorInclude,
@@ -44,7 +45,10 @@ export type RecentProjectActivity = ActivityWithActor;
 /** MIR-23: conteos del proyecto y su actividad reciente. */
 export interface ProjectSummaryData {
   total: number;
+  /** Puente MIR-31 -> MIR-49. */
   byStatus: Record<WorkItemStatus, number>;
+  /** MIR-31: por categoria de columna, mas BACKLOG (sin columna). */
+  byCategory: Record<ItemCategory, number>;
   byType: Record<WorkItemType, number>;
   byPriority: Record<WorkItemPriority, number>;
   recentActivity: RecentProjectActivity[];
@@ -112,6 +116,14 @@ export interface ProjectsRepository {
   getProjectSummary(projectId: string): Promise<ProjectSummaryData>;
 }
 
+/**
+ * MIR-31: columnas con las que nace un proyecto, listas para un `create`
+ * anidado. Las usan crear proyecto, el seed y las factories de prueba.
+ */
+export function defaultBoardColumnsData() {
+  return DEFAULT_BOARD_COLUMNS.map((column, position) => ({ ...column, position }));
+}
+
 /** MIR-8: resultado de eliminar; el service lo traduce a 204, 403 o 404. */
 export type DeleteProjectResult =
   | { status: 'deleted'; project: Pick<Project, 'id' | 'key' | 'name'> }
@@ -152,7 +164,8 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         where: { key },
       }),
 
-    // Crear proyecto con OWNER
+    // Crear proyecto con OWNER. MIR-31: nace con las columnas por defecto,
+    // en la misma sentencia, asi nunca existe un proyecto sin tablero.
     createWithOwner: (data, ownerId) =>
       db.project.create({
         data: {
@@ -163,6 +176,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
               role: 'OWNER',
             },
           },
+          boardColumns: { create: defaultBoardColumnsData() },
         },
       }),
 
@@ -441,8 +455,12 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
 
     // MIR-23: Conteos y actividad reciente del proyecto.
     async getProjectSummary(projectId) {
-      const [statusGroups, typeGroups, priorityGroups, activities] = await Promise.all([
-        db.workItem.groupBy({ by: ['status'], where: { projectId }, _count: { _all: true } }),
+      const [columnGroups, columns, typeGroups, priorityGroups, activities] = await Promise.all([
+        db.workItem.groupBy({ by: ['columnId'], where: { projectId }, _count: { _all: true } }),
+        db.boardColumn.findMany({
+          where: { projectId },
+          select: { id: true, category: true, legacyStatus: true },
+        }),
         db.workItem.groupBy({ by: ['type'], where: { projectId }, _count: { _all: true } }),
         db.workItem.groupBy({ by: ['priority'], where: { projectId }, _count: { _all: true } }),
         db.activityLog.findMany({
@@ -470,7 +488,22 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         CRITICAL: 0,
       };
 
-      for (const group of statusGroups) byStatus[group.status] = group._count._all;
+      const byCategory: Record<ItemCategory, number> = {
+        BACKLOG: 0,
+        TODO: 0,
+        IN_PROGRESS: 0,
+        DONE: 0,
+      };
+
+      // MIR-31: se cuenta por columna y cada columna aporta a su categoria y
+      // a su estado antiguo. Sin columna es BACKLOG en ambos.
+      const columnById = new Map(columns.map((column) => [column.id, column]));
+      for (const group of columnGroups) {
+        const column = group.columnId === null ? null : (columnById.get(group.columnId) ?? null);
+        const count = group._count._all;
+        byStatus[legacyStatusOf(column)] += count;
+        byCategory[column?.category ?? 'BACKLOG'] += count;
+      }
       for (const group of typeGroups) byType[group.type] = group._count._all;
       for (const group of priorityGroups) byPriority[group.priority] = group._count._all;
 
@@ -478,8 +511,9 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       const recentActivity = await resolveActivityUserNames(db, activities);
 
       return {
-        total: statusGroups.reduce((sum, group) => sum + group._count._all, 0),
+        total: columnGroups.reduce((sum, group) => sum + group._count._all, 0),
         byStatus,
+        byCategory,
         byType,
         byPriority,
         recentActivity,

@@ -149,6 +149,17 @@ como requerimiento nuevo de la Entrega 2**, que exige justamente dos.
 **Consecuencia.** La migración de enum a tabla ya se sabe que viene; el esquema
 se diseñó para que sea aislada.
 
+**Actualización (Entrega 2, MIR-31).** Reemplazada por la tabla `BoardColumn`
+(nombre, orden y categoría `TODO · IN_PROGRESS · DONE`) y `WorkItem.columnId`;
+sin columna es BACKLOG. La migración crea las cuatro columnas en cada proyecto y
+traspasa cada elemento a la de su estado anterior. Los cambios se reparten así:
+
+- MIR-31 hace solo el backend. La API agrega `columnId`, `column`, `columns` y
+  `byCategory`, pero sigue entregando `status` y aceptando mover por estado
+  (columna puente `BoardColumn.legacyStatus`), así la web no cambia todavía.
+- MIR-49 pasa la web a columnas y elimina el puente: `status`,
+  `legacyStatus`, `byStatus` y el enum `WorkItemStatus`.
+
 ---
 
 ## D9 — Kanban con dnd-kit y un camino alternativo obligatorio

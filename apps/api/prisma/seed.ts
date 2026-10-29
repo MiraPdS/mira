@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { DEFAULT_BOARD_COLUMNS } from '@mira/shared';
 import bcrypt from 'bcryptjs';
 import { config as loadEnv } from 'dotenv';
 
@@ -62,8 +63,21 @@ async function main() {
           { userId: grace.id, role: 'VIEWER' },
         ],
       },
+      // MIR-31: mismas columnas con las que nace un proyecto en la API.
+      boardColumns: {
+        create: DEFAULT_BOARD_COLUMNS.map((column, position) => ({ ...column, position })),
+      },
     },
   });
+
+  // MIR-31: el estado de cada item de demo se traduce a su columna por
+  // defecto; BACKLOG es no tener columna.
+  const columnas = await prisma.boardColumn.findMany({
+    where: { projectId: proyecto.id, legacyStatus: { not: null } },
+    select: { id: true, legacyStatus: true },
+  });
+  const columnaDe = (status: string) =>
+    columnas.find((columna) => columna.legacyStatus === status)?.id ?? null;
 
   // Un item por columna, para que el tablero se vea poblado de inmediato.
   const items = [
@@ -140,7 +154,7 @@ async function main() {
           assigneeId: item.assignee,
           title: item.title,
           type: item.type,
-          status: item.status,
+          columnId: columnaDe(item.status),
           priority: item.priority,
           estimate: item.estimate,
           position: item.n,
