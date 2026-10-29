@@ -4,6 +4,20 @@ import { workItemWhereForList } from './work-item.repository.js';
 const PAGE = { projectId: 'project_1', page: 1, pageSize: 20 };
 
 describe('workItemWhereForList', () => {
+  it('filtra sin sprint usando IS NULL', () => {
+    expect(workItemWhereForList({ ...PAGE, sprintId: 'none' })).toEqual({
+      projectId: PAGE.projectId,
+      sprintId: null,
+    });
+  });
+  it('filtra un sprint y exige que pertenezca al proyecto', () => {
+    expect(workItemWhereForList({ ...PAGE, sprintId: 's1', columnId: 'column_1' })).toEqual({
+      projectId: PAGE.projectId,
+      sprintId: 's1',
+      sprint: { projectId: PAGE.projectId },
+      columnId: 'column_1',
+    });
+  });
   it('busca titulo o descripcion sin distinguir mayusculas', () => {
     expect(workItemWhereForList({ ...PAGE, q: 'login' })).toEqual({
       projectId: 'project_1',

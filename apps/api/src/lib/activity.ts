@@ -18,6 +18,36 @@ const USER_ID_FIELDS = new Set(['assigneeId', 'member']);
 
 /** Nombre que se muestra cuando el usuario guardado en la bitacora ya no existe. */
 export const DELETED_USER_NAME = 'Usuario eliminado';
+export const DELETED_SPRINT_NAME = 'Sprint eliminado';
+
+/** Usuarios y sprints se resuelven por lote, sin consultas por entrada. */
+export async function resolveActivityNames<T extends ActivityLog>(
+  db: Db,
+  activities: T[],
+): Promise<T[]> {
+  const translated = await resolveActivityUserNames(db, activities);
+  const sprintIds = new Set<string>();
+  for (const activity of activities) {
+    if (activity.field !== 'sprintId') continue;
+    if (activity.fromValue !== null) sprintIds.add(activity.fromValue);
+    if (activity.toValue !== null) sprintIds.add(activity.toValue);
+  }
+  if (sprintIds.size === 0) return translated;
+  const sprints = await db.sprint.findMany({
+    where: {
+      id: { in: [...sprintIds] },
+      projectId: { in: [...new Set(activities.map((activity) => activity.projectId))] },
+    },
+    select: { id: true, name: true, projectId: true },
+  });
+  const names = new Map(sprints.map((sprint) => [`${sprint.projectId}:${sprint.id}`, sprint.name]));
+  return translated.map((activity) => {
+    if (activity.field !== 'sprintId') return activity;
+    const name = (id: string | null) =>
+      id === null ? null : (names.get(`${activity.projectId}:${id}`) ?? DELETED_SPRINT_NAME);
+    return { ...activity, fromValue: name(activity.fromValue), toValue: name(activity.toValue) };
+  });
+}
 
 /**
  * Traduce a nombres los ids de usuario guardados en la bitacora, en UNA

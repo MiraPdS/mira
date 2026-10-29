@@ -138,6 +138,14 @@ function describeItemField(
       if (toValue) return inProject ? `asignó un ítem a ${toValue}` : `asignó a ${toValue}`;
       return `quitó el responsable${ofItem}`;
 
+    case 'sprintId':
+      if (fromValue && toValue) return `cambió el sprint${ofItem} de «${fromValue}» a «${toValue}»`;
+      if (toValue)
+        return inProject
+          ? `asignó un ítem al sprint «${toValue}»`
+          : `asignó al sprint «${toValue}»`;
+      return `quitó el sprint${ofItem}`;
+
     default:
       return null;
   }

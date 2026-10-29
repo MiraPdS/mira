@@ -61,6 +61,7 @@ export function apiError(
 }
 
 export const handlers = [
+  http.get(`${BASE_URL}/projects/:projectId/sprints`, () => HttpResponse.json({ data: [] })),
   http.post(`${BASE_URL}/auth/login`, () =>
     HttpResponse.json<AuthResponse>({ user: USUARIO_DE_PRUEBA }, { status: 200 }),
   ),
