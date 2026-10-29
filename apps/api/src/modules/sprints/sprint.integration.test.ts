@@ -99,6 +99,10 @@ describe('API de sprints MIR-43', () => {
         .set('Cookie', sessionCookie(outsider))
         .send(method === 'post' ? input : method === 'patch' ? { name: 'Cambio' } : undefined);
       expect(res.status).toBe(404);
+      expect(res.body.error).toMatchObject({
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Proyecto no encontrado',
+      });
       expect(await prisma.sprint.findUnique({ where: { id: sprint.id } })).toEqual(sprint);
     },
   );

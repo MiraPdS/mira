@@ -71,7 +71,11 @@ describe('SprintService', () => {
 
     it('oculta el recurso al no miembro con 404 sin leer ni mutar sprints', async () => {
       repo.findMemberRole.mockResolvedValue(null);
-      await expect(execute(action)).rejects.toBeInstanceOf(NotFoundError);
+      await expect(execute(action)).rejects.toMatchObject({
+        status: 404,
+        code: 'PROJECT_NOT_FOUND',
+        message: 'Proyecto no encontrado',
+      });
       expect(repo.findByIdInProject).not.toHaveBeenCalled();
       expect(repo.listByProject).not.toHaveBeenCalled();
       expect(repo.create).not.toHaveBeenCalled();

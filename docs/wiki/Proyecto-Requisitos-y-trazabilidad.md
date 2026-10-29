@@ -80,6 +80,12 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-28 | Release `v1.0-entrega1` | ✅ v1.0-entrega1 | [#31], [#32] | [Evidencias de la Entrega 1](Evidencias-Entrega-1.md); [release](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1) |
 | MIR-29 | Cápsula de video | ➡️ después del tag | — | se graba sobre el release desplegado |
 
+## Épica 7 — Sprints
+
+| Item | Historia | Estado | PR | Pruebas |
+| --- | --- | --- | --- | --- |
+| MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
+
 <!-- Enlaces de referencia: PRs -->
 
 [#1]: https://github.com/MiraPdS/mira/pull/1
@@ -112,6 +118,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#31]: https://github.com/MiraPdS/mira/pull/31
 [#32]: https://github.com/MiraPdS/mira/pull/32
 [#35]: https://github.com/MiraPdS/mira/pull/35
+[#39]: https://github.com/MiraPdS/mira/pull/39
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -119,6 +126,9 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [`wiki.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/wiki.yml
 [auth (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/auth.test.ts
 [project (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/project.test.ts
+[sprint.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.service.test.ts
+[sprint (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/sprint.test.ts
+[sprint.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.integration.test.ts
 [permissions]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/permissions.test.ts
 [auth.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/auth/auth.service.test.ts
 [auth.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/auth/auth.integration.test.ts

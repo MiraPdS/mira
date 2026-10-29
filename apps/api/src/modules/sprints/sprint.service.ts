@@ -39,7 +39,7 @@ export function createSprintService(repo: SprintRepository) {
     permission: Permission,
   ) {
     const role = await repository.findMemberRole(projectId, actorId);
-    if (role === null) throw new NotFoundError('Sprint');
+    if (role === null) throw new NotFoundError('Proyecto', 'PROJECT_NOT_FOUND');
     if (!can(role, permission)) throw new ForbiddenError();
   }
 
