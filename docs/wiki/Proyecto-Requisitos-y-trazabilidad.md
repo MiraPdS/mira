@@ -91,6 +91,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | --- | --- | --- | --- | --- |
 | MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
 | MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
+| MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -131,6 +132,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#43]: https://github.com/MiraPdS/mira/pull/43
 [#44]: https://github.com/MiraPdS/mira/pull/44
 [#46]: https://github.com/MiraPdS/mira/pull/46
+[#47]: https://github.com/MiraPdS/mira/pull/47
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -142,6 +144,10 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [sprint.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.service.test.ts
 [sprint (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/sprint.test.ts
 [sprint.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.integration.test.ts
+[work-item.sprint.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.sprint.service.test.ts
+[work-item.sprint.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.sprint.integration.test.ts
+[activity]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/lib/activity.test.ts
+[work-item-sprint (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/work-item-sprint.test.ts
 [domain (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/domain.test.ts
 [work-item (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/work-item.test.ts
 [board-columns.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/board-columns.integration.test.ts
@@ -185,6 +191,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [WorkItemBacklog]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemBacklog.test.tsx
 [WorkItemComments]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemComments.test.tsx
 [WorkItemDetail]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemDetail.test.tsx
+[WorkItemSprint]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemSprint.test.tsx
 [summaryInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/summaryInvalidation.test.tsx
 [describeActivity]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/activity/describeActivity.test.ts
 [activity (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/activity.test.ts
