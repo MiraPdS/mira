@@ -1,7 +1,10 @@
 import type {
   BoardColumnDto,
   BoardColumnListResponse,
+  BoardColumnResponse,
   BoardResponse,
+  CreateBoardColumnInput,
+  UpdateBoardColumnInput,
   WorkItemDto,
 } from '@mira/shared';
 import { api } from '@/lib/api-client';
@@ -41,4 +44,58 @@ export async function changeWorkItemColumn(
     { columnId },
   );
   return item;
+}
+
+/* MIR-50: administrar las columnas (API de MIR-48). */
+
+/** Crea una columna; el servidor la deja al final del tablero. */
+export async function createBoardColumn(
+  projectId: string,
+  input: CreateBoardColumnInput,
+): Promise<BoardColumnDto> {
+  const { column } = await api.post<BoardColumnResponse>(
+    `/projects/${encodeURIComponent(projectId)}/columns`,
+    input,
+  );
+  return column;
+}
+
+/** Renombra o cambia la categoria de una columna. */
+export async function updateBoardColumn(
+  projectId: string,
+  columnId: string,
+  input: UpdateBoardColumnInput,
+): Promise<BoardColumnDto> {
+  const { column } = await api.patch<BoardColumnResponse>(
+    `/projects/${encodeURIComponent(projectId)}/columns/${encodeURIComponent(columnId)}`,
+    input,
+  );
+  return column;
+}
+
+/** Fija el orden completo del tablero y devuelve las columnas ya ordenadas. */
+export async function reorderBoardColumns(
+  projectId: string,
+  columnIds: string[],
+): Promise<BoardColumnDto[]> {
+  const { columns } = await api.put<BoardColumnListResponse>(
+    `/projects/${encodeURIComponent(projectId)}/columns/order`,
+    { columnIds },
+  );
+  return sortColumns(columns);
+}
+
+/**
+ * Elimina una columna. Si tiene elementos, `moveTo` indica la columna a la que
+ * se mueven (sin destino la API responde 409 COLUMN_NOT_EMPTY).
+ */
+export function deleteBoardColumn(
+  projectId: string,
+  columnId: string,
+  moveTo?: string,
+): Promise<void> {
+  const query = moveTo ? `?${new URLSearchParams({ moveTo }).toString()}` : '';
+  return api.delete<void>(
+    `/projects/${encodeURIComponent(projectId)}/columns/${encodeURIComponent(columnId)}${query}`,
+  );
 }
