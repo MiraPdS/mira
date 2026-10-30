@@ -68,6 +68,12 @@ export const PRIORITY_LABELS: Record<WorkItemPriority, string> = {
   CRITICAL: 'Critica',
 };
 
+export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
+  PLANNED: 'Planificado',
+  ACTIVE: 'Activo',
+  CLOSED: 'Cerrado',
+};
+
 export const ROLE_LABELS: Record<ProjectRole, string> = {
   OWNER: 'Propietario',
   MEMBER: 'Miembro',

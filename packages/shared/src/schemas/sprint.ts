@@ -75,3 +75,11 @@ export const sprintListItemSchema = sprintDtoSchema
   })
   .superRefine(validateDateRange);
 export type SprintListItemDto = z.infer<typeof sprintListItemSchema>;
+
+/** Respuestas HTTP de MIR-43, compartidas con el cliente web (MIR-44). */
+export interface SprintResponse {
+  sprint: SprintDto;
+}
+export interface SprintListResponse {
+  data: SprintListItemDto[];
+}
