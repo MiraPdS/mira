@@ -61,6 +61,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-19 | Cambiar el estado desde el menú | ✅ v1.0-entrega1 | [#20] | U [work-item.service] · I [work-item.integration] · C [KanbanBoard] |
 | MIR-20 | Arrastrar y soltar tarjetas | ✅ v1.0-entrega1 | [#22] | C [KanbanBoard.dnd] |
 | MIR-31 | Migrar los estados a columnas por proyecto | ➡️ después del tag | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
+| MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ➡️ después del tag | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
 
 ## Épica 5 — Colaboración y trazabilidad
 
@@ -123,6 +124,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#39]: https://github.com/MiraPdS/mira/pull/39
 [#40]: https://github.com/MiraPdS/mira/pull/40
 [#42]: https://github.com/MiraPdS/mira/pull/42
+[#44]: https://github.com/MiraPdS/mira/pull/44
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -137,6 +139,9 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [work-item (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/work-item.test.ts
 [board-columns.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/board-columns.integration.test.ts
 [board-columns.migration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/board-columns.migration.integration.test.ts
+[board-column.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/board-columns/board-column.service.test.ts
+[board-column (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/board-column.test.ts
+[board-column.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/board-columns/board-column.integration.test.ts
 [useSprints]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/sprints/useSprints.test.ts
 [ProjectSprintsPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/sprints/ProjectSprintsPage.test.tsx
 [permissions]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/permissions.test.ts
