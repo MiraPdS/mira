@@ -30,7 +30,7 @@ export const createWorkItemSchema = z.object({
   /** Estimacion en story points (escala Fibonacci acotada). */
   estimate: z.number().int().min(0).max(100).nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
-  /** La creacion de items lo deja en null; la asignacion a sprints pertenece a MIR-45. */
+  /** La creacion lo deja en null; se asigna mediante PATCH /work-items/:id/sprint. */
   sprintId: z.string().nullable().optional(),
 });
 export type CreateWorkItemInput = z.infer<typeof createWorkItemSchema>;
@@ -84,6 +84,17 @@ export const assignWorkItemSchema = z
   .strict();
 export type AssignWorkItemInput = z.infer<typeof assignWorkItemSchema>;
 
+/** MIR-45: null quita el sprint; ningun otro campo es editable aqui. */
+export const assignWorkItemSprintSchema = z
+  .object({
+    sprintId: z.string().trim().min(1, 'Indica el sprint o null').nullable(),
+  })
+  .strict();
+export type AssignWorkItemSprintInput = z.infer<typeof assignWorkItemSprintSchema>;
+
+/** Valor HTTP reservado para filtrar los items sin sprint. */
+export const NO_SPRINT_FILTER = 'none';
+
 /** Busqueda y filtros del backlog (requisito explicito del tema). */
 export const workItemFiltersSchema = paginationQuerySchema.extend({
   /** Texto libre; busca en titulo y descripcion, sin distinguir mayusculas. */
@@ -96,6 +107,7 @@ export const workItemFiltersSchema = paginationQuerySchema.extend({
   columnId: z.union([z.literal(BACKLOG), z.string().trim().min(1)]).optional(),
   priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
   assigneeId: z.string().optional(),
+  sprintId: z.string().trim().min(1).optional(),
 });
 export type WorkItemFilters = z.infer<typeof workItemFiltersSchema>;
 

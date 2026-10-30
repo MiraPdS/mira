@@ -3,8 +3,10 @@ import {
   ACTIVITY_LIST_LIMIT,
   BACKLOG,
   type ColumnCategory,
+  NO_SPRINT_FILTER,
   type CreateWorkItemInput,
   type ProjectRole,
+  type SprintStatus,
   type UpdateWorkItemInput,
   type WorkItemFilters,
   type WorkItemPriority,
@@ -12,7 +14,7 @@ import {
 } from '@mira/shared';
 import {
   activityActorInclude,
-  resolveActivityUserNames,
+  resolveActivityNames,
   type ActivityWithActor,
 } from '../../lib/activity.js';
 import { findMemberRole, hasTransaction, prisma, type Db } from '../../lib/prisma.js';
@@ -104,9 +106,23 @@ export interface AssignData {
   toAssigneeId: string | null;
 }
 
+export interface AssignSprintData {
+  projectId: string;
+  workItemId: string;
+  actorId: string;
+  fromSprintId: string | null;
+  toSprintId: string | null;
+}
+
+export interface SprintForAssignment {
+  id: string;
+  projectId: string;
+  status: SprintStatus;
+}
+
 export interface ListWorkItemsData extends Pick<
   WorkItemFilters,
-  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId'
+  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId' | 'sprintId'
 > {
   projectId: string;
   page: number;
@@ -133,6 +149,9 @@ export interface WorkItemActivityResult {
  * registrar su actividad no puedan separarse.
  */
 export interface WorkItemRepository {
+  findWorkItemProjectId(workItemId: string): Promise<string | null>;
+  findSprintForAssignment(sprintId: string): Promise<SprintForAssignment | null>;
+  assignSprintAtomically(data: AssignSprintData): Promise<WorkItemForDto>;
   withTransaction<T>(operation: (repo: WorkItemRepository) => Promise<T>): Promise<T>;
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   findByIdInProject(projectId: string, workItemId: string): Promise<WorkItemForDto | null>;
@@ -191,6 +210,7 @@ export function workItemWhereForList({
   columnId,
   priority,
   assigneeId,
+  sprintId,
 }: ListWorkItemsData): Prisma.WorkItemWhereInput {
   return {
     projectId,
@@ -207,6 +227,11 @@ export function workItemWhereForList({
     ...(columnId ? { columnId: columnId === BACKLOG ? null : columnId } : {}),
     ...(priority ? { priority } : {}),
     ...(assigneeId ? { assigneeId } : {}),
+    ...(sprintId === undefined
+      ? {}
+      : sprintId === NO_SPRINT_FILTER
+        ? { sprintId: null }
+        : { sprintId, sprint: { projectId } }),
   };
 }
 
@@ -235,8 +260,7 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
       priority: data.input.priority,
       estimate: data.input.estimate ?? null,
       dueDate: data.input.dueDate ?? null,
-      // MIR-43 agrega la FK, pero la asignacion pertenece a MIR-45.
-      // Crear un item sigue dejandolo fuera de cualquier sprint.
+      // La asignacion tiene su endpoint dedicado; crear no asigna un sprint.
       sprintId: null,
     },
     include: includeForDto,
@@ -353,6 +377,43 @@ async function assignInTransaction(db: Db, data: AssignData): Promise<WorkItemFo
 
 export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
   return {
+    async findWorkItemProjectId(workItemId) {
+      const item = await db.workItem.findUnique({
+        where: { id: workItemId },
+        select: { projectId: true },
+      });
+      return item?.projectId ?? null;
+    },
+    async findSprintForAssignment(sprintId) {
+      // FOR SHARE impide que se cierre o elimine el destino antes del commit.
+      const [sprint] = await db.$queryRaw<SprintForAssignment[]>`
+        SELECT id, "projectId", status FROM sprints WHERE id = ${sprintId} FOR SHARE
+      `;
+      return sprint ?? null;
+    },
+    async assignSprintAtomically(data) {
+      const write = async (tx: Db) => {
+        const item = await tx.workItem.update({
+          where: { id: data.workItemId, projectId: data.projectId },
+          data: { sprintId: data.toSprintId },
+          include: includeForDto,
+        });
+        await tx.activityLog.create({
+          data: {
+            action: 'ITEM_UPDATED',
+            field: 'sprintId',
+            projectId: data.projectId,
+            workItemId: data.workItemId,
+            actorId: data.actorId,
+            fromValue: data.fromSprintId,
+            toValue: data.toSprintId,
+          },
+        });
+        return item;
+      };
+      if (!hasTransaction(db)) return write(db);
+      return db.$transaction((tx) => write(tx));
+    },
     async withTransaction(operation) {
       if (!hasTransaction(db)) return operation(createWorkItemRepository(db));
       // Un PATCH concurrente debe recalcular cambios sobre la versión vigente,
@@ -468,7 +529,7 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
       });
 
       return {
-        activities: await resolveActivityUserNames(db, rows.slice(0, limit)),
+        activities: await resolveActivityNames(db, rows.slice(0, limit)),
         truncated: rows.length > limit,
       };
     },

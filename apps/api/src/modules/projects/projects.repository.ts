@@ -12,7 +12,7 @@ import { DEFAULT_BOARD_COLUMNS, type ItemCategory } from '@mira/shared';
 
 import {
   activityActorInclude,
-  resolveActivityUserNames,
+  resolveActivityNames,
   type ActivityWithActor,
 } from '../../lib/activity.js';
 import { BadRequestError, NotFoundError } from '../../lib/errors.js';
@@ -496,8 +496,8 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       for (const group of typeGroups) byType[group.type] = group._count._all;
       for (const group of priorityGroups) byPriority[group.priority] = group._count._all;
 
-      // La bitacora guarda ids de usuario en algunos campos: se muestran como nombre.
-      const recentActivity = await resolveActivityUserNames(db, activities);
+      // Usuarios y sprints se muestran por nombre, incluso en el resumen.
+      const recentActivity = await resolveActivityNames(db, activities);
 
       return {
         total: columnGroups.reduce((sum, group) => sum + group._count._all, 0),
