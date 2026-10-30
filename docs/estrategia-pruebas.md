@@ -98,9 +98,18 @@ porcentaje sin verificar nada.
 
 Desde la Entrega 2 (MIR-55) el umbral es **bloqueante**. Está en
 [`vitest.config.ts`](../vitest.config.ts): si la cobertura baja de él,
-`npm run test:coverage` termina con error y el pipeline queda rojo. GitHub
-Actions ya corre ese comando, y el pipeline de Jenkins (MIR-51) corre el mismo,
-así que ambos fallan igual sin configuración extra.
+`npm run test:coverage` termina con error (código de salida 1) y el pipeline
+queda rojo.
+
+- **GitHub Actions:** ya corre ese comando en el paso "Pruebas con cobertura",
+  sin `continue-on-error`, así que un PR que baje la cobertura queda rojo. Está
+  verificado con un run real que falla por el umbral (ver la fila de MIR-55 en
+  la trazabilidad de la Wiki).
+- **Jenkins: pendiente.** Todavía no existe el pipeline (MIR-51). El umbral no
+  necesita configuración propia de Jenkins: basta con que el Jenkinsfile ejecute
+  `npm run test:coverage` y propague su código de salida. Hasta que MIR-51 se
+  integre y haya una ejecución real de Jenkins que falle por el umbral, esa
+  parte del criterio de MIR-55 queda abierta.
 
 **Línea base.** Se midió en el CI de `develop` al inicio de la entrega (commit
 `35308c1`, merge de MIR-43), con las cuatro suites, integración incluida:

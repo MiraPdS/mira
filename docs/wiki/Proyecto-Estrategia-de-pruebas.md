@@ -66,8 +66,11 @@ efímero y el build. Es check obligatorio para fusionar a `main`.
 Se mide con v8 (HTML + lcov + json-summary, artefacto de CI). En la Entrega 1
 solo se reportaba; desde la Entrega 2 (MIR-55) el umbral es **bloqueante**: está
 en [`vitest.config.ts`](https://github.com/MiraPdS/mira/blob/develop/vitest.config.ts)
-y, si la cobertura baja, `npm run test:coverage` falla y el pipeline queda rojo,
-tanto en GitHub Actions como en Jenkins (ambos corren ese comando).
+y, si la cobertura baja, `npm run test:coverage` falla (código de salida 1). En
+GitHub Actions eso deja el PR en rojo, verificado con un run real. En Jenkins
+queda **pendiente**: el pipeline (MIR-51) aún no existe; cuando su Jenkinsfile
+ejecute el mismo comando y propague el código de salida, fallará igual sin
+configuración extra.
 
 Línea base medida en el CI de `develop` al inicio de la entrega (commit
 `35308c1`) y umbral vigente:

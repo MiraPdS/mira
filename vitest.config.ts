@@ -41,7 +41,8 @@ export default defineConfig({
       ],
       // MIR-55: umbral bloqueante desde la Entrega 2.  Si la cobertura baja de
       // estos valores, `npm run test:coverage` termina con error y el pipeline
-      // queda rojo (GitHub Actions y Jenkins corren ese mismo comando).
+      // queda rojo.  GitHub Actions ya corre ese comando; el Jenkinsfile
+      // (MIR-51) debe correr el mismo y propagar su codigo de salida.
       //
       // Linea base: CI de develop al inicio de la entrega (35308c1, merge de
       // MIR-43): 97,18 % sentencias y lineas, 97,9 % funciones, 89,33 % ramas.
