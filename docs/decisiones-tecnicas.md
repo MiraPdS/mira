@@ -82,8 +82,8 @@ transacciones, códigos de estado y cookies.
 en los E2E de la Entrega 3). Solo integración (lento y difícil forzar casos de
 error). Testcontainers (más lento de arrancar y exige Docker igual).
 
-**Consecuencia.** El agente de Jenkins de la Entrega 2 **necesita Docker** o un
-servicio PostgreSQL disponible. Queda registrado como dependencia desde ahora.
+**Consecuencia.** El runner de CI **necesita Docker** o un servicio PostgreSQL
+disponible. En GitHub Actions (D14) lo resuelve el `services:` de `ci.yml`.
 
 ---
 

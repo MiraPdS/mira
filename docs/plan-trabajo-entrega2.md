@@ -9,7 +9,7 @@ cada item (historia y criterios de aceptación) está en
 
 - **Sprints** (épica 7, 23 pts): requerimiento funcional nuevo.
 - **Columnas configurables** (épica 8, 23 pts): requerimiento funcional nuevo.
-- **CI/CD con Jenkins** (épica 9, 18 pts) más el cierre de la entrega (8 pts).
+- **CI/CD con GitHub Actions** (épica 9, 18 pts) más el cierre de la entrega (8 pts).
 
 ---
 

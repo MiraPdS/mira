@@ -604,7 +604,9 @@ Ampliados al planificar (ver `docs/plans/MIR-22-historial-elemento.md`):
 # Entrega 2
 
 La Entrega 2 ([`deliverables/entrega2.md`](../deliverables/entrega2.md)) pide
-llevar el proyecto a CI/CD con Jenkins, integrado con GitHub y Slack, y
+llevar el proyecto a CI/CD con Jenkins, integrado con GitHub y Slack (el equipo
+usa GitHub Actions y Discord, con autorización del profesor:
+[D14](./decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)), y
 desarrollar **dos requerimientos funcionales nuevos** con sus pruebas. Los
 elegidos son los dos que ya estaban previstos en el esquema y en las decisiones:
 
