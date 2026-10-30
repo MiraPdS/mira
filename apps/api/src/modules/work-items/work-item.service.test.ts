@@ -35,8 +35,8 @@ const INPUT: CreateWorkItemInput = {
   priority: 'HIGH',
   estimate: 5,
   dueDate: new Date('2026-03-15T12:00:00.000Z'),
-  // El service recibe el contrato ya validado; solo el repository decide que
-  // MIR-11 no persiste este campo reservado para MIR-30.
+  // El repository mantiene sprintId en null al crear; la asignacion
+  // a un sprint tiene su propio caso de uso (MIR-45).
   sprintId: 'sprint_reservado',
 };
 

@@ -190,7 +190,7 @@ export function ProjectSummaryPage() {
         )}
       </section>
 
-      {/* Navegacion hacia el backlog, tablero y miembros */}
+      {/* Navegacion hacia el backlog, tablero, sprints y miembros */}
       <nav aria-label="Secciones del proyecto" className="flex flex-wrap gap-x-6 gap-y-2">
         <Link
           to={`/proyectos/${projectId}/backlog`}
@@ -204,6 +204,13 @@ export function ProjectSummaryPage() {
           className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600 hover:underline sm:min-h-0"
         >
           Ver tablero →
+        </Link>
+
+        <Link
+          to={`/proyectos/${projectId}/sprints`}
+          className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600 hover:underline sm:min-h-0"
+        >
+          Ver sprints →
         </Link>
 
         <Link

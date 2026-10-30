@@ -30,7 +30,7 @@ export const createWorkItemSchema = z.object({
   /** Estimacion en story points (escala Fibonacci acotada). */
   estimate: z.number().int().min(0).max(100).nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
-  /** Reservado para E2, cuando existan Sprints. En E1 siempre va null. */
+  /** La creacion de items lo deja en null; la asignacion a sprints pertenece a MIR-45. */
   sprintId: z.string().nullable().optional(),
 });
 export type CreateWorkItemInput = z.infer<typeof createWorkItemSchema>;

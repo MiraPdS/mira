@@ -203,3 +203,126 @@ MIR-29 Capsula de video de la Entrega 1,Task,High,3,,"Calidad, infraestructura y
 Criterios de aceptacion:
 - Cubre alcance de la herramienta de testing, trabajo realizado, dependencias, estrategia de pruebas, ejecucion y resultados.
 - El enlace queda publicado en el README y en la Wiki."
+Sprints,Epic,High,,Sprints,,entrega-2,Epica de la Entrega 2.
+Columnas configurables del tablero,Epic,High,,Columnas configurables del tablero,,entrega-2,Epica de la Entrega 2.
+Integracion y despliegue continuo,Epic,High,,Integracion y despliegue continuo,,entrega-2,Epica de la Entrega 2.
+MIR-43 Modelo y API de Sprints,Story,Highest,5,,Sprints,"backend,sprints,entrega-2","Como miembro quiero que el proyecto tenga sprints con nombre, fechas y objetivo para planificar el trabajo en iteraciones.
+
+Criterios de aceptacion:
+- Dado que soy OWNER o MEMBER, cuando hago POST a /api/projects/:id/sprints con nombre, fecha de inicio y de termino, entonces recibo 201 y el sprint nace en PLANNED.
+- Dado que la fecha de termino es anterior a la de inicio, entonces recibo 422 indicando endDate.
+- Dado que soy VIEWER, cuando intento crear, editar o eliminar un sprint, entonces recibo 403.
+- Dado el proyecto, cuando listo sus sprints, entonces los veo ordenados por fecha de inicio con su estado, items y puntos.
+- WorkItem.sprintId pasa a ser una FK real hacia Sprint."
+MIR-44 Pantalla de Sprints,Story,Highest,5,,Sprints,"frontend,sprints,entrega-2","Como miembro quiero ver y administrar los sprints del proyecto en una pantalla.
+
+Criterios de aceptacion:
+- Veo el sprint activo arriba, los planificados despues y los cerrados al final.
+- Como OWNER o MEMBER, creo o edito un sprint y aparece en la lista sin recargar.
+- Como VIEWER no veo los botones de crear ni editar.
+- Los errores de validacion aparecen junto al campo que corresponde."
+MIR-45 Asignar elementos a un sprint,Story,High,5,,Sprints,"backend,frontend,sprints,entrega-2","Como miembro quiero mover elementos del backlog a un sprint para decidir que entra en cada iteracion.
+
+Criterios de aceptacion:
+- Dado un elemento, cuando le asigno un sprint PLANNED o ACTIVE desde el detalle, entonces queda en ese sprint y se registra en su historial.
+- Dado un sprint CLOSED, cuando intento asignarle un elemento, entonces recibo 409.
+- Dado un elemento de otro proyecto, entonces recibo 400.
+- En el backlog puedo filtrar por sprint o por sin sprint."
+MIR-46 Iniciar y cerrar un sprint,Story,High,5,,Sprints,"backend,frontend,sprints,entrega-2","Como miembro quiero iniciar un sprint y cerrarlo al terminar para trabajar sobre una sola iteracion a la vez.
+
+Criterios de aceptacion:
+- Un sprint PLANNED pasa a ACTIVE al iniciarlo.
+- Si ya hay un sprint ACTIVE, iniciar otro devuelve 409 SPRINT_ALREADY_ACTIVE.
+- Al cerrar un sprint pasa a CLOSED y sus elementos no terminados vuelven al backlog o pasan al sprint planificado que elija.
+- Un sprint cerrado muestra los puntos comprometidos y los completados."
+MIR-47 Tablero del sprint activo,Story,Medium,3,,Sprints,"frontend,sprints,entrega-2","Como miembro quiero que el tablero muestre por defecto el sprint activo.
+
+Criterios de aceptacion:
+- Con sprint activo, el tablero muestra solo sus elementos y su nombre y fechas en el encabezado.
+- La opcion Todos los elementos vuelve a la vista sin filtro.
+- Sin sprint activo, el tablero se ve como en la Entrega 1."
+MIR-31 Migrar los estados a columnas por proyecto,Task,Highest,8,,Columnas configurables del tablero,"backend,db,columnas,entrega-2","Como equipo queremos que los estados del tablero vivan en una tabla BoardColumn por proyecto (nombre, orden y categoria TODO, IN_PROGRESS o DONE), reemplazando el enum fijo de D8.
+
+Criterios de aceptacion:
+- La migracion crea en cada proyecto las columnas Por hacer, En progreso, En revision y Hecho, y deja cada elemento en la columna de su estado anterior sin perder ninguno.
+- Los proyectos nuevos nacen con esas cuatro columnas.
+- Un elemento sin columna sigue siendo BACKLOG y no aparece en el tablero.
+- El cambio de columna sigue registrando ITEM_STATUS_CHANGED y el panel cuenta por categoria.
+- La suite de la Entrega 1 sigue en verde."
+MIR-48 API de columnas,Story,Highest,5,,Columnas configurables del tablero,"backend,columnas,entrega-2","Como OWNER quiero crear, renombrar, reordenar y eliminar columnas para que el tablero refleje el flujo real del equipo.
+
+Criterios de aceptacion:
+- Como OWNER creo una columna con nombre y categoria y queda al final.
+- MEMBER y VIEWER reciben 403 al modificar columnas.
+- El nuevo orden se conserva al recargar.
+- Eliminar una columna con elementos exige indicar la columna de destino; sin destino, 409.
+- No se puede dejar el proyecto sin una columna de categoria DONE (409)."
+MIR-49 Tablero y backlog con las columnas del proyecto,Story,High,5,,Columnas configurables del tablero,"frontend,columnas,entrega-2","Como miembro quiero que el tablero muestre las columnas de mi proyecto.
+
+Criterios de aceptacion:
+- El tablero muestra las columnas del proyecto en su orden.
+- Una tarjeta se puede mover a cualquier columna por el menu o arrastrandola.
+- El filtro por estado del backlog ofrece las columnas del proyecto.
+- En 375 px, con mas de cuatro columnas, el tablero se desplaza horizontalmente de forma legible."
+MIR-50 Pantalla de configuracion de columnas,Story,High,5,,Columnas configurables del tablero,"frontend,columnas,entrega-2","Como OWNER quiero administrar las columnas desde la configuracion del proyecto.
+
+Criterios de aceptacion:
+- Como OWNER puedo agregar, renombrar, reordenar y eliminar columnas.
+- Al eliminar una columna con elementos se me pide la columna de destino.
+- MEMBER y VIEWER ven las columnas pero no pueden modificarlas."
+MIR-33 Jenkins en la nube,Task,Highest,5,,Integracion y despliegue continuo,"ci,jenkins,infra,entrega-2","Como equipo queremos un servidor Jenkins propio como CI/CD oficial.
+
+Criterios de aceptacion:
+- Jenkins instalado en una VM en la nube, con HTTPS y acceso autenticado.
+- Node 20 y Docker disponibles en el agente para el Postgres efimero de las pruebas de integracion.
+- Credenciales (GitHub, Slack, deploy hooks) en el almacen de credenciales de Jenkins, nunca en el repositorio.
+- Instalacion documentada en docs/jenkins.md."
+MIR-51 Pipeline en Jenkinsfile,Task,Highest,5,,Integracion y despliegue continuo,"ci,jenkins,entrega-2","Como equipo queremos que build y pruebas corran siempre igual, sin pasos manuales.
+
+Criterios de aceptacion:
+- Jenkinsfile declarativo versionado en la raiz.
+- Etapas: npm ci, lint, tipos, pruebas unitarias, de integracion y de componentes, y build.
+- Falla rapido: si una etapa falla, las siguientes no corren.
+- Publica reportes JUnit y de cobertura como artefactos del build."
+MIR-52 Webhook de GitHub y estado en el commit,Task,Highest,3,,Integracion y despliegue continuo,"ci,jenkins,github,entrega-2","Como equipo queremos que cada push y PR dispare Jenkins y que el resultado quede en GitHub.
+
+Criterios de aceptacion:
+- Un webhook de GitHub dispara el pipeline en cada push y PR hacia develop y main.
+- El resultado queda en el commit y el PR como check verde o rojo.
+- El check de Jenkins es obligatorio en la proteccion de main."
+MIR-53 Notificaciones a Slack,Task,High,2,,Integracion y despliegue continuo,"ci,jenkins,slack,entrega-2","Como equipo queremos enterarnos de inmediato cuando el pipeline falla o pasa.
+
+Criterios de aceptacion:
+- Jenkins avisa en el canal del equipo cuando un build falla, cuando vuelve a pasar y cuando termina un despliegue.
+- El mensaje incluye rama, commit, autor y enlace al build."
+MIR-54 Despliegue desde Jenkins,Task,Medium,3,,Integracion y despliegue continuo,"ci,jenkins,deploy,entrega-2","Como equipo queremos que un build verde en main despliegue la aplicacion.
+
+Criterios de aceptacion:
+- Un build verde en main despliega la API en Render y el frontend en Vercel con sus deploy hooks y verifica /api/health.
+- Un build rojo no despliega.
+- Quedan documentadas las dependencias entre Jenkins y la aplicacion."
+MIR-55 Umbral de cobertura que rompe el build,Task,High,2,,Integracion y despliegue continuo,"ci,pruebas,entrega-2","Compromiso pendiente de la Entrega 1.
+
+Criterios de aceptacion:
+- Umbral fijado en vitest.config.ts a partir de la linea base real.
+- Si la cobertura baja del umbral, el pipeline queda rojo en Jenkins y en GitHub Actions.
+- El umbral y su justificacion quedan en la estrategia de pruebas."
+MIR-56 Wiki de la Entrega 2,Task,High,3,,"Calidad, infraestructura y entrega","docs,entrega-2","Como equipo queremos documentar la Entrega 2 segun el Anexo A del enunciado.
+
+Criterios de aceptacion:
+- Pagina Entrega 2 con objetivo, que se implemento, arquitectura e infraestructura, pipeline, integraciones, como ejecutar, mejoras, pruebas y relacion con CI, y problemas con sus soluciones.
+- Diagrama de infraestructura: app, Jenkins, GitHub, Slack, Render y Vercel.
+- Evidencias del pipeline: capturas, logs e historial de builds.
+- Trazabilidad actualizada con los requerimientos nuevos."
+MIR-57 Release v2.0-entrega2,Task,Highest,2,,"Calidad, infraestructura y entrega","release,entrega-2","Como equipo queremos cerrar la Entrega 2 desde un commit estable de main.
+
+Criterios de aceptacion:
+- PR de release de develop a main con los checks de Jenkins y GitHub Actions en verde.
+- Tag v2.0-entrega2 sobre el merge commit, desplegado por el pipeline.
+- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y limitaciones conocidas.
+- Evidencia congelada con npm run wiki:evidencias -- entrega-2."
+MIR-58 Capsula de video de la Entrega 2,Task,High,3,,"Calidad, infraestructura y entrega","docs,entrega-2","Como equipo queremos explicar en video el trabajo de la Entrega 2.
+
+Criterios de aceptacion:
+- Cubre alcance de la herramienta, trabajo realizado y dependencias entre Jenkins y la aplicacion, uso de Jenkins y problemas con sus soluciones.
+- El enlace queda publicado en el README y en la Wiki."

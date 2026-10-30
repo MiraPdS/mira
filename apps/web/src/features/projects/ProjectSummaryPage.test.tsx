@@ -52,11 +52,13 @@ describe('ProjectSummaryPage - MIR-23', () => {
     expect(links.map((link) => link.textContent)).toEqual([
       'Ver backlog →',
       'Ver tablero →',
+      'Ver sprints →',
       'Ver miembros del proyecto →',
     ]);
     expect(links[0]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/backlog`);
     expect(links[1]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/tablero`);
-    expect(links[2]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/miembros`);
+    expect(links[2]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/sprints`);
+    expect(links[3]).toHaveAttribute('href', `/proyectos/${PROJECT_ID}/miembros`);
   });
 
   it('muestra los conteos por estado, tipo y prioridad', async () => {

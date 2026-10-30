@@ -1,4 +1,4 @@
-import type { Project, ProjectRole, User, WorkItem } from '@prisma/client';
+import type { Project, ProjectRole, Sprint, User, WorkItem } from '@prisma/client';
 import { DEFAULT_BOARD_COLUMNS } from '@mira/shared';
 import { prisma } from '../lib/prisma.js';
 import { defaultBoardColumnsData } from '../modules/projects/projects.repository.js';
@@ -81,6 +81,29 @@ export async function addMember(
   });
 }
 
+export async function createSprint(options: {
+  project: Project;
+  id?: string;
+  name?: string;
+  goal?: string | null;
+  startDate?: Date;
+  endDate?: Date;
+  status?: Sprint['status'];
+}): Promise<Sprint> {
+  const n = siguiente();
+  return prisma.sprint.create({
+    data: {
+      id: options.id,
+      projectId: options.project.id,
+      name: options.name ?? `Sprint ${n}`,
+      goal: options.goal ?? null,
+      startDate: options.startDate ?? new Date('2026-10-28T00:00:00.000Z'),
+      endDate: options.endDate ?? new Date('2026-11-11T00:00:00.000Z'),
+      status: options.status ?? 'PLANNED',
+    },
+  });
+}
+
 export async function createWorkItem(options: {
   project: Project;
   createdBy: User;
@@ -98,6 +121,7 @@ export async function createWorkItem(options: {
   estimate?: WorkItem['estimate'];
   dueDate?: WorkItem['dueDate'];
   assigneeId?: string | null;
+  sprintId?: string | null;
   /** Para probar el orden del tablero; por defecto los asigna la base. */
   id?: string;
   position?: number;
@@ -124,6 +148,7 @@ export async function createWorkItem(options: {
       estimate: options.estimate ?? null,
       dueDate: options.dueDate ?? null,
       assigneeId: options.assigneeId ?? null,
+      sprintId: options.sprintId ?? null,
     },
   });
 }
