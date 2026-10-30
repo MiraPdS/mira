@@ -1,8 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { WorkItemDto, WorkItemStatus } from '@mira/shared';
+import type { BoardColumnDto, BoardResponse, WorkItemDto } from '@mira/shared';
 import type { ApiRequestError } from '@/lib/api-client';
 import { projectKeys } from '@/features/projects/useProjects';
-import { changeWorkItemStatus, getBoard } from './board.api';
+import { changeWorkItemColumn, getBoard, listBoardColumns } from './board.api';
 
 /**
  * Clave propia del tablero: MIR-19 y MIR-20 la usan para la actualizacion
@@ -12,23 +12,43 @@ import { changeWorkItemStatus, getBoard } from './board.api';
 export const boardKeys = {
   project: (projectId: string) => ['board', projectId] as const,
   move: (projectId: string) => ['board', projectId, 'move'] as const,
+  /**
+   * MIR-49: solo las columnas (filtro del backlog). Empieza por 'board', asi
+   * que invalidar el tablero sin `exact` tambien la refresca.
+   */
+  columns: (projectId: string) => ['board', projectId, 'columns'] as const,
 };
 
-/** Items del tablero de un proyecto, sin acoplarse a rutas ni navegacion. */
+/**
+ * Items del tablero y columnas del proyecto en su orden (MIR-49), sin
+ * acoplarse a rutas ni navegacion.
+ */
 export function useBoard(projectId: string) {
-  return useQuery<WorkItemDto[], Error>({
+  return useQuery<BoardResponse, Error>({
     queryKey: boardKeys.project(projectId),
     queryFn: () => getBoard(projectId),
   });
 }
 
-export interface MoveWorkItemVariables {
-  item: WorkItemDto;
-  status: WorkItemStatus;
+/** MIR-49: columnas del proyecto en su orden, sin cargar los elementos. */
+export function useBoardColumns(projectId: string) {
+  return useQuery<BoardColumnDto[], Error>({
+    queryKey: boardKeys.columns(projectId),
+    queryFn: () => listBoardColumns(projectId),
+  });
 }
 
+export interface MoveWorkItemVariables {
+  item: WorkItemDto;
+  /** Columna de destino (MIR-49). */
+  column: BoardColumnDto;
+}
+
+/** Lo que cambia en un item al moverlo: su columna. */
+type Ubicacion = Pick<WorkItemDto, 'columnId' | 'column'>;
+
 /**
- * Cambia el estado de una tarjeta con actualizacion optimista.
+ * Cambia la columna de una tarjeta con actualizacion optimista.
  *
  * La tarjeta salta de columna antes de que responda la API; si la API falla,
  * vuelve SOLO esa tarjeta a su estado anterior (no se restaura una foto
@@ -40,29 +60,31 @@ export function useMoveWorkItem(projectId: string) {
   const queryClient = useQueryClient();
   const boardKey = boardKeys.project(projectId);
 
-  const setStatus = (workItemId: string, status: WorkItemStatus) =>
-    queryClient.setQueryData<WorkItemDto[]>(boardKey, (items) =>
-      items?.map((item) => (item.id === workItemId ? { ...item, status } : item)),
+  const ubicar = (workItemId: string, { columnId, column }: Ubicacion) =>
+    queryClient.setQueryData<BoardResponse>(
+      boardKey,
+      (board) =>
+        board && {
+          ...board,
+          items: board.items.map((item) =>
+            item.id === workItemId ? { ...item, columnId, column } : item,
+          ),
+        },
     );
 
-  return useMutation<
-    WorkItemDto,
-    ApiRequestError,
-    MoveWorkItemVariables,
-    { previousStatus: WorkItemStatus }
-  >({
+  return useMutation<WorkItemDto, ApiRequestError, MoveWorkItemVariables, { anterior: Ubicacion }>({
     mutationKey: boardKeys.move(projectId),
-    mutationFn: ({ item, status }) => changeWorkItemStatus(projectId, item.id, status),
+    mutationFn: ({ item, column }) => changeWorkItemColumn(projectId, item.id, column.id),
 
-    onMutate: async ({ item, status }) => {
+    onMutate: async ({ item, column }) => {
       // Una lectura en vuelo podria llegar despues y deshacer el movimiento.
       await queryClient.cancelQueries({ queryKey: boardKey, exact: true });
-      setStatus(item.id, status);
-      return { previousStatus: item.status };
+      ubicar(item.id, { columnId: column.id, column });
+      return { anterior: { columnId: item.columnId, column: item.column } };
     },
 
     onError: (_error, { item }, context) => {
-      if (context) setStatus(item.id, context.previousStatus);
+      if (context) ubicar(item.id, context.anterior);
     },
 
     // Las invalidaciones NO se esperan: si se devolviera su promesa, la

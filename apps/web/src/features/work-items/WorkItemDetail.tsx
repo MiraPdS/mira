@@ -4,7 +4,7 @@ import {
   COMMENT_MAX_LENGTH,
   createCommentSchema,
   PRIORITY_LABELS,
-  STATUS_LABELS,
+  CATEGORY_LABELS,
   TYPE_LABELS,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
@@ -223,7 +223,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Estado</dt>
-          <dd className="mt-1 text-sm text-slate-900">{STATUS_LABELS[item.status]}</dd>
+          <dd className="mt-1 text-sm text-slate-900">
+            {item.column?.name ?? CATEGORY_LABELS.BACKLOG}
+          </dd>
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Prioridad</dt>

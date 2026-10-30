@@ -2,7 +2,6 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import {
   PRIORITY_LABELS,
-  STATUS_LABELS,
   TYPE_LABELS,
   type Paginated,
   type ProjectMemberDto,
@@ -13,6 +12,7 @@ import { apiError } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemBacklog } from './WorkItemBacklog';
 import { projectKeys } from '@/features/projects/useProjects';
+import { enColumna } from '@/test/columns';
 
 /**
  * NIVEL 3 de la piramide: componente con React Testing Library + MSW.
@@ -58,7 +58,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Implementar login',
     description: 'Formulario de acceso.',
     type: 'TASK',
-    status: 'BACKLOG',
+    ...enColumna('BACKLOG'),
     priority: 'HIGH',
     estimate: null,
     dueDate: null,
@@ -117,7 +117,7 @@ describe('WorkItemBacklog', () => {
       reference: 'MIR-2',
       title: 'Corregir la sesion',
       type: 'BUG',
-      status: 'TODO',
+      ...enColumna('TODO'),
       priority: 'CRITICAL',
     });
     server.use(
@@ -135,10 +135,10 @@ describe('WorkItemBacklog', () => {
     expect(within(table).getByText('MIR-2')).toBeInTheDocument();
     expect(within(table).getByText('Corregir la sesion')).toBeInTheDocument();
     expect(within(table).getByText(TYPE_LABELS.TASK)).toBeInTheDocument();
-    expect(within(table).getByText(STATUS_LABELS.BACKLOG)).toBeInTheDocument();
+    expect(within(table).getByText('Backlog')).toBeInTheDocument();
     expect(within(table).getByText(PRIORITY_LABELS.HIGH)).toBeInTheDocument();
     expect(within(table).getByText(TYPE_LABELS.BUG)).toBeInTheDocument();
-    expect(within(table).getByText(STATUS_LABELS.TODO)).toBeInTheDocument();
+    expect(within(table).getByText('Por hacer')).toBeInTheDocument();
     expect(within(table).getByText(PRIORITY_LABELS.CRITICAL)).toBeInTheDocument();
     expect(within(table).queryByText('TASK')).not.toBeInTheDocument();
   });
@@ -394,7 +394,7 @@ describe('WorkItemBacklog', () => {
         const matches =
           query.get('q') === 'login' &&
           query.get('type') === 'BUG' &&
-          query.get('status') === 'IN_PROGRESS' &&
+          query.get('columnId') === 'col_doing' &&
           query.get('priority') === 'HIGH' &&
           query.get('assigneeId') === 'user_grace';
         return HttpResponse.json(matches ? pagina([filteredItem]) : pagina([itemDePrueba()]));
@@ -405,14 +405,15 @@ describe('WorkItemBacklog', () => {
     await screen.findByText('Implementar login');
     await user.type(screen.getByRole('searchbox', { name: 'Buscar' }), 'login');
     await user.selectOptions(screen.getByLabelText('Tipo'), 'BUG');
-    await user.selectOptions(screen.getByLabelText('Estado'), 'IN_PROGRESS');
+    await screen.findByRole('option', { name: 'En progreso' });
+    await user.selectOptions(screen.getByLabelText('Estado'), 'En progreso');
     await user.selectOptions(screen.getByLabelText('Prioridad'), 'HIGH');
     await user.selectOptions(screen.getByLabelText('Responsable'), 'user_grace');
 
     expect(await screen.findByText('Bug de login en progreso')).toBeInTheDocument();
     expect(query?.get('q')).toBe('login');
     expect(query?.get('type')).toBe('BUG');
-    expect(query?.get('status')).toBe('IN_PROGRESS');
+    expect(query?.get('columnId')).toBe('col_doing');
     expect(query?.get('priority')).toBe('HIGH');
     expect(query?.get('assigneeId')).toBe('user_grace');
   });
@@ -614,7 +615,7 @@ describe('WorkItemBacklog', () => {
     await screen.findByRole('option', { name: 'Grace Hopper (grace@mira.dev)' });
     await user.type(screen.getByLabelText('Buscar'), 'login');
     await user.selectOptions(screen.getByLabelText('Tipo'), 'BUG');
-    await user.selectOptions(screen.getByLabelText('Estado'), 'TODO');
+    await user.selectOptions(screen.getByLabelText('Estado'), 'Por hacer');
     await user.selectOptions(screen.getByLabelText('Prioridad'), 'HIGH');
     await user.selectOptions(screen.getByLabelText('Responsable'), 'user_grace');
 
@@ -657,4 +658,88 @@ describe('WorkItemBacklog', () => {
       expect(screen.getByLabelText('Tipo')).toBeEnabled();
     },
   );
+
+  describe('filtro Estado con las columnas del proyecto (MIR-49)', () => {
+    const COLUMNS_URL = `${BASE_URL}/projects/:projectId/columns`;
+    const COLUMNAS_PROPIAS = [
+      { id: 'col_hecho', name: 'Hecho', position: 2, category: 'DONE' },
+      { id: 'col_ideas', name: 'Ideas', position: 0, category: 'TODO' },
+      { id: 'col_qa', name: 'QA', position: 1, category: 'IN_PROGRESS' },
+    ] as const;
+
+    it('ofrece Backlog y las columnas del proyecto, en el orden del tablero', async () => {
+      server.use(
+        http.get(WORK_ITEMS_URL, () => HttpResponse.json(pagina([itemDePrueba()]))),
+        http.get(COLUMNS_URL, () => HttpResponse.json({ columns: COLUMNAS_PROPIAS })),
+      );
+
+      renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+      const estado = await screen.findByLabelText('Estado');
+      await within(estado).findByRole('option', { name: 'QA' });
+
+      expect(
+        within(estado)
+          .getAllByRole('option')
+          .map((o) => o.textContent),
+      ).toEqual(['Todos', 'Backlog', 'Ideas', 'QA', 'Hecho']);
+    });
+
+    it.each([
+      ['una columna creada por el equipo', 'QA', 'col_qa'],
+      ['el backlog (sin columna)', 'Backlog', 'BACKLOG'],
+    ])('filtra por %s enviando columnId', async (_caso, opcion, columnId) => {
+      let query: URLSearchParams | undefined;
+      server.use(
+        http.get(WORK_ITEMS_URL, ({ request }) => {
+          query = new URL(request.url).searchParams;
+          return HttpResponse.json(pagina([itemDePrueba()]));
+        }),
+        http.get(COLUMNS_URL, () => HttpResponse.json({ columns: COLUMNAS_PROPIAS })),
+      );
+
+      const { user } = renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+      const estado = await screen.findByLabelText('Estado');
+      await within(estado).findByRole('option', { name: 'QA' });
+      await user.selectOptions(estado, opcion);
+
+      await waitFor(() => expect(query?.get('columnId')).toBe(columnId));
+      expect(query?.has('status')).toBe(false);
+    });
+
+    it('muestra en la tabla el nombre de la columna de cada elemento', async () => {
+      server.use(
+        http.get(WORK_ITEMS_URL, () =>
+          HttpResponse.json(
+            pagina([
+              itemDePrueba({
+                id: 'item_qa',
+                reference: 'MIR-9',
+                title: 'Revisar en QA',
+                columnId: 'col_qa',
+                column: COLUMNAS_PROPIAS[2],
+              }),
+            ]),
+          ),
+        ),
+      );
+
+      renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+
+      const fila = (await screen.findByText('Revisar en QA')).closest('tr')!;
+      expect(within(fila).getByText('QA')).toBeInTheDocument();
+    });
+
+    it('si las columnas no cargan, avisa y deja usar el backlog', async () => {
+      server.use(
+        http.get(WORK_ITEMS_URL, () => HttpResponse.json(pagina([itemDePrueba()]))),
+        http.get(COLUMNS_URL, () => apiError(500, 'INTERNAL_ERROR', 'Error interno del servidor')),
+      );
+
+      renderConProviders(<WorkItemBacklog projectId={PROJECT_ID} />);
+
+      expect(await screen.findByText('Implementar login')).toBeInTheDocument();
+      expect(await screen.findByText(/error interno del servidor/i)).toBeInTheDocument();
+      expect(screen.getByLabelText('Estado')).toBeDisabled();
+    });
+  });
 });

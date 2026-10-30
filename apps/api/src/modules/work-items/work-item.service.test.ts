@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { mock, type MockProxy } from 'vitest-mock-extended';
-import type {
-  CreateWorkItemInput,
-  PaginationQuery,
-  ProjectRole,
-  UpdateWorkItemInput,
-  WorkItemFilters,
+import {
+  DEFAULT_BOARD_COLUMNS,
+  type CreateWorkItemInput,
+  type PaginationQuery,
+  type ProjectRole,
+  type UpdateWorkItemInput,
+  type WorkItemFilters,
 } from '@mira/shared';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
+  BoardColumnRecord,
   ListWorkItemsResult,
   WorkItemForDto,
   WorkItemRepository,
@@ -29,12 +31,12 @@ const INPUT: CreateWorkItemInput = {
   title: 'Preparar la primera entrega',
   description: 'Implementar la base del producto.',
   type: 'STORY',
-  status: 'TODO',
+  columnId: 'col_TODO',
   priority: 'HIGH',
   estimate: 5,
   dueDate: new Date('2026-03-15T12:00:00.000Z'),
-  // El service recibe el contrato ya validado; solo el repository decide que
-  // MIR-11 no persiste este campo reservado para MIR-30.
+  // El repository mantiene sprintId en null al crear; la asignacion
+  // a un sprint tiene su propio caso de uso (MIR-45).
   sprintId: 'sprint_reservado',
 };
 
@@ -48,7 +50,7 @@ const FILTERS: WorkItemFilters = {
   pageSize: 10,
   q: 'login',
   type: 'BUG',
-  status: 'TODO',
+  columnId: 'col_TODO',
   priority: 'HIGH',
   assigneeId: 'user_2',
 };
@@ -63,7 +65,28 @@ function usuarioDePrueba(overrides: Partial<WorkItemUser> = {}): WorkItemUser {
   };
 }
 
-function itemDePrueba(overrides: Partial<WorkItemForDto> = {}): WorkItemForDto {
+/**
+ * Estados de la Entrega 1, solo como atajo de estas pruebas: cada uno es una
+ * columna por defecto, en el orden de DEFAULT_BOARD_COLUMNS. BACKLOG es no
+ * tener columna.
+ */
+const ESTADOS = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
+type Estado = 'BACKLOG' | (typeof ESTADOS)[number];
+
+/** MIR-31: columna por defecto de un estado, con un id legible (`col_TODO`). */
+function columnaDePrueba(status: Estado): BoardColumnRecord | null {
+  if (status === 'BACKLOG') return null;
+  const position = ESTADOS.indexOf(status);
+  const { name, category } = DEFAULT_BOARD_COLUMNS[position]!;
+  return { id: `col_${status}`, name, position, category };
+}
+
+/** Acepta `status` para que cada prueba siga hablando en estados (MIR-31). */
+function itemDePrueba(
+  overrides: Partial<WorkItemForDto> & { status?: Estado } = {},
+): WorkItemForDto {
+  const { status = 'TODO', ...rest } = overrides;
+  const column = columnaDePrueba(status);
   return {
     id: 'item_1',
     reference: 'MIR-1',
@@ -71,7 +94,8 @@ function itemDePrueba(overrides: Partial<WorkItemForDto> = {}): WorkItemForDto {
     title: INPUT.title,
     description: INPUT.description ?? null,
     type: INPUT.type,
-    status: INPUT.status,
+    columnId: column?.id ?? null,
+    column,
     priority: INPUT.priority,
     estimate: INPUT.estimate ?? null,
     dueDate: INPUT.dueDate ?? null,
@@ -80,8 +104,17 @@ function itemDePrueba(overrides: Partial<WorkItemForDto> = {}): WorkItemForDto {
     sprintId: null,
     createdAt: new Date('2026-02-01T10:00:00.000Z'),
     updatedAt: new Date('2026-02-01T10:05:00.000Z'),
-    ...overrides,
+    ...rest,
   };
+}
+
+/** El doble del repositorio conoce las cuatro columnas por defecto. */
+function conColumnasPorDefecto(repository: MockProxy<WorkItemRepository>) {
+  repository.findColumnInProject.mockImplementation(
+    async (_projectId, columnId) =>
+      ESTADOS.map(columnaDePrueba).find((column) => column?.id === columnId) ?? null,
+  );
+  repository.listColumns.mockResolvedValue(ESTADOS.map((status) => columnaDePrueba(status)!));
 }
 
 describe('workItemService', () => {
@@ -91,6 +124,7 @@ describe('workItemService', () => {
   beforeEach(() => {
     repo = mock<WorkItemRepository>();
     repo.withTransaction.mockImplementation(async (operation) => operation(repo));
+    conColumnasPorDefecto(repo);
     repo.updateAtomically.mockImplementation(async ({ input }) => ({
       ...itemDePrueba(),
       ...input,
@@ -141,6 +175,7 @@ describe('workItemService', () => {
       projectId: PROJECT_ID,
       actorId: ACTOR_ID,
       input: INPUT,
+      columnId: 'col_TODO',
     });
   });
 
@@ -170,7 +205,8 @@ describe('workItemService', () => {
       title: 'Preparar la primera entrega',
       description: 'Implementar la base del producto.',
       type: 'STORY',
-      status: 'TODO',
+      columnId: 'col_TODO',
+      column: { id: 'col_TODO', name: 'Por hacer', position: 0, category: 'TODO' },
       priority: 'HIGH',
       estimate: 5,
       dueDate: '2026-03-15T12:00:00.000Z',
@@ -253,7 +289,7 @@ describe('workItemService', () => {
 
     it.each([
       ['type', { type: 'BUG' }],
-      ['status', { status: 'IN_REVIEW' }],
+      ['columnId', { columnId: 'col_IN_REVIEW' }],
       ['priority', { priority: 'CRITICAL' }],
       ['assigneeId', { assigneeId: 'user_2' }],
     ] as const)('delega el filtro individual %s', async (_name, filter) => {
@@ -338,7 +374,8 @@ describe('workItemService', () => {
             title: 'Primer elemento',
             description: null,
             type: 'STORY',
-            status: 'TODO',
+            columnId: 'col_TODO',
+            column: { id: 'col_TODO', name: 'Por hacer', position: 0, category: 'TODO' },
             priority: 'HIGH',
             estimate: 8,
             dueDate: '2026-03-15T00:00:00.000Z',
@@ -381,11 +418,11 @@ describe('workItemService', () => {
       repo.findMemberRole.mockResolvedValue(role);
       repo.listBoardByProject.mockResolvedValue([item]);
 
-      const result = await service.board(PROJECT_ID, ACTOR_ID);
+      const { items } = await service.board(PROJECT_ID, ACTOR_ID);
 
       expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
       expect(repo.listBoardByProject).toHaveBeenCalledWith(PROJECT_ID);
-      expect(result).toEqual([toWorkItemDto(item)]);
+      expect(items).toEqual([toWorkItemDto(item)]);
     });
 
     it('rechaza a un usuario que no pertenece al proyecto sin consultar el tablero', async () => {
@@ -406,7 +443,7 @@ describe('workItemService', () => {
       repo.findMemberRole.mockResolvedValue('MEMBER');
       repo.listBoardByProject.mockResolvedValue([enProgreso, hecho]);
 
-      const result = await service.board(PROJECT_ID, ACTOR_ID);
+      const { items: result } = await service.board(PROJECT_ID, ACTOR_ID);
 
       expect(result.map((item) => item.id)).toEqual(['item_2', 'item_3']);
       expect(result[0]?.assignee).toEqual({
@@ -422,7 +459,7 @@ describe('workItemService', () => {
       repo.findMemberRole.mockResolvedValue('VIEWER');
       repo.listBoardByProject.mockResolvedValue([]);
 
-      await expect(service.board(PROJECT_ID, ACTOR_ID)).resolves.toEqual([]);
+      await expect(service.board(PROJECT_ID, ACTOR_ID)).resolves.toMatchObject({ items: [] });
     });
   });
 
@@ -595,7 +632,7 @@ describe('workItemService', () => {
         repo.changeStatusAtomically.mockResolvedValue(itemDePrueba({ status: 'IN_PROGRESS' }));
 
         const result = await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', {
-          status: 'IN_PROGRESS',
+          columnId: 'col_IN_PROGRESS',
         });
 
         expect(repo.findMemberRole).toHaveBeenCalledWith(PROJECT_ID, ACTOR_ID);
@@ -605,8 +642,8 @@ describe('workItemService', () => {
           projectId: PROJECT_ID,
           workItemId: 'item_1',
           actorId: ACTOR_ID,
-          fromStatus: 'TODO',
-          toStatus: 'IN_PROGRESS',
+          fromColumn: columnaDePrueba('TODO'),
+          toColumn: columnaDePrueba('IN_PROGRESS'),
         });
         expect(result).toEqual(toWorkItemDto(itemDePrueba({ status: 'IN_PROGRESS' })));
       },
@@ -617,14 +654,18 @@ describe('workItemService', () => {
       transactionRepo.findMemberRole.mockResolvedValue('MEMBER');
       transactionRepo.findByIdInProject.mockResolvedValue(itemDePrueba({ status: 'IN_REVIEW' }));
       transactionRepo.changeStatusAtomically.mockResolvedValue(itemDePrueba({ status: 'DONE' }));
+      conColumnasPorDefecto(transactionRepo);
       repo.withTransaction.mockImplementation(async (operation) => operation(transactionRepo));
 
-      await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' });
+      await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { columnId: 'col_DONE' });
 
       expect(repo.findByIdInProject).not.toHaveBeenCalled();
       expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
       expect(transactionRepo.changeStatusAtomically).toHaveBeenCalledWith(
-        expect.objectContaining({ fromStatus: 'IN_REVIEW', toStatus: 'DONE' }),
+        expect.objectContaining({
+          fromColumn: columnaDePrueba('IN_REVIEW'),
+          toColumn: columnaDePrueba('DONE'),
+        }),
       );
     });
 
@@ -632,7 +673,7 @@ describe('workItemService', () => {
       repo.findMemberRole.mockResolvedValue('VIEWER');
 
       await expect(
-        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { columnId: 'col_DONE' }),
       ).rejects.toBeInstanceOf(ForbiddenError);
 
       expect(repo.findByIdInProject).not.toHaveBeenCalled();
@@ -643,7 +684,7 @@ describe('workItemService', () => {
       repo.findMemberRole.mockResolvedValue(null);
 
       await expect(
-        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { columnId: 'col_DONE' }),
       ).rejects.toBeInstanceOf(NotFoundError);
 
       expect(repo.findByIdInProject).not.toHaveBeenCalled();
@@ -657,7 +698,7 @@ describe('workItemService', () => {
         repo.findByIdInProject.mockResolvedValue(null);
 
         await expect(
-          service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+          service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { columnId: 'col_DONE' }),
         ).rejects.toBeInstanceOf(NotFoundError);
 
         expect(repo.changeStatusAtomically).not.toHaveBeenCalled();
@@ -670,7 +711,7 @@ describe('workItemService', () => {
       repo.findByIdInProject.mockResolvedValue(item);
 
       const result = await service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', {
-        status: 'IN_REVIEW',
+        columnId: 'col_IN_REVIEW',
       });
 
       expect(result).toEqual(toWorkItemDto(item));
@@ -684,7 +725,7 @@ describe('workItemService', () => {
       repo.changeStatusAtomically.mockRejectedValue(error);
 
       await expect(
-        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { status: 'DONE' }),
+        service.changeStatus(PROJECT_ID, ACTOR_ID, 'item_1', { columnId: 'col_DONE' }),
       ).rejects.toBe(error);
     });
   });
@@ -759,7 +800,8 @@ describe('workItemService', () => {
         title: 'Preparar la primera entrega',
         description: 'Implementar la base del producto.',
         type: 'STORY',
-        status: 'TODO',
+        columnId: 'col_TODO',
+        column: { id: 'col_TODO', name: 'Por hacer', position: 0, category: 'TODO' },
         priority: 'HIGH',
         estimate: 5,
         dueDate: '2026-03-15T12:00:00.000Z',
@@ -791,8 +833,8 @@ describe('workItemService', () => {
       actorId: ACTOR_ID,
       actor: { id: ACTOR_ID, name: 'Ada Lovelace' },
       field: 'status',
-      fromValue: 'TODO',
-      toValue: 'IN_PROGRESS',
+      fromValue: 'Por hacer',
+      toValue: 'En progreso',
       createdAt: new Date('2026-02-02T09:00:00.000Z'),
     };
 
@@ -809,8 +851,8 @@ describe('workItemService', () => {
             workItemId: 'item_1',
             actor: { id: ACTOR_ID, name: 'Ada Lovelace' },
             field: 'status',
-            fromValue: 'TODO',
-            toValue: 'IN_PROGRESS',
+            fromValue: 'Por hacer',
+            toValue: 'En progreso',
             createdAt: '2026-02-02T09:00:00.000Z',
           },
         ],

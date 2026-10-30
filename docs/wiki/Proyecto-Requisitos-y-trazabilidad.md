@@ -60,6 +60,9 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-18 | Visualizar el tablero | ✅ v1.0-entrega1 | [#16] | U [work-item.service] · I [work-item.integration] · C [KanbanBoard], [boardInvalidation] |
 | MIR-19 | Cambiar el estado desde el menú | ✅ v1.0-entrega1 | [#20] | U [work-item.service] · I [work-item.integration] · C [KanbanBoard] |
 | MIR-20 | Arrastrar y soltar tarjetas | ✅ v1.0-entrega1 | [#22] | C [KanbanBoard.dnd] |
+| MIR-31 | Migrar los estados a columnas por proyecto | ➡️ después del tag | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
+| MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ➡️ después del tag | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
+| MIR-49 | Tablero y backlog con las columnas del proyecto | ➡️ después del tag | [#41] | U [work-item.service], [domain (shared)] · I [board-columns.migration], [work-item.integration], [summary.integration] · C [KanbanBoard], [KanbanBoard.dnd], [ProjectBoardPage], [ProjectBacklogPage], [WorkItemBacklog], [ProjectSummaryPage], [describeActivity] |
 
 ## Épica 5 — Colaboración y trazabilidad
 
@@ -79,6 +82,14 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-27 | Despliegue del ambiente de demostración | ✅ v1.0-entrega1 | [#24] | I [health.integration]; [demo](https://mira-pds.vercel.app/api/health) |
 | MIR-28 | Release `v1.0-entrega1` | ✅ v1.0-entrega1 | [#31], [#32] | [Evidencias de la Entrega 1](Evidencias-Entrega-1.md); [release](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1) |
 | MIR-29 | Cápsula de video | ➡️ después del tag | — | se graba sobre el release desplegado |
+| MIR-55 | Umbral de cobertura que rompe el build | ➡️ después del tag | [#43] | umbral en [`vitest.config.ts`] y [estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md#cobertura); Actions: [run verde](https://github.com/MiraPdS/mira/actions/runs/40987420686) y [run rojo por umbral](https://github.com/MiraPdS/mira/actions/runs/40994045311) (`467f5bd`, 947/947 tests en verde, statements 97,06 % < 99 %); Jenkins pendiente de MIR-51 |
+
+## Épica 7 — Sprints
+
+| Item | Historia | Estado | PR | Pruebas |
+| --- | --- | --- | --- | --- |
+| MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
+| MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -112,13 +123,32 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#31]: https://github.com/MiraPdS/mira/pull/31
 [#32]: https://github.com/MiraPdS/mira/pull/32
 [#35]: https://github.com/MiraPdS/mira/pull/35
+[#39]: https://github.com/MiraPdS/mira/pull/39
+[#40]: https://github.com/MiraPdS/mira/pull/40
+[#41]: https://github.com/MiraPdS/mira/pull/41
+[#42]: https://github.com/MiraPdS/mira/pull/42
+[#43]: https://github.com/MiraPdS/mira/pull/43
+[#44]: https://github.com/MiraPdS/mira/pull/44
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
 [`ci.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/ci.yml
+[`vitest.config.ts`]: https://github.com/MiraPdS/mira/blob/develop/vitest.config.ts
 [`wiki.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/wiki.yml
 [auth (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/auth.test.ts
 [project (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/project.test.ts
+[sprint.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.service.test.ts
+[sprint (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/sprint.test.ts
+[sprint.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.integration.test.ts
+[domain (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/domain.test.ts
+[work-item (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/work-item.test.ts
+[board-columns.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/board-columns.integration.test.ts
+[board-columns.migration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/board-columns.migration.integration.test.ts
+[board-column.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/board-columns/board-column.service.test.ts
+[board-column (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/board-column.test.ts
+[board-column.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/board-columns/board-column.integration.test.ts
+[useSprints]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/sprints/useSprints.test.ts
+[ProjectSprintsPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/sprints/ProjectSprintsPage.test.tsx
 [permissions]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/permissions.test.ts
 [auth.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/auth/auth.service.test.ts
 [auth.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/auth/auth.integration.test.ts

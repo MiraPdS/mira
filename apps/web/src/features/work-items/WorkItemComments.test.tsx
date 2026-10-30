@@ -5,6 +5,7 @@ import { fireEvent, renderConProviders, screen, waitFor, within } from '@/test/r
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemDetail } from './WorkItemDetail';
+import { enColumna } from '@/test/columns';
 
 const BASE_URL = 'http://localhost:3000/api';
 const PROJECT_ID = 'project_123';
@@ -19,7 +20,7 @@ const item: WorkItemDto = {
   title: 'Comentar un elemento de trabajo',
   description: 'Permitir comentarios en un elemento.',
   type: 'STORY',
-  status: 'IN_PROGRESS',
+  ...enColumna('IN_PROGRESS'),
   priority: 'HIGH',
   estimate: 3,
   dueDate: null,

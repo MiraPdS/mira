@@ -9,6 +9,7 @@ import { server } from '@/test/msw/server';
 import { projectKeys } from '@/features/projects/useProjects';
 import { useMoveWorkItem } from '@/features/board/useBoard';
 import { useCreateWorkItem, useUpdateWorkItem, useDeleteWorkItem } from './useWorkItems';
+import { columnaDe, enColumna } from '@/test/columns';
 
 const BASE_URL = 'http://localhost:3000/api';
 const PROJECT_ID = 'project_123';
@@ -23,7 +24,7 @@ function itemDePrueba(): WorkItemDto {
     title: 'Tarea de prueba',
     description: null,
     type: 'TASK',
-    status: 'TODO',
+    ...enColumna('TODO'),
     priority: 'MEDIUM',
     estimate: null,
     dueDate: null,
@@ -99,7 +100,7 @@ describe('Invalidacion del resumen - MIR-23', () => {
       await result.current.mutateAsync({
         title: 'Nueva tarea',
         type: 'TASK',
-        status: 'TODO',
+        ...enColumna('TODO'),
         priority: 'MEDIUM',
       });
     });
@@ -160,7 +161,7 @@ describe('Invalidacion del resumen - MIR-23', () => {
 
     server.use(
       http.patch(`${BASE_URL}/projects/${PROJECT_ID}/work-items/${WORK_ITEM_ID}/status`, () =>
-        HttpResponse.json({ item: { ...itemDePrueba(), status: 'IN_PROGRESS' } }),
+        HttpResponse.json({ item: { ...itemDePrueba(), ...enColumna('IN_PROGRESS') } }),
       ),
     );
 
@@ -169,7 +170,7 @@ describe('Invalidacion del resumen - MIR-23', () => {
     });
 
     await act(async () => {
-      await result.current.mutateAsync({ item: itemDePrueba(), status: 'IN_PROGRESS' });
+      await result.current.mutateAsync({ item: itemDePrueba(), column: columnaDe('IN_PROGRESS') });
     });
 
     await comprobarInvalidacion(queryClient);
@@ -193,7 +194,7 @@ describe('Invalidacion del resumen - MIR-23', () => {
 
     await act(async () => {
       await result.current
-        .mutateAsync({ item: itemDePrueba(), status: 'IN_PROGRESS' })
+        .mutateAsync({ item: itemDePrueba(), column: columnaDe('IN_PROGRESS') })
         .catch(() => undefined);
     });
 

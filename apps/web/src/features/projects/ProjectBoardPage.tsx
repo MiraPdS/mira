@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { BOARD_STATUSES, can } from '@mira/shared';
+import { can } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { KanbanBoard } from '@/features/board/KanbanBoard';
+import { useBoard } from '@/features/board/useBoard';
 import { CreateWorkItemForm } from '@/features/work-items/CreateWorkItemForm';
 import { useProject } from './useProjects';
 
@@ -15,6 +16,8 @@ export function ProjectBoardPage() {
   const { projectId = '' } = useParams<{ projectId: string }>();
   const project = useProject(projectId);
   const [creating, setCreating] = useState(false);
+  // Misma consulta (y cache) que KanbanBoard: no pide nada extra.
+  const firstColumnId = useBoard(projectId).data?.columns[0]?.id ?? null;
   // Si el proyecto falla, KanbanBoard ya informa el error: solo se oculta el CTA.
   const canCreate = !project.isError && can(project.data?.myRole, 'work-item:create');
 
@@ -34,11 +37,12 @@ export function ProjectBoardPage() {
 
       {creating && canCreate && (
         <div id="board-create-form">
-          {/* Nace en la primera columna: BACKLOG no se ve en el tablero. */}
+          {/* Nace en la primera columna del proyecto: el backlog no se ve en
+              el tablero. */}
           <CreateWorkItemForm
             key={projectId}
             projectId={projectId}
-            initialStatus={BOARD_STATUSES[0]}
+            initialColumnId={firstColumnId}
           />
         </div>
       )}

@@ -6,6 +6,7 @@ import { updateWorkItem, deleteWorkItem, listWorkItems } from './work-items.api'
 
 import { apiError } from '@/test/msw/handlers';
 import { ApiRequestError } from '@/lib/api-client';
+import { enColumna } from '@/test/columns';
 const PROJECT_ID = 'project_123';
 const WORK_ITEMS_URL = 'http://localhost:3000/api/projects/:projectId/work-items';
 const BASE_URL = 'http://localhost:3000/api';
@@ -18,7 +19,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Titulo original',
     description: null,
     type: 'TASK',
-    status: 'BACKLOG',
+    ...enColumna('BACKLOG'),
     priority: 'MEDIUM',
     estimate: null,
     dueDate: null,
@@ -91,7 +92,7 @@ describe('listWorkItems', () => {
     await listWorkItems('project /?', 1, 20, {
       q: 'login y permisos',
       type: 'BUG',
-      status: 'IN_PROGRESS',
+      columnId: 'col_doing',
       priority: 'HIGH',
       assigneeId: 'user_123',
     });
@@ -101,7 +102,7 @@ describe('listWorkItems', () => {
       ['pageSize', '20'],
       ['q', 'login y permisos'],
       ['type', 'BUG'],
-      ['status', 'IN_PROGRESS'],
+      ['columnId', 'col_doing'],
       ['priority', 'HIGH'],
       ['assigneeId', 'user_123'],
     ]);
@@ -120,7 +121,7 @@ describe('listWorkItems', () => {
       q: '   ',
       assigneeId: '',
       type: undefined,
-      status: undefined,
+      columnId: undefined,
       priority: undefined,
     });
 

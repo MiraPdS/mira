@@ -149,6 +149,35 @@ como requerimiento nuevo de la Entrega 2**, que exige justamente dos.
 **Consecuencia.** La migración de enum a tabla ya se sabe que viene; el esquema
 se diseñó para que sea aislada.
 
+**Actualización (Entrega 2, MIR-31).** Reemplazada por la tabla `BoardColumn`
+(nombre, orden y categoría `TODO · IN_PROGRESS · DONE`) y `WorkItem.columnId`;
+sin columna es BACKLOG. La migración crea las cuatro columnas en cada proyecto y
+traspasa cada elemento a la de su estado anterior. Los cambios se reparten así:
+
+- MIR-31 hace solo el backend. La API agrega `columnId`, `column`, `columns` y
+  `byCategory`, pero sigue entregando `status` y aceptando mover por estado
+  (columna puente `BoardColumn.legacyStatus`), así la web no cambia todavía.
+- MIR-49 pasa la web a columnas y elimina el puente: `status`,
+  `legacyStatus`, `byStatus` y el enum `WorkItemStatus`.
+- MIR-48 abre la API de columnas (`/api/projects/:projectId/columns`), solo
+  para el OWNER (permiso `column:manage`). Reordenar recibe la lista completa
+  de columnas, no "mover X a N", para que el resultado no dependa del orden de
+  llegada. Eliminar una columna con elementos exige `?moveTo=<columnId>` y cada
+  elemento movido deja su `ITEM_STATUS_CHANGED`. El proyecto siempre conserva
+  una columna `DONE`; esa regla se decide en una transacción serializable para
+  que dos eliminaciones simultáneas no la burlen.
+- MIR-49 cierra el puente. El tablero dibuja las columnas que entrega
+  `/board`, ordenadas por `position`; cada columna es un destino de dnd-kit con
+  su id, y el menú "Mover a…" ofrece todas las demás. Mover envía solo
+  `{ columnId }`. El filtro "Estado" del backlog lista Backlog más las columnas
+  del proyecto (`?columnId=<id>` o `?columnId=BACKLOG`). El historial guarda
+  el **nombre** de la columna en el momento del movimiento (o `BACKLOG`), así
+  sigue legible aunque la columna se renombre o se elimine; la migración pasa a
+  nombres los estados que ya estaban guardados. El panel cuenta por categoría
+  (`byCategory`), que no cambia al renombrar. Con más de cuatro columnas el
+  aviso de desplazamiento se muestra también en pantallas anchas, y los nombres
+  largos se parten en líneas en vez de recortarse.
+
 ---
 
 ## D9 — Kanban con dnd-kit y un camino alternativo obligatorio

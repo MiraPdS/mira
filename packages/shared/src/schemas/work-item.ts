@@ -1,19 +1,36 @@
 import { z } from 'zod';
-import { WORK_ITEM_PRIORITIES, WORK_ITEM_STATUSES, WORK_ITEM_TYPES } from '../domain.js';
+import { BACKLOG, COLUMN_CATEGORIES, WORK_ITEM_PRIORITIES, WORK_ITEM_TYPES } from '../domain.js';
 import { publicUserSchema } from './auth.js';
 import { paginationQuerySchema } from './common.js';
+
+/**
+ * MIR-31: columna del tablero de un proyecto. Se declara aqui y no en
+ * project.ts porque la usa el contrato de los elementos de trabajo.
+ */
+export const boardColumnSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  /** Orden en el tablero, de izquierda a derecha. */
+  position: z.number().int(),
+  category: z.enum(COLUMN_CATEGORIES),
+});
+export type BoardColumnDto = z.infer<typeof boardColumnSchema>;
+
+/** Columna de destino: `null` devuelve el elemento al backlog. */
+const targetColumnIdSchema = z.string().trim().min(1, 'Indica la columna o null').nullable();
 
 export const createWorkItemSchema = z.object({
   title: z.string().trim().min(3, 'El titulo debe tener al menos 3 caracteres').max(200),
   description: z.string().trim().max(10_000).optional(),
   type: z.enum(WORK_ITEM_TYPES).default('TASK'),
   priority: z.enum(WORK_ITEM_PRIORITIES).default('MEDIUM'),
-  status: z.enum(WORK_ITEM_STATUSES).default('BACKLOG'),
+  /** MIR-31: columna donde nace; `null` o ausente lo deja en el backlog. */
+  columnId: targetColumnIdSchema.optional(),
   assigneeId: z.string().nullable().optional(),
   /** Estimacion en story points (escala Fibonacci acotada). */
   estimate: z.number().int().min(0).max(100).nullable().optional(),
   dueDate: z.coerce.date().nullable().optional(),
-  /** Reservado para E2, cuando existan Sprints. En E1 siempre va null. */
+  /** La creacion de items lo deja en null; la asignacion a sprints pertenece a MIR-45. */
   sprintId: z.string().nullable().optional(),
 });
 export type CreateWorkItemInput = z.infer<typeof createWorkItemSchema>;
@@ -49,12 +66,11 @@ export type UpdateWorkItemInput = z.infer<typeof updateWorkItemSchema>;
 /**
  * Endpoint dedicado para mover una tarjeta en el tablero (MIR-19).
  * Estricto: mover no es editar, asi que cualquier otro campo se rechaza.
+ *
+ * MIR-31: el destino es una columna del proyecto (`columnId`, o `null` para
+ * el backlog). MIR-49 quito el estado antiguo: ahora solo se mueve por columna.
  */
-export const changeStatusSchema = z
-  .object({
-    status: z.enum(WORK_ITEM_STATUSES),
-  })
-  .strict();
+export const changeStatusSchema = z.object({ columnId: targetColumnIdSchema }).strict();
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
 
 /**
@@ -73,7 +89,11 @@ export const workItemFiltersSchema = paginationQuerySchema.extend({
   /** Texto libre; busca en titulo y descripcion, sin distinguir mayusculas. */
   q: z.string().trim().max(200).optional(),
   type: z.enum(WORK_ITEM_TYPES).optional(),
-  status: z.enum(WORK_ITEM_STATUSES).optional(),
+  /**
+   * MIR-49: el filtro "Estado" del backlog. Una columna del proyecto, o
+   * `BACKLOG` para los elementos que no estan en ninguna.
+   */
+  columnId: z.union([z.literal(BACKLOG), z.string().trim().min(1)]).optional(),
   priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
   assigneeId: z.string().optional(),
 });
@@ -87,7 +107,9 @@ export const workItemSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   type: z.enum(WORK_ITEM_TYPES),
-  status: z.enum(WORK_ITEM_STATUSES),
+  /** MIR-31: columna del elemento (su estado); `null` = backlog. */
+  columnId: z.string().nullable(),
+  column: boardColumnSchema.nullable(),
   priority: z.enum(WORK_ITEM_PRIORITIES),
   estimate: z.number().nullable(),
   dueDate: z.string().datetime().nullable(),
@@ -100,12 +122,16 @@ export const workItemSchema = z.object({
 export type WorkItemDto = z.infer<typeof workItemSchema>;
 
 /**
- * Respuesta del tablero Kanban: items de las columnas de BOARD_STATUSES, sin
- * paginar.  Va plana a proposito: el frontend recorre BOARD_STATUSES para
- * armar las columnas, asi una columna sin items existe igual.
+ * Respuesta del tablero Kanban: los items que estan en alguna columna, sin
+ * paginar.  Va plana a proposito: el frontend recorre las columnas para
+ * armarlas, asi una columna sin items existe igual.
+ *
+ * MIR-31: `columns` trae las columnas del proyecto en su orden; MIR-49 dibuja
+ * el tablero con ellas.
  */
 export const boardResponseSchema = z.object({
   items: z.array(workItemSchema),
+  columns: z.array(boardColumnSchema),
 });
 export type BoardResponse = z.infer<typeof boardResponseSchema>;
 

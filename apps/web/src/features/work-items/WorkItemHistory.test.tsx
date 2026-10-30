@@ -5,6 +5,7 @@ import { fireEvent, renderConProviders, screen, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { WorkItemDetail } from './WorkItemDetail';
+import { enColumna } from '@/test/columns';
 
 const BASE_URL = 'http://localhost:3000/api';
 const PROJECT_ID = 'project_123';
@@ -19,7 +20,7 @@ const item: WorkItemDto = {
   title: 'Historial de cambios',
   description: null,
   type: 'STORY',
-  status: 'IN_PROGRESS',
+  ...enColumna('IN_PROGRESS'),
   priority: 'MEDIUM',
   estimate: null,
   dueDate: null,
@@ -78,8 +79,8 @@ describe('MIR-22 - historial de un elemento', () => {
           action: 'ITEM_STATUS_CHANGED',
           actor: { id: 'user_2', name: 'Grace Hopper' },
           field: 'status',
-          fromValue: 'TODO',
-          toValue: 'IN_PROGRESS',
+          fromValue: 'Por hacer',
+          toValue: 'En progreso',
           createdAt: '2026-10-02T10:00:00.000Z',
         }),
         entrada({ id: 'activity_1' }),

@@ -26,6 +26,11 @@ const EXPECTED: Expectation = {
   'work-item:delete': ['OWNER', 'MEMBER'],
   'work-item:change-status': ['OWNER', 'MEMBER'],
   'comment:create': ['OWNER', 'MEMBER'],
+  'column:manage': ['OWNER'],
+  'sprint:view': ['OWNER', 'MEMBER', 'VIEWER'],
+  'sprint:create': ['OWNER', 'MEMBER'],
+  'sprint:update': ['OWNER', 'MEMBER'],
+  'sprint:delete': ['OWNER', 'MEMBER'],
 };
 
 describe('can()', () => {

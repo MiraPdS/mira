@@ -16,13 +16,22 @@ describe('workItemWhereForList', () => {
 
   it.each([
     ['type', { type: 'BUG' }],
-    ['status', { status: 'IN_PROGRESS' }],
+    ['columnId', { columnId: 'column_1' }],
     ['priority', { priority: 'HIGH' }],
     ['assigneeId', { assigneeId: 'user_2' }],
   ] as const)('agrega el filtro individual %s al proyecto', (_name, filter) => {
     expect(workItemWhereForList({ ...PAGE, ...filter })).toEqual({
       projectId: 'project_1',
       ...filter,
+    });
+  });
+
+  // MIR-49: el filtro "Estado" del backlog es una columna; BACKLOG es no
+  // estar en ninguna.
+  it('filtra BACKLOG como elementos sin columna', () => {
+    expect(workItemWhereForList({ ...PAGE, columnId: 'BACKLOG' })).toEqual({
+      projectId: 'project_1',
+      columnId: null,
     });
   });
 

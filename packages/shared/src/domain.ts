@@ -11,19 +11,45 @@
 export const PROJECT_ROLES = ['OWNER', 'MEMBER', 'VIEWER'] as const;
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
+export const SPRINT_STATUSES = ['PLANNED', 'ACTIVE', 'CLOSED'] as const;
+export type SprintStatus = (typeof SPRINT_STATUSES)[number];
+
 export const WORK_ITEM_TYPES = ['EPIC', 'STORY', 'TASK', 'BUG'] as const;
 export type WorkItemType = (typeof WORK_ITEM_TYPES)[number];
 
 /**
- * Columnas del tablero Kanban.  El orden del arreglo ES el orden de las
- * columnas en la UI.  En E1 es un enum fijo; convertirlo en columnas
- * configurables por proyecto esta reservado como requerimiento nuevo de E2.
+ * MIR-31: categoria de una columna del tablero. Las columnas son por proyecto
+ * y se pueden llamar como el equipo quiera; la categoria es lo que permite que
+ * el panel (MIR-23) y el cierre de sprint (MIR-46) sepan que esta terminado.
  */
-export const WORK_ITEM_STATUSES = ['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
-export type WorkItemStatus = (typeof WORK_ITEM_STATUSES)[number];
+export const COLUMN_CATEGORIES = ['TODO', 'IN_PROGRESS', 'DONE'] as const;
+export type ColumnCategory = (typeof COLUMN_CATEGORIES)[number];
 
-/** Estados que se muestran como columnas del tablero (BACKLOG vive aparte). */
-export const BOARD_STATUSES = WORK_ITEM_STATUSES.filter((s) => s !== 'BACKLOG');
+/**
+ * Categorias con las que cuenta el panel: las de las columnas mas BACKLOG,
+ * que agrupa a los elementos que no estan en ninguna columna.
+ */
+export const ITEM_CATEGORIES = ['BACKLOG', ...COLUMN_CATEGORIES] as const;
+export type ItemCategory = (typeof ITEM_CATEGORIES)[number];
+
+/**
+ * Columnas con las que nace todo proyecto (y las que la migracion de MIR-31
+ * creo en los proyectos existentes), en su orden.
+ */
+export const DEFAULT_BOARD_COLUMNS = [
+  { name: 'Por hacer', category: 'TODO' },
+  { name: 'En progreso', category: 'IN_PROGRESS' },
+  { name: 'En revision', category: 'IN_PROGRESS' },
+  { name: 'Hecho', category: 'DONE' },
+] as const satisfies ReadonlyArray<{ name: string; category: ColumnCategory }>;
+
+/**
+ * MIR-49: un elemento sin columna esta en el backlog. Este valor lo nombra
+ * donde hace falta un texto: el filtro `columnId=BACKLOG` del backlog y los
+ * `fromValue`/`toValue` de ITEM_STATUS_CHANGED (que guardan el nombre de la
+ * columna, o este valor si no habia).
+ */
+export const BACKLOG = 'BACKLOG' as const;
 
 export const WORK_ITEM_PRIORITIES = ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] as const;
 export type WorkItemPriority = (typeof WORK_ITEM_PRIORITIES)[number];
@@ -42,13 +68,17 @@ export const ACTIVITY_ACTIONS = [
 ] as const;
 export type ActivityAction = (typeof ACTIVITY_ACTIONS)[number];
 
-/** Etiquetas en espanol para la UI.  La UI nunca deberia hardcodear estos textos. */
-export const STATUS_LABELS: Record<WorkItemStatus, string> = {
+/**
+ * Etiquetas en espanol para la UI.  La UI nunca deberia hardcodear estos textos.
+ *
+ * MIR-31: categorias de columna (y BACKLOG, para el panel y el backlog). Los
+ * estados ya no tienen etiqueta fija: son las columnas de cada proyecto.
+ */
+export const CATEGORY_LABELS: Record<ItemCategory, string> = {
   BACKLOG: 'Backlog',
   TODO: 'Por hacer',
-  IN_PROGRESS: 'En progreso',
-  IN_REVIEW: 'En revision',
-  DONE: 'Hecho',
+  IN_PROGRESS: 'En curso',
+  DONE: 'Terminado',
 };
 
 export const TYPE_LABELS: Record<WorkItemType, string> = {
@@ -63,6 +93,12 @@ export const PRIORITY_LABELS: Record<WorkItemPriority, string> = {
   MEDIUM: 'Media',
   HIGH: 'Alta',
   CRITICAL: 'Critica',
+};
+
+export const SPRINT_STATUS_LABELS: Record<SprintStatus, string> = {
+  PLANNED: 'Planificado',
+  ACTIVE: 'Activo',
+  CLOSED: 'Cerrado',
 };
 
 export const ROLE_LABELS: Record<ProjectRole, string> = {

@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { PrismaClient } from '@prisma/client';
+import { DEFAULT_BOARD_COLUMNS } from '@mira/shared';
 import bcrypt from 'bcryptjs';
 import { config as loadEnv } from 'dotenv';
 
@@ -62,8 +63,21 @@ async function main() {
           { userId: grace.id, role: 'VIEWER' },
         ],
       },
+      // MIR-31: mismas columnas con las que nace un proyecto en la API.
+      boardColumns: {
+        create: DEFAULT_BOARD_COLUMNS.map((column, position) => ({ ...column, position })),
+      },
     },
   });
+
+  // MIR-31: cada item de demo va a una columna por defecto, por nombre;
+  // null es el backlog.
+  const columnas = await prisma.boardColumn.findMany({
+    where: { projectId: proyecto.id },
+    select: { id: true, name: true },
+  });
+  const columnaDe = (nombre: string | null) =>
+    columnas.find((columna) => columna.name === nombre)?.id ?? null;
 
   // Un item por columna, para que el tablero se vea poblado de inmediato.
   const items = [
@@ -71,7 +85,7 @@ async function main() {
       n: 1,
       title: 'Como usuario quiero registrarme para acceder a mis proyectos',
       type: 'STORY',
-      status: 'DONE',
+      columna: 'Hecho',
       priority: 'HIGH',
       estimate: 5,
       assignee: ada.id,
@@ -80,7 +94,7 @@ async function main() {
       n: 2,
       title: 'Como usuario quiero ver el tablero Kanban de mi proyecto',
       type: 'STORY',
-      status: 'IN_REVIEW',
+      columna: 'En revision',
       priority: 'HIGH',
       estimate: 8,
       assignee: alan.id,
@@ -89,7 +103,7 @@ async function main() {
       n: 3,
       title: 'Mover una tarjeta entre columnas',
       type: 'TASK',
-      status: 'IN_PROGRESS',
+      columna: 'En progreso',
       priority: 'MEDIUM',
       estimate: 3,
       assignee: ada.id,
@@ -98,7 +112,7 @@ async function main() {
       n: 4,
       title: 'Buscar items del backlog por titulo',
       type: 'TASK',
-      status: 'TODO',
+      columna: 'Por hacer',
       priority: 'MEDIUM',
       estimate: 3,
       assignee: null,
@@ -107,7 +121,7 @@ async function main() {
       n: 5,
       title: 'El filtro por prioridad no limpia la pagina actual',
       type: 'BUG',
-      status: 'BACKLOG',
+      columna: null,
       priority: 'LOW',
       estimate: 1,
       assignee: null,
@@ -140,7 +154,7 @@ async function main() {
           assigneeId: item.assignee,
           title: item.title,
           type: item.type,
-          status: item.status,
+          columnId: columnaDe(item.columna),
           priority: item.priority,
           estimate: item.estimate,
           position: item.n,

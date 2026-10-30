@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
+  BACKLOG,
+  CATEGORY_LABELS,
   PRIORITY_LABELS,
-  STATUS_LABELS,
   TYPE_LABELS,
   WORK_ITEM_PRIORITIES,
-  WORK_ITEM_STATUSES,
   WORK_ITEM_TYPES,
   type WorkItemPriority,
-  type WorkItemStatus,
   type WorkItemType,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
@@ -16,6 +15,7 @@ import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { ApiRequestError } from '@/lib/api-client';
 import { useProjectMembers } from '@/features/projects/useProjects';
+import { useBoardColumns } from '@/features/board/useBoard';
 import { useWorkItems } from './useWorkItems';
 import { normalizeWorkItemListFilters, type WorkItemListFilters } from './work-items.api';
 
@@ -59,6 +59,7 @@ export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklog
 
   const backlog = useWorkItems(projectId, page, PAGE_SIZE, filters);
   const members = useProjectMembers(projectId);
+  const columns = useBoardColumns(projectId);
   const totalPages = backlog.data ? Math.max(1, Math.ceil(backlog.data.total / PAGE_SIZE)) : 1;
 
   // Si mientras se navega se eliminan elementos, la pagina solicitada puede
@@ -140,23 +141,31 @@ export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklog
           <label htmlFor="backlog-status" className="text-sm font-medium text-slate-700">
             Estado
           </label>
+          {/* MIR-49: los estados son el backlog y las columnas del proyecto,
+              en el orden del tablero. */}
           <Select
             id="backlog-status"
-            value={filters.status ?? ''}
-            onChange={(event) =>
-              changeFilters({
-                status: (event.target.value || undefined) as WorkItemStatus | undefined,
-              })
-            }
+            value={filters.columnId ?? ''}
+            onChange={(event) => changeFilters({ columnId: event.target.value || undefined })}
+            disabled={columns.isPending || columns.isError}
+            aria-describedby={columns.isError ? 'backlog-columns-error' : undefined}
             className="mt-1"
           >
-            <option value="">Todos</option>
-            {WORK_ITEM_STATUSES.map((status) => (
-              <option key={status} value={status}>
-                {STATUS_LABELS[status]}
+            <option value="">{columns.isPending ? 'Cargando columnas...' : 'Todos'}</option>
+            <option value={BACKLOG}>{CATEGORY_LABELS.BACKLOG}</option>
+            {columns.data?.map((column) => (
+              <option key={column.id} value={column.id}>
+                {column.name}
               </option>
             ))}
           </Select>
+          {columns.isError ? (
+            <p id="backlog-columns-error" role="alert" className="mt-1 text-sm text-red-700">
+              {columns.error instanceof ApiRequestError
+                ? columns.error.message
+                : 'No se pudo cargar la lista de columnas.'}
+            </p>
+          ) : null}
         </div>
 
         <div>
@@ -267,7 +276,7 @@ export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklog
                     </Link>
                   </td>
                   <td className="px-3 py-2">{TYPE_LABELS[item.type]}</td>
-                  <td className="px-3 py-2">{STATUS_LABELS[item.status]}</td>
+                  <td className="px-3 py-2">{item.column?.name ?? CATEGORY_LABELS.BACKLOG}</td>
                   <td className="px-3 py-2">{PRIORITY_LABELS[item.priority]}</td>
                 </tr>
               ))}

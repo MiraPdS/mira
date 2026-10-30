@@ -1,7 +1,8 @@
 import {
+  BACKLOG,
+  CATEGORY_LABELS,
   PRIORITY_LABELS,
   ROLE_LABELS,
-  STATUS_LABELS,
   TYPE_LABELS,
   type ActivityDto,
 } from '@mira/shared';
@@ -14,6 +15,12 @@ import {
 export type ActivityContext = 'item' | 'project';
 
 type ActivityInput = Pick<ActivityDto, 'action' | 'field' | 'fromValue' | 'toValue'>;
+
+/**
+ * MIR-49: un movimiento guarda el nombre de la columna (tal como se llamaba
+ * entonces), o BACKLOG si no tenia. Solo BACKLOG necesita etiqueta.
+ */
+const STATUS_LABELS: Record<string, string> = { [BACKLOG]: CATEGORY_LABELS.BACKLOG };
 
 /** Campos con valor de enum y el sustantivo con su articulo. */
 const ENUM_FIELDS: Record<string, { noun: string; labels: Record<string, string> }> = {

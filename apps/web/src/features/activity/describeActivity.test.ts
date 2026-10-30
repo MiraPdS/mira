@@ -16,8 +16,19 @@ describe('describeActivity en el historial de un elemento (MIR-22)', () => {
     ['creación', entrada('ITEM_CREATED'), 'creó el ítem'],
     [
       'cambio de estado',
-      entrada('ITEM_STATUS_CHANGED', 'status', 'TODO', 'IN_PROGRESS'),
+      entrada('ITEM_STATUS_CHANGED', 'status', 'Por hacer', 'En progreso'),
       'movió de Por hacer a En progreso',
+    ],
+    // MIR-49: el historial guarda el nombre de la columna; sin columna, BACKLOG.
+    [
+      'salida del backlog',
+      entrada('ITEM_STATUS_CHANGED', 'status', 'BACKLOG', 'Por hacer'),
+      'movió de Backlog a Por hacer',
+    ],
+    [
+      'columna creada por el equipo',
+      entrada('ITEM_STATUS_CHANGED', 'status', 'En revision', 'QA'),
+      'movió de En revision a QA',
     ],
     [
       'prioridad',
@@ -78,7 +89,7 @@ describe('describeActivity en el panel del proyecto (MIR-23)', () => {
     ['creación', entrada('ITEM_CREATED'), 'creó un ítem'],
     [
       'cambio de estado',
-      entrada('ITEM_STATUS_CHANGED', 'status', 'TODO', 'IN_PROGRESS'),
+      entrada('ITEM_STATUS_CHANGED', 'status', 'Por hacer', 'En progreso'),
       'movió un ítem de Por hacer a En progreso',
     ],
     [
@@ -140,7 +151,7 @@ describe('describeActivity en el panel del proyecto (MIR-23)', () => {
 
 describe('describeActivity nunca filtra nombres de columnas ni valores crudos', () => {
   const casos = [
-    entrada('ITEM_STATUS_CHANGED', 'status', 'IN_PROGRESS', 'IN_REVIEW'),
+    entrada('ITEM_STATUS_CHANGED', 'status', 'BACKLOG', 'En revision'),
     entrada('ITEM_UPDATED', 'priority', 'HIGH', 'CRITICAL'),
     entrada('ITEM_UPDATED', 'dueDate', null, '2026-10-12T00:00:00.000Z'),
     entrada('ITEM_UPDATED', 'assigneeId', null, null),
@@ -149,7 +160,7 @@ describe('describeActivity nunca filtra nombres de columnas ni valores crudos', 
     entrada('MEMBER_ROLE_CHANGED', 'role', 'OWNER', 'MEMBER'),
   ];
   const prohibidos =
-    /IN_PROGRESS|IN_REVIEW|CRITICAL|OWNER|assigneeId|dueDate|sprintId|estimate|\d{4}-\d{2}-\d{2}T/;
+    /BACKLOG|IN_PROGRESS|IN_REVIEW|CRITICAL|OWNER|assigneeId|dueDate|sprintId|estimate|\d{4}-\d{2}-\d{2}T/;
 
   it.each(['item', 'project'] as ActivityContext[])('en contexto %s', (context) => {
     for (const caso of casos) {

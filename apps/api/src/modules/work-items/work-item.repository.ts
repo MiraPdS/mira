@@ -1,13 +1,13 @@
 import { Prisma } from '@prisma/client';
 import {
   ACTIVITY_LIST_LIMIT,
-  BOARD_STATUSES,
+  BACKLOG,
+  type ColumnCategory,
   type CreateWorkItemInput,
   type ProjectRole,
   type UpdateWorkItemInput,
   type WorkItemFilters,
   type WorkItemPriority,
-  type WorkItemStatus,
   type WorkItemType,
 } from '@mira/shared';
 import {
@@ -25,6 +25,14 @@ export interface WorkItemUser {
   createdAt: Date;
 }
 
+/** MIR-31: columna tal como la necesitan el DTO y las reglas de movimiento. */
+export interface BoardColumnRecord {
+  id: string;
+  name: string;
+  position: number;
+  category: ColumnCategory;
+}
+
 /** Item con las relaciones necesarias para construir su DTO publico. */
 export interface WorkItemForDto {
   id: string;
@@ -33,7 +41,9 @@ export interface WorkItemForDto {
   title: string;
   description: string | null;
   type: WorkItemType;
-  status: WorkItemStatus;
+  /** MIR-31: null = BACKLOG. */
+  columnId: string | null;
+  column: BoardColumnRecord | null;
   priority: WorkItemPriority;
   estimate: number | null;
   dueDate: Date | null;
@@ -48,6 +58,8 @@ export interface CreateWorkItemData {
   projectId: string;
   actorId: string;
   input: CreateWorkItemInput;
+  /** MIR-31: columna ya resuelta por el service; null = backlog. */
+  columnId: string | null;
 }
 
 export type UpdateableWorkItemField = keyof UpdateWorkItemInput;
@@ -74,12 +86,13 @@ export interface DeleteWorkItemData {
   reference: string;
 }
 
+/** MIR-31: mover entre columnas; null = backlog. */
 export interface ChangeStatusData {
   projectId: string;
   workItemId: string;
   actorId: string;
-  fromStatus: WorkItemStatus;
-  toStatus: WorkItemStatus;
+  fromColumn: BoardColumnRecord | null;
+  toColumn: BoardColumnRecord | null;
 }
 
 /** MIR-17: cambio de responsable; null significa sin asignar. */
@@ -93,7 +106,7 @@ export interface AssignData {
 
 export interface ListWorkItemsData extends Pick<
   WorkItemFilters,
-  'q' | 'type' | 'status' | 'priority' | 'assigneeId'
+  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId'
 > {
   projectId: string;
   page: number;
@@ -126,12 +139,16 @@ export interface WorkItemRepository {
   createAtomically(data: CreateWorkItemData): Promise<WorkItemForDto>;
   updateAtomically(data: UpdateWorkItemData): Promise<WorkItemForDto>;
   deleteAtomically(data: DeleteWorkItemData): Promise<void>;
-  /** Cambia el estado y registra ITEM_STATUS_CHANGED como una sola unidad. */
+  /** Cambia la columna y registra ITEM_STATUS_CHANGED como una sola unidad. */
   changeStatusAtomically(data: ChangeStatusData): Promise<WorkItemForDto>;
+  /** MIR-31: columnas del proyecto, en el orden del tablero. */
+  listColumns(projectId: string): Promise<BoardColumnRecord[]>;
+  /** MIR-31: una columna, solo si pertenece al proyecto. */
+  findColumnInProject(projectId: string, columnId: string): Promise<BoardColumnRecord | null>;
   /** MIR-17: cambia el responsable y registra ITEM_ASSIGNED como una sola unidad. */
   assignAtomically(data: AssignData): Promise<WorkItemForDto>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
-  /** Items de las columnas del tablero (todo menos BACKLOG), sin paginar. */
+  /** Items que estan en alguna columna (todo menos BACKLOG), sin paginar. */
   listBoardByProject(projectId: string): Promise<WorkItemForDto[]>;
   /** MIR-22: historial del item, del mas reciente al mas antiguo. */
   listActivity(
@@ -150,12 +167,28 @@ const usersForDto = {
   },
 } as const;
 
+const columnForDto = {
+  select: {
+    id: true,
+    name: true,
+    position: true,
+    category: true,
+  },
+} as const;
+
+/** Relaciones que necesita toWorkItemDto, en todas las lecturas y escrituras. */
+const includeForDto = {
+  assignee: usersForDto,
+  createdBy: usersForDto,
+  column: columnForDto,
+} as const;
+
 /** Construye filtros Prisma que se aplican identicamente al count y al listado. */
 export function workItemWhereForList({
   projectId,
   q,
   type,
-  status,
+  columnId,
   priority,
   assigneeId,
 }: ListWorkItemsData): Prisma.WorkItemWhereInput {
@@ -170,7 +203,8 @@ export function workItemWhereForList({
         }
       : {}),
     ...(type ? { type } : {}),
-    ...(status ? { status } : {}),
+    // MIR-49: BACKLOG es no estar en ninguna columna.
+    ...(columnId ? { columnId: columnId === BACKLOG ? null : columnId } : {}),
     ...(priority ? { priority } : {}),
     ...(assigneeId ? { assigneeId } : {}),
   };
@@ -197,18 +231,15 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
       title: data.input.title,
       description: data.input.description ?? null,
       type: data.input.type,
-      status: data.input.status,
+      columnId: data.columnId,
       priority: data.input.priority,
       estimate: data.input.estimate ?? null,
       dueDate: data.input.dueDate ?? null,
-      // Los sprints estan reservados para MIR-30 / Entrega 2. MIR-11 no
-      // persiste ningun sprint, aunque el contrato compartido ya lo declare.
+      // MIR-43 agrega la FK, pero la asignacion pertenece a MIR-45.
+      // Crear un item sigue dejandolo fuera de cualquier sprint.
       sprintId: null,
     },
-    include: {
-      assignee: usersForDto,
-      createdBy: usersForDto,
-    },
+    include: includeForDto,
   });
 
   await db.activityLog.create({
@@ -227,10 +258,7 @@ async function updateInTransaction(db: Db, data: UpdateWorkItemData): Promise<Wo
   const workItem = await db.workItem.update({
     where: { id: data.workItemId, projectId: data.projectId },
     data: data.input,
-    include: {
-      assignee: usersForDto,
-      createdBy: usersForDto,
-    },
+    include: includeForDto,
   });
 
   if (data.changes.length > 0) {
@@ -267,14 +295,21 @@ async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<vo
   await db.workItem.delete({ where: { id: data.workItemId, projectId: data.projectId } });
 }
 
+/**
+ * Como queda una columna en la bitacora: su nombre del momento (MIR-49), asi
+ * el historial sigue diciendo donde estuvo aunque despues se renombre o se
+ * elimine. Sin columna es BACKLOG. La migracion de MIR-49 paso a nombres los
+ * estados antiguos (TODO, DONE...) que guardaba el historial previo.
+ */
+export function activityValueOfColumn(column: BoardColumnRecord | null): string {
+  return column?.name ?? BACKLOG;
+}
+
 async function changeStatusInTransaction(db: Db, data: ChangeStatusData): Promise<WorkItemForDto> {
   const workItem = await db.workItem.update({
     where: { id: data.workItemId, projectId: data.projectId },
-    data: { status: data.toStatus },
-    include: {
-      assignee: usersForDto,
-      createdBy: usersForDto,
-    },
+    data: { columnId: data.toColumn?.id ?? null },
+    include: includeForDto,
   });
 
   await db.activityLog.create({
@@ -284,8 +319,8 @@ async function changeStatusInTransaction(db: Db, data: ChangeStatusData): Promis
       workItemId: data.workItemId,
       actorId: data.actorId,
       field: 'status',
-      fromValue: data.fromStatus,
-      toValue: data.toStatus,
+      fromValue: activityValueOfColumn(data.fromColumn),
+      toValue: activityValueOfColumn(data.toColumn),
     },
   });
 
@@ -296,10 +331,7 @@ async function assignInTransaction(db: Db, data: AssignData): Promise<WorkItemFo
   const workItem = await db.workItem.update({
     where: { id: data.workItemId, projectId: data.projectId },
     data: { assigneeId: data.toAssigneeId },
-    include: {
-      assignee: usersForDto,
-      createdBy: usersForDto,
-    },
+    include: includeForDto,
   });
 
   // Se guardan ids de usuario: el panel del proyecto (MIR-23) los traduce a
@@ -346,10 +378,7 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
     async findByIdInProject(projectId, workItemId) {
       return db.workItem.findFirst({
         where: { id: workItemId, projectId },
-        include: {
-          assignee: usersForDto,
-          createdBy: usersForDto,
-        },
+        include: includeForDto,
       });
     },
 
@@ -395,27 +424,34 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
           skip,
           take: pageSize,
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          include: {
-            createdBy: usersForDto,
-            assignee: usersForDto,
-          },
+          include: includeForDto,
         }),
       ]);
 
       return { items, total };
     },
 
+    async listColumns(projectId) {
+      return db.boardColumn.findMany({
+        where: { projectId },
+        // El id desempata si dos columnas quedaran con la misma posicion.
+        orderBy: [{ position: 'asc' }, { id: 'asc' }],
+        ...columnForDto,
+      });
+    },
+
+    async findColumnInProject(projectId, columnId) {
+      return db.boardColumn.findFirst({ where: { id: columnId, projectId }, ...columnForDto });
+    },
+
     async listBoardByProject(projectId) {
       return db.workItem.findMany({
-        // Usa el indice (projectId, status) del esquema.
-        where: { projectId, status: { in: [...BOARD_STATUSES] } },
+        // Usa el indice (projectId, columnId) del esquema.
+        where: { projectId, columnId: { not: null } },
         // position queda listo para el reordenamiento de MIR-20; mientras
         // tanto todos valen 0 y desempatan la creacion y el id.
         orderBy: [{ position: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
-        include: {
-          createdBy: usersForDto,
-          assignee: usersForDto,
-        },
+        include: includeForDto,
       });
     },
 

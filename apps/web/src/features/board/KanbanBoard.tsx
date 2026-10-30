@@ -1,10 +1,4 @@
-import {
-  BOARD_STATUSES,
-  can,
-  STATUS_LABELS,
-  type WorkItemDto,
-  type WorkItemStatus,
-} from '@mira/shared';
+import { can, type BoardColumnDto, type WorkItemDto } from '@mira/shared';
 import { useRef, useState } from 'react';
 import {
   DndContext,
@@ -29,8 +23,8 @@ import {
   instrucciones,
   saltarDeColumna,
   SensorTactilDesdeAsa,
-  type BoardStatus,
   type CardDragData,
+  type ColumnDropData,
 } from './boardDnd';
 import { useBoard, useMoveWorkItem } from './useBoard';
 import { TarjetaArrastrada, WorkItemCard } from './WorkItemCard';
@@ -40,11 +34,22 @@ export interface KanbanBoardProps {
 }
 
 interface BoardColumnProps {
-  status: BoardStatus;
+  column: BoardColumnDto;
+  /** Todas las columnas del proyecto: destinos del menu de cada tarjeta. */
+  columns: readonly BoardColumnDto[];
   items: WorkItemDto[];
   /** Ausente cuando el usuario no puede mover tarjetas. */
-  onMove?: (item: WorkItemDto, status: WorkItemStatus) => void;
+  onMove?: (item: WorkItemDto, column: BoardColumnDto) => void;
 }
+
+/** Id del titulo de una columna; tambien sirve para encontrarla en pantalla. */
+const idDeColumna = (columnId: string) => `columna-${columnId}`;
+
+/**
+ * Desde cuantas columnas el tablero no cabe ni en pantallas xl (1280 px): con
+ * mas, el aviso de desplazamiento se muestra siempre.
+ */
+const COLUMNAS_QUE_CABEN_EN_XL = 4;
 
 /**
  * Columna del tablero.
@@ -56,12 +61,18 @@ interface BoardColumnProps {
  * MIR-24: en pantallas angostas la columna deja siempre 2.5rem libres para que
  * asome la siguiente y se note que el tablero se desplaza; desde 20.5rem
  * (328 px) de ancho util en adelante mide sus 18rem (w-72) de siempre.
+ *
+ * MIR-49: la columna es una del proyecto, con el nombre que le puso el
+ * equipo. Un nombre largo se parte en varias lineas en vez de recortarse.
  */
-function BoardColumn({ status, items, onMove }: BoardColumnProps) {
-  const label = STATUS_LABELS[status];
-  const headingId = `columna-${status}`;
+function BoardColumn({ column, columns, items, onMove }: BoardColumnProps) {
+  const label = column.name;
+  const headingId = idDeColumna(column.id);
   // Toda la columna (titulo incluido) recibe tarjetas, no solo la lista.
-  const { setNodeRef, isOver } = useDroppable({ id: status });
+  const { setNodeRef, isOver } = useDroppable({
+    id: column.id,
+    data: { column } satisfies ColumnDropData,
+  });
 
   return (
     <section
@@ -72,9 +83,9 @@ function BoardColumn({ status, items, onMove }: BoardColumnProps) {
         isOver && 'bg-sky-100 ring-2 ring-sky-300',
       )}
     >
-      <h3 id={headingId} className="flex items-center justify-between text-sm font-semibold">
-        <span className="text-slate-800">{label}</span>
-        <span className="rounded-full bg-white px-2 py-0.5 text-xs text-slate-600">
+      <h3 id={headingId} className="flex items-start justify-between gap-2 text-sm font-semibold">
+        <span className="min-w-0 wrap-anywhere text-slate-800">{label}</span>
+        <span className="shrink-0 rounded-full bg-white px-2 py-0.5 text-xs text-slate-600">
           <span className="sr-only">Cantidad: </span>
           {items.length}
         </span>
@@ -83,7 +94,7 @@ function BoardColumn({ status, items, onMove }: BoardColumnProps) {
       <div className="relative mt-3 flex flex-1">
         <ul
           aria-label={`Tarjetas de ${label}`}
-          data-status={status}
+          data-column-id={column.id}
           className={cn(
             'flex min-h-24 min-w-0 flex-1 flex-col gap-2 rounded-md',
             items.length === 0 && 'border-2 border-dashed border-slate-300',
@@ -93,6 +104,7 @@ function BoardColumn({ status, items, onMove }: BoardColumnProps) {
             <WorkItemCard
               key={item.id}
               item={item}
+              columns={columns}
               onMove={onMove ? (destino) => onMove(item, destino) : undefined}
             />
           ))}
@@ -123,8 +135,9 @@ const AUTO_SCROLL = { threshold: { x: 0.1, y: 0.2 }, acceleration: 3 };
  * Tablero Kanban reutilizable: su contenedor entrega el proyecto, por lo que
  * este componente no necesita conocer rutas.
  *
- * Las columnas salen de BOARD_STATUSES (el orden del arreglo es el orden en
- * pantalla), no de los items recibidos: asi una columna vacia existe igual.
+ * MIR-49: las columnas son las del proyecto, en su orden (`position`), y
+ * salen de la respuesta del tablero, no de los items recibidos: asi una
+ * columna vacia existe igual.
  */
 export function KanbanBoard({ projectId }: KanbanBoardProps) {
   const board = useBoard(projectId);
@@ -162,11 +175,13 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   // cercano a la posicion actual que deje la columna completa a la vista: si
   // ya se veia (768-1279 px muestran 2 o 3 columnas), el tablero no se mueve.
   const regionRef = useRef<HTMLDivElement>(null);
-  const alinearCon = (status: BoardStatus) => {
+  const alinearCon = (columnId: string) => {
     const region = regionRef.current;
     if (!region) return;
     const columnas = [...region.querySelectorAll<HTMLElement>('[aria-labelledby^="columna-"]')];
-    const columna = columnas.find((c) => c.getAttribute('aria-labelledby') === `columna-${status}`);
+    const columna = columnas.find(
+      (c) => c.getAttribute('aria-labelledby') === idDeColumna(columnId),
+    );
     if (!columna) return;
 
     const laMuestra = (inicio: number) =>
@@ -185,19 +200,19 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
   // tablero la acompana: si no, en el telefono quedaria fuera de vista.
   const soltar = ({ active, over }: DragEndEvent) => {
     const item = (active.data.current as CardDragData | undefined)?.item;
-    const destino = columnaDestino(over?.id);
-    const seMueve = canMove && item && destino && destino !== item.status;
-    const columnaFinal = seMueve ? destino : columnaDestino(item?.status);
+    const destino = columnaDestino(over);
+    const seMueve = canMove && item && destino && destino.id !== item.columnId;
+    const columnaFinal = seMueve ? destino.id : item?.columnId;
     if (columnaFinal) alinearCon(columnaFinal);
     setEnVueloId(null);
     if (seMueve) {
-      const origen = columnaDestino(item.status);
-      move.mutate({ item, status: destino }, { onError: () => origen && alinearCon(origen) });
+      const origen = item.columnId;
+      move.mutate({ item, column: destino }, { onError: () => origen && alinearCon(origen) });
     }
   };
 
   const cancelar = ({ active }: DragCancelEvent) => {
-    const origen = columnaDestino((active.data.current as CardDragData | undefined)?.item.status);
+    const origen = (active.data.current as CardDragData | undefined)?.item.columnId;
     if (origen) alinearCon(origen);
     setEnVueloId(null);
   };
@@ -223,7 +238,7 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
     );
   }
 
-  const items = board.data;
+  const { items, columns } = board.data;
   const enVuelo = enVueloId ? items.find((item) => item.id === enVueloId) : undefined;
 
   return (
@@ -231,8 +246,14 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
       <h2 id="tablero-titulo" className="text-xl font-semibold text-slate-900">
         Tablero
       </h2>
-      {/* Hasta xl las cuatro columnas no caben y el tablero se desplaza. */}
-      <p className="mt-1 text-sm text-slate-500 xl:hidden">
+      {/* Hasta xl cuatro columnas no caben y el tablero se desplaza; con mas
+          de cuatro (MIR-49) tampoco caben en xl. */}
+      <p
+        className={cn(
+          'mt-1 text-sm text-slate-500',
+          columns.length <= COLUMNAS_QUE_CABEN_EN_XL && 'xl:hidden',
+        )}
+      >
         Desliza horizontalmente para ver todas las columnas.
       </p>
 
@@ -268,13 +289,14 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
             !enVueloId && 'snap-x snap-mandatory',
           )}
         >
-          {BOARD_STATUSES.map((status) => (
+          {columns.map((column) => (
             <BoardColumn
-              key={status}
-              status={status}
-              items={items.filter((item) => item.status === status)}
+              key={column.id}
+              column={column}
+              columns={columns}
+              items={items.filter((item) => item.columnId === column.id)}
               onMove={
-                canMove ? (item, destino) => move.mutate({ item, status: destino }) : undefined
+                canMove ? (item, destino) => move.mutate({ item, column: destino }) : undefined
               }
             />
           ))}
