@@ -53,7 +53,7 @@ export default defineConfig({
       // Si la cobertura sube, se sube el umbral; nunca se baja para que pase
       // un PR.  Justificacion completa en docs/estrategia-pruebas.md (seccion 4).
       thresholds: {
-        statements: 95,
+        statements: 99,
         branches: 87,
         functions: 95,
         lines: 95,
