@@ -63,6 +63,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-31 | Migrar los estados a columnas por proyecto | ➡️ después del tag | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
 | MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ➡️ después del tag | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
 | MIR-49 | Tablero y backlog con las columnas del proyecto | ➡️ después del tag | [#41] | U [work-item.service], [domain (shared)] · I [board-columns.migration], [work-item.integration], [summary.integration] · C [KanbanBoard], [KanbanBoard.dnd], [ProjectBoardPage], [ProjectBacklogPage], [WorkItemBacklog], [ProjectSummaryPage], [describeActivity] |
+| MIR-50 | Pantalla de configuración de columnas | ➡️ después del tag | [#46] | C [BoardColumnsSettings] (OWNER agrega, renombra, reordena y elimina; eliminar con elementos pide la columna de destino; MEMBER y VIEWER ven sin modificar), [ProjectSettingsPage] |
 
 ## Épica 5 — Colaboración y trazabilidad
 
@@ -129,6 +130,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#42]: https://github.com/MiraPdS/mira/pull/42
 [#43]: https://github.com/MiraPdS/mira/pull/43
 [#44]: https://github.com/MiraPdS/mira/pull/44
+[#46]: https://github.com/MiraPdS/mira/pull/46
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -168,6 +170,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [LogoutButton]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/auth/LogoutButton.test.tsx
 [guards]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/auth/guards.test.tsx
 [query-client]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/lib/query-client.test.ts
+[BoardColumnsSettings]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/BoardColumnsSettings.test.tsx
 [KanbanBoard]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/KanbanBoard.test.tsx
 [KanbanBoard.dnd]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/KanbanBoard.dnd.test.tsx
 [boardInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/boardInvalidation.test.tsx
