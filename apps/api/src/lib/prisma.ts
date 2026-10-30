@@ -1,4 +1,4 @@
-import { PrismaClient, type ProjectRole } from '@prisma/client';
+import { Prisma, PrismaClient, type ProjectRole } from '@prisma/client';
 import { env, isTest } from '../env.js';
 
 /**
@@ -42,4 +42,13 @@ export async function findMemberRole(
     select: { role: true },
   });
   return member?.role ?? null;
+}
+
+/** Prisma usa P2010 para conflictos SQL de consultas raw con locks (MIR-46). */
+export function isSerializationConflict(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    (error.code === 'P2034' ||
+      (error.code === 'P2010' && (error.meta?.code === '40001' || error.meta?.code === '40P01')))
+  );
 }

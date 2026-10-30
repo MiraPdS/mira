@@ -1,6 +1,12 @@
 import { Prisma } from '@prisma/client';
 import type { CreateSprintInput, ProjectRole, SprintStatus, UpdateSprintInput } from '@mira/shared';
-import { findMemberRole, hasTransaction, prisma, type Db } from '../../lib/prisma.js';
+import {
+  findMemberRole,
+  hasTransaction,
+  isSerializationConflict,
+  prisma,
+  type Db,
+} from '../../lib/prisma.js';
 
 export interface SprintRecord {
   id: string;
@@ -10,6 +16,8 @@ export interface SprintRecord {
   startDate: Date;
   endDate: Date;
   status: SprintStatus;
+  committedPoints: number | null;
+  completedPoints: number | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -19,8 +27,30 @@ export interface SprintWithMetrics extends SprintRecord {
   points: number;
 }
 
+export interface SprintClosingItem {
+  id: string;
+  estimate: number | null;
+  column: { category: string; name: string } | null;
+}
+
+export interface CloseSprintData {
+  projectId: string;
+  sprintId: string;
+  actorId: string;
+  destinationId: string | null;
+  unfinished: SprintClosingItem[];
+  committedPoints: number;
+  completedPoints: number;
+}
+
 /** Puerto inyectable; las transacciones no exponen Prisma al service. */
 export interface SprintRepository {
+  lockByIdInProject(projectId: string, sprintId: string): Promise<SprintRecord | null>;
+  findDestination(sprintId: string): Promise<SprintRecord | null>;
+  hasActive(projectId: string): Promise<boolean>;
+  start(projectId: string, sprintId: string): Promise<SprintRecord>;
+  listClosingItems(projectId: string, sprintId: string): Promise<SprintClosingItem[]>;
+  close(data: CloseSprintData): Promise<SprintRecord>;
   withTransaction<T>(operation: (repo: SprintRepository) => Promise<T>): Promise<T>;
   findMemberRole(projectId: string, userId: string): Promise<ProjectRole | null>;
   findByIdInProject(projectId: string, sprintId: string): Promise<SprintRecord | null>;
@@ -35,6 +65,91 @@ const toDatabaseDate = (date: string) => new Date(`${date}T00:00:00.000Z`);
 
 export function createSprintRepository(db: Db = prisma): SprintRepository {
   return {
+    async lockByIdInProject(projectId, sprintId) {
+      // Se coordina con FOR SHARE de MIR-45: ninguna asignacion puede
+      // atravesar un cierre confirmado. Serializable reintenta snapshots viejos.
+      const [sprint] = await db.$queryRaw<SprintRecord[]>`
+        SELECT * FROM sprints WHERE id = ${sprintId} AND "projectId" = ${projectId} FOR UPDATE
+      `;
+      return sprint ?? null;
+    },
+    async findDestination(sprintId) {
+      const [sprint] = await db.$queryRaw<SprintRecord[]>`
+        SELECT * FROM sprints WHERE id = ${sprintId} FOR SHARE
+      `;
+      return sprint ?? null;
+    },
+    async hasActive(projectId) {
+      // El predicado es parte del snapshot Serializable. Dos inicios de
+      // sprints distintos producen un conflicto de escritura/lectura y uno
+      // reintenta viendo el ACTIVE que gano; no hay write skew.
+      return (
+        (await db.sprint.findFirst({
+          where: { projectId, status: 'ACTIVE' },
+          select: { id: true },
+        })) !== null
+      );
+    },
+    start: (projectId, sprintId) =>
+      db.sprint.update({
+        where: { id: sprintId, projectId },
+        data: { status: 'ACTIVE' },
+      }),
+    listClosingItems: (projectId, sprintId) =>
+      db.workItem.findMany({
+        where: { projectId, sprintId },
+        select: { id: true, estimate: true, column: { select: { category: true, name: true } } },
+      }),
+    async close(data) {
+      const sprint = await db.sprint.update({
+        where: { id: data.sprintId, projectId: data.projectId },
+        data: {
+          status: 'CLOSED',
+          committedPoints: data.committedPoints,
+          completedPoints: data.completedPoints,
+        },
+      });
+      if (data.unfinished.length > 0) {
+        await db.workItem.updateMany({
+          where: {
+            projectId: data.projectId,
+            sprintId: data.sprintId,
+            id: { in: data.unfinished.map((item) => item.id) },
+          },
+          data: {
+            sprintId: data.destinationId,
+            ...(data.destinationId === null ? { columnId: null } : {}),
+          },
+        });
+        await db.activityLog.createMany({
+          data: data.unfinished.flatMap((item) => [
+            {
+              action: 'ITEM_UPDATED' as const,
+              field: 'sprintId',
+              projectId: data.projectId,
+              actorId: data.actorId,
+              workItemId: item.id,
+              fromValue: data.sprintId,
+              toValue: data.destinationId,
+            },
+            ...(data.destinationId === null && item.column
+              ? [
+                  {
+                    action: 'ITEM_STATUS_CHANGED' as const,
+                    field: 'status',
+                    projectId: data.projectId,
+                    actorId: data.actorId,
+                    workItemId: item.id,
+                    fromValue: item.column.name,
+                    toValue: 'BACKLOG',
+                  },
+                ]
+              : []),
+          ]),
+        });
+      }
+      return sprint;
+    },
     async withTransaction(operation) {
       if (!hasTransaction(db)) return operation(createSprintRepository(db));
       for (let attempt = 0; ; attempt += 1) {
@@ -43,12 +158,7 @@ export function createSprintRepository(db: Db = prisma): SprintRepository {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
           });
         } catch (error) {
-          if (
-            attempt >= 2 ||
-            !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-            error.code !== 'P2034'
-          )
-            throw error;
+          if (attempt >= 2 || !isSerializationConflict(error)) throw error;
         }
       }
     },

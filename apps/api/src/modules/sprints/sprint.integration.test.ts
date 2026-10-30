@@ -193,6 +193,8 @@ describe('API de sprints MIR-43', () => {
         startDate: '2026-10-28',
         endDate: '2026-11-11',
         status: 'PLANNED',
+        committedPoints: null,
+        completedPoints: null,
         createdAt: first.createdAt.toISOString(),
         updatedAt: first.updatedAt.toISOString(),
         items: 4,
