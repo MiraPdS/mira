@@ -27,6 +27,7 @@ export const PERMISSIONS = [
   'work-item:delete',
   'work-item:change-status',
   'comment:create',
+  'column:manage',
   'sprint:view',
   'sprint:create',
   'sprint:update',
@@ -38,7 +39,7 @@ export type Permission = (typeof PERMISSIONS)[number];
 /**
  * Matriz de autorizacion.
  *
- * OWNER  administra el proyecto, sus miembros y su contenido.
+ * OWNER  administra el proyecto, sus miembros, sus columnas y su contenido.
  * MEMBER trabaja: crea, edita y mueve items, comenta. No toca el proyecto ni el equipo.
  * VIEWER solo lee. Ni siquiera comenta (comentar es participar, y eso es de miembros).
  */
@@ -56,6 +57,8 @@ const MATRIX: Record<ProjectRole, ReadonlySet<Permission>> = {
     'work-item:delete',
     'work-item:change-status',
     'comment:create',
+    // MIR-48: las columnas son la forma del tablero de todo el equipo.
+    'column:manage',
     'sprint:view',
     'sprint:create',
     'sprint:update',
