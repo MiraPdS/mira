@@ -1,11 +1,9 @@
 // =============================================================================
-// Mira - esquema de datos (Entrega 1)
+// Mira - esquema de datos
 //
 // Alcance E1: User, Project, ProjectMember, WorkItem, Comment, ActivityLog.
-// Reservado E2: Sprint y Organization.  Los campos `sprintId` y
-// `organizationId` YA existen como escalares nullable sin llave foranea, para
-// que en E2 solo haya que crear la tabla y agregar la relacion, en vez de
-// migrar datos existentes.
+// MIR-43 agrega Sprint y convierte WorkItem.sprintId en una relacion real.
+// Organization sigue reservado: organizationId es nullable y aun no tiene FK.
 //
 // Entrega 2 (MIR-31): los estados del tablero viven en BoardColumn, por
 // proyecto. Un WorkItem sin columna es BACKLOG.
@@ -68,6 +66,12 @@ enum WorkItemPriority {
   CRITICAL
 }
 
+enum SprintStatus {
+  PLANNED
+  ACTIVE
+  CLOSED
+}
+
 enum ActivityAction {
   ITEM_CREATED
   ITEM_UPDATED
@@ -125,6 +129,7 @@ model Project {
 
   members      ProjectMember[]
   workItems    WorkItem[]
+  sprints      Sprint[]
   activities   ActivityLog[]
   boardColumns BoardColumn[]
 
@@ -150,6 +155,27 @@ model ProjectMember {
   @@unique([userId, projectId])
   @@index([projectId])
   @@map("project_members")
+}
+
+model Sprint {
+  id        String  @id @default(cuid())
+  projectId String
+  name      String
+  goal      String?
+
+  /// Fechas de calendario; el contrato HTTP usa YYYY-MM-DD.
+  startDate DateTime     @db.Date
+  endDate   DateTime     @db.Date
+  status    SprintStatus @default(PLANNED)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  project   Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  workItems WorkItem[]
+
+  @@index([projectId, startDate, id])
+  @@map("sprints")
 }
 
 model WorkItem {
@@ -178,13 +204,14 @@ model WorkItem {
   assigneeId  String?
   createdById String
 
-  /// Reservado para E2 (Sprints). Sin FK todavia.
+  /// Null cuando el item no pertenece a un sprint.
   sprintId String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sprint     Sprint?       @relation(fields: [sprintId], references: [id], onDelete: SetNull)
   /// La llave incluye projectId: la base impide poner un elemento en la
   /// columna de otro proyecto. NoAction: borrar una columna con elementos
   /// falla; MIR-48 exige mover primero sus elementos a otra columna.
@@ -197,6 +224,7 @@ model WorkItem {
   // El tablero siempre consulta por proyecto + columna: ese es el indice que importa.
   @@index([projectId, columnId])
   @@index([projectId, sprintId])
+  @@index([sprintId])
   @@index([assigneeId])
   @@map("work_items")
 }
