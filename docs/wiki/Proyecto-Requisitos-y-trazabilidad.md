@@ -81,6 +81,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-27 | Despliegue del ambiente de demostración | ✅ v1.0-entrega1 | [#24] | I [health.integration]; [demo](https://mira-pds.vercel.app/api/health) |
 | MIR-28 | Release `v1.0-entrega1` | ✅ v1.0-entrega1 | [#31], [#32] | [Evidencias de la Entrega 1](Evidencias-Entrega-1.md); [release](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1) |
 | MIR-29 | Cápsula de video | ➡️ después del tag | — | se graba sobre el release desplegado |
+| MIR-55 | Umbral de cobertura que rompe el build | ➡️ después del tag | [#43] | umbral en [`vitest.config.ts`] y [estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md#cobertura); Actions: [run verde](https://github.com/MiraPdS/mira/actions/runs/40987420686) y [run rojo por umbral](https://github.com/MiraPdS/mira/actions/runs/40994045311) (`467f5bd`, 947/947 tests en verde, statements 97,06 % < 99 %); Jenkins pendiente de MIR-51 |
 
 ## Épica 7 — Sprints
 
@@ -124,11 +125,13 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#39]: https://github.com/MiraPdS/mira/pull/39
 [#40]: https://github.com/MiraPdS/mira/pull/40
 [#42]: https://github.com/MiraPdS/mira/pull/42
+[#43]: https://github.com/MiraPdS/mira/pull/43
 [#44]: https://github.com/MiraPdS/mira/pull/44
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
 [`ci.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/ci.yml
+[`vitest.config.ts`]: https://github.com/MiraPdS/mira/blob/develop/vitest.config.ts
 [`wiki.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/wiki.yml
 [auth (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/auth.test.ts
 [project (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/project.test.ts
