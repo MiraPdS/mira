@@ -111,8 +111,9 @@ export function useDeleteProject(projectId: string) {
       // Todo lo que cuelga del proyecto lleva su id en la 2a o 3a posicion de
       // la clave: detalle, miembros y resumen (['projects', id, ...]), tablero
       // (['board', id]), backlog (['work-items', 'backlog', id, ...]), detalle
-      // de items (['work-item', id, ...]) y comentarios
-      // (['work-item-comments', id, ...]). La lista (['projects']) no entra.
+      // de items (['work-item', id, ...]), comentarios
+      // (['work-item-comments', id, ...]) y sprints (['sprints', id], MIR-44).
+      // La lista (['projects']) no entra.
       const delProyecto = ({ queryKey }: { queryKey: readonly unknown[] }) =>
         queryKey.slice(1, 3).includes(projectId);
 
