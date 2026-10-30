@@ -62,6 +62,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-20 | Arrastrar y soltar tarjetas | ✅ v1.0-entrega1 | [#22] | C [KanbanBoard.dnd] |
 | MIR-31 | Migrar los estados a columnas por proyecto | ➡️ después del tag | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
 | MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ➡️ después del tag | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
+| MIR-49 | Tablero y backlog con las columnas del proyecto | ➡️ después del tag | [#41] | U [work-item.service], [domain (shared)] · I [board-columns.migration], [work-item.integration], [summary.integration] · C [KanbanBoard], [KanbanBoard.dnd], [ProjectBoardPage], [ProjectBacklogPage], [WorkItemBacklog], [ProjectSummaryPage], [describeActivity] |
 
 ## Épica 5 — Colaboración y trazabilidad
 
@@ -123,6 +124,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#35]: https://github.com/MiraPdS/mira/pull/35
 [#39]: https://github.com/MiraPdS/mira/pull/39
 [#40]: https://github.com/MiraPdS/mira/pull/40
+[#41]: https://github.com/MiraPdS/mira/pull/41
 [#42]: https://github.com/MiraPdS/mira/pull/42
 [#44]: https://github.com/MiraPdS/mira/pull/44
 
