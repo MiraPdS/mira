@@ -604,7 +604,9 @@ Ampliados al planificar (ver `docs/plans/MIR-22-historial-elemento.md`):
 # Entrega 2
 
 La Entrega 2 ([`deliverables/entrega2.md`](../deliverables/entrega2.md)) pide
-llevar el proyecto a CI/CD con Jenkins, integrado con GitHub y Slack, y
+llevar el proyecto a CI/CD con Jenkins, integrado con GitHub y Slack (el equipo
+usa GitHub Actions y Discord, con autorización del profesor:
+[D14](./decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)), y
 desarrollar **dos requerimientos funcionales nuevos** con sus pruebas. Los
 elegidos son los dos que ya estaban previstos en el esquema y en las decisiones:
 
@@ -792,18 +794,28 @@ aunque la columna se llame distinto.
 
 ## Épica 9 — Integración y despliegue continuo
 
-### MIR-33 · Jenkins en la nube
+> **Jenkins se reemplazó por GitHub Actions y Slack por Discord**, con
+> autorización del profesor
+> ([D14](./decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)).
+> `MIR-33` ya está reescrito; `MIR-51` a `MIR-55` todavía describen Jenkins y
+> se reescriben en un PR de documentación aparte.
 
-**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 5
+### MIR-33 · CI/CD oficial en GitHub Actions
 
-- Jenkins instalado en una máquina virtual en la nube, con HTTPS y acceso
-  autenticado (sin usuarios anónimos).
-- Node 20 y Docker disponibles en el agente, para levantar el Postgres efímero
-  de las pruebas de integración igual que en GitHub Actions.
-- Credenciales (token de GitHub, webhook de Slack, deploy hooks) guardadas en
-  el almacén de credenciales de Jenkins, nunca en el repositorio.
-- Instalación y configuración documentadas en `docs/jenkins.md` para poder
-  recrearlo.
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 3
+
+- Queda registrada **D14 — GitHub Actions como CI/CD oficial**, citando la
+  autorización del profesor; D11 remite a D14 y la tabla de decisiones
+  pendientes marca resueltas "Dónde corre Jenkins" y Slack/Discord.
+- Existe el environment `deploy` en GitHub, restringido a la rama `main`, sin
+  revisores obligatorios, con los secretos `RENDER_DEPLOY_HOOK_URL` y
+  `VERCEL_DEPLOY_HOOK_URL`. `NOTIFY_WEBHOOK_URL` (Discord) existe como secreto
+  de repositorio. Ningún valor está en el repositorio.
+- Los workflows declaran `permissions:` mínimos y la protección de `main`
+  aplica también a los administradores.
+- [`docs/ci-cd.md`](./ci-cd.md) documenta disparadores, jobs, secretos
+  (nombre, dónde vive, de dónde sale el valor, quién lo usa) y cómo recrear la
+  configuración.
 
 ---
 
@@ -923,6 +935,6 @@ Compromiso pendiente de la Entrega 1.
 | **Total Entrega 1** | **30** | **133** |
 | 7 — Sprints | 5 | 23 |
 | 8 — Columnas configurables | 4 | 23 |
-| 9 — Integración y despliegue continuo | 6 | 20 |
+| 9 — Integración y despliegue continuo | 6 | 18 |
 | 6 — Calidad y entrega (Entrega 2) | 3 | 8 |
-| **Total Entrega 2** | **18** | **74** |
+| **Total Entrega 2** | **18** | **72** |
