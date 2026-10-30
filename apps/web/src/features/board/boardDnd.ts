@@ -10,29 +10,33 @@ import {
   type TouchSensorOptions,
 } from '@dnd-kit/core';
 import type { TouchEvent } from 'react';
-import { BOARD_STATUSES, STATUS_LABELS, type WorkItemDto } from '@mira/shared';
+import type { BoardColumnDto, WorkItemDto } from '@mira/shared';
 
 /**
  * Configuracion de dnd-kit para el tablero (MIR-20).
  *
- * Cada columna es un droppable cuyo id es su estado, y cada tarjeta un
- * draggable que lleva el item en `data`: asi `onDragEnd` sabe que mover y a
- * donde sin buscar nada en la cache.
+ * MIR-49: cada columna del proyecto es un droppable cuyo id es el de la
+ * columna y que lleva la columna en `data`; cada tarjeta es un draggable que
+ * lleva el item en `data`. Asi `onDragEnd` sabe que mover y a donde sin
+ * buscar nada en la cache.
  */
 
 export interface CardDragData {
   item: WorkItemDto;
 }
 
-export type BoardStatus = (typeof BOARD_STATUSES)[number];
-
-function isBoardStatus(value: unknown): value is BoardStatus {
-  return (BOARD_STATUSES as readonly unknown[]).includes(value);
+export interface ColumnDropData {
+  column: BoardColumnDto;
 }
 
-/** Estado de la columna bajo la tarjeta, o null si se solto fuera del tablero. */
-export function columnaDestino(overId: unknown): BoardStatus | null {
-  return isBoardStatus(overId) ? overId : null;
+/** Lo minimo de un droppable de dnd-kit (`over`) que se necesita leer. */
+interface ConDatos {
+  data: { current?: unknown };
+}
+
+/** Columna bajo la tarjeta, o null si se solto fuera del tablero. */
+export function columnaDestino(over: ConDatos | null | undefined): BoardColumnDto | null {
+  return (over?.data.current as ColumnDropData | undefined)?.column ?? null;
 }
 
 /**
@@ -50,6 +54,9 @@ export const detectarColumna: CollisionDetection = (args) => {
  * columna vecina, en vez de desplazarla 25 px por pulsacion (lo que obligaria
  * a pulsar una docena de veces para cambiar de columna). Arriba y abajo no
  * hacen nada: el tablero no tiene orden dentro de una columna.
+ *
+ * MIR-49: las columnas son las del proyecto, asi que la vecina se busca en el
+ * orden en pantalla (de izquierda a derecha), sin una lista fija de estados.
  */
 export const saltarDeColumna: KeyboardCoordinateGetter = (
   event,
@@ -60,11 +67,13 @@ export const saltarDeColumna: KeyboardCoordinateGetter = (
 
   event.preventDefault();
   const data = active?.data.current as CardDragData | undefined;
-  const actual = columnaDestino(over?.id) ?? columnaDestino(data?.item.status);
-  if (!actual) return undefined;
+  const actual = over?.id ?? data?.item.columnId;
+  if (actual === undefined || actual === null) return undefined;
 
-  const destino = BOARD_STATUSES[BOARD_STATUSES.indexOf(actual) + paso];
-  const rect = destino ? droppableRects.get(destino) : undefined;
+  const enPantalla = [...droppableRects.entries()].sort(([, a], [, b]) => a.left - b.left);
+  const indice = enPantalla.findIndex(([id]) => id === actual);
+  if (indice === -1) return undefined;
+  const rect = enPantalla[indice + paso]?.[1];
   if (!rect) return undefined;
 
   return {
@@ -77,9 +86,8 @@ function referencia(data: unknown): string {
   return (data as CardDragData | undefined)?.item.reference ?? 'la tarjeta';
 }
 
-function columna(id: unknown): string {
-  const status = columnaDestino(id);
-  return status ? STATUS_LABELS[status] : 'ninguna columna';
+function columna(over: ConDatos | null | undefined): string {
+  return columnaDestino(over)?.name ?? 'ninguna columna';
 }
 
 /** Lo que oye un lector de pantalla al tomar una tarjeta con el teclado. */
@@ -92,10 +100,10 @@ export const instrucciones: ScreenReaderInstructions = {
 export const anuncios: Announcements = {
   onDragStart: ({ active }) => `Tomaste ${referencia(active.data.current)}.`,
   onDragOver: ({ active, over }) =>
-    `${referencia(active.data.current)} esta sobre ${columna(over?.id)}.`,
+    `${referencia(active.data.current)} esta sobre ${columna(over)}.`,
   onDragEnd: ({ active, over }) =>
     over
-      ? `Soltaste ${referencia(active.data.current)} en ${columna(over.id)}.`
+      ? `Soltaste ${referencia(active.data.current)} en ${columna(over)}.`
       : `Soltaste ${referencia(active.data.current)} fuera del tablero; no se movio.`,
   onDragCancel: ({ active }) =>
     `Cancelaste el movimiento; ${referencia(active.data.current)} vuelve a su columna.`,

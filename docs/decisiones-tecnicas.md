@@ -166,6 +166,17 @@ traspasa cada elemento a la de su estado anterior. Los cambios se reparten así:
   elemento movido deja su `ITEM_STATUS_CHANGED`. El proyecto siempre conserva
   una columna `DONE`; esa regla se decide en una transacción serializable para
   que dos eliminaciones simultáneas no la burlen.
+- MIR-49 cierra el puente. El tablero dibuja las columnas que entrega
+  `/board`, ordenadas por `position`; cada columna es un destino de dnd-kit con
+  su id, y el menú "Mover a…" ofrece todas las demás. Mover envía solo
+  `{ columnId }`. El filtro "Estado" del backlog lista Backlog más las columnas
+  del proyecto (`?columnId=<id>` o `?columnId=BACKLOG`). El historial guarda
+  el **nombre** de la columna en el momento del movimiento (o `BACKLOG`), así
+  sigue legible aunque la columna se renombre o se elimine; la migración pasa a
+  nombres los estados que ya estaban guardados. El panel cuenta por categoría
+  (`byCategory`), que no cambia al renombrar. Con más de cuatro columnas el
+  aviso de desplazamiento se muestra también en pantallas anchas, y los nombres
+  largos se parten en líneas en vez de recortarse.
 
 ---
 

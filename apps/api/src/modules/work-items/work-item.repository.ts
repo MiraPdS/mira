@@ -1,14 +1,13 @@
 import { Prisma } from '@prisma/client';
 import {
   ACTIVITY_LIST_LIMIT,
-  COLUMN_CATEGORIES,
+  BACKLOG,
   type ColumnCategory,
   type CreateWorkItemInput,
   type ProjectRole,
   type UpdateWorkItemInput,
   type WorkItemFilters,
   type WorkItemPriority,
-  type WorkItemStatus,
   type WorkItemType,
 } from '@mira/shared';
 import {
@@ -26,16 +25,12 @@ export interface WorkItemUser {
   createdAt: Date;
 }
 
-/**
- * MIR-31: columna tal como la necesitan el DTO y las reglas de movimiento.
- * `legacyStatus` es el puente hacia el `status` antiguo (se va en MIR-49).
- */
+/** MIR-31: columna tal como la necesitan el DTO y las reglas de movimiento. */
 export interface BoardColumnRecord {
   id: string;
   name: string;
   position: number;
   category: ColumnCategory;
-  legacyStatus: WorkItemStatus | null;
 }
 
 /** Item con las relaciones necesarias para construir su DTO publico. */
@@ -111,7 +106,7 @@ export interface AssignData {
 
 export interface ListWorkItemsData extends Pick<
   WorkItemFilters,
-  'q' | 'type' | 'status' | 'columnId' | 'priority' | 'assigneeId'
+  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId'
 > {
   projectId: string;
   page: number;
@@ -150,11 +145,6 @@ export interface WorkItemRepository {
   listColumns(projectId: string): Promise<BoardColumnRecord[]>;
   /** MIR-31: una columna, solo si pertenece al proyecto. */
   findColumnInProject(projectId: string, columnId: string): Promise<BoardColumnRecord | null>;
-  /** MIR-31 (puente): la columna por defecto que equivale a un estado antiguo. */
-  findColumnByLegacyStatus(
-    projectId: string,
-    status: Exclude<WorkItemStatus, 'BACKLOG'>,
-  ): Promise<BoardColumnRecord | null>;
   /** MIR-17: cambia el responsable y registra ITEM_ASSIGNED como una sola unidad. */
   assignAtomically(data: AssignData): Promise<WorkItemForDto>;
   listByProject(data: ListWorkItemsData): Promise<ListWorkItemsResult>;
@@ -183,7 +173,6 @@ const columnForDto = {
     name: true,
     position: true,
     category: true,
-    legacyStatus: true,
   },
 } as const;
 
@@ -194,33 +183,11 @@ const includeForDto = {
   column: columnForDto,
 } as const;
 
-/**
- * MIR-31 (puente): filtro por estado antiguo. Coincide con legacyStatusOf:
- * BACKLOG es no tener columna; un estado es su columna por defecto o, si es
- * tambien una categoria, cualquier columna nueva de esa categoria.
- */
-function whereForLegacyStatus(status: WorkItemStatus): Prisma.WorkItemWhereInput {
-  if (status === 'BACKLOG') return { columnId: null };
-
-  const isCategory = (COLUMN_CATEGORIES as readonly string[]).includes(status);
-  return {
-    column: isCategory
-      ? {
-          OR: [
-            { legacyStatus: status },
-            { legacyStatus: null, category: status as ColumnCategory },
-          ],
-        }
-      : { legacyStatus: status },
-  };
-}
-
 /** Construye filtros Prisma que se aplican identicamente al count y al listado. */
 export function workItemWhereForList({
   projectId,
   q,
   type,
-  status,
   columnId,
   priority,
   assigneeId,
@@ -236,10 +203,8 @@ export function workItemWhereForList({
         }
       : {}),
     ...(type ? { type } : {}),
-    // En AND y no esparcido: el estado BACKLOG tambien habla de columnId y
-    // no debe pisar el filtro por columna (juntos no devuelven nada).
-    ...(status ? { AND: [whereForLegacyStatus(status)] } : {}),
-    ...(columnId ? { columnId } : {}),
+    // MIR-49: BACKLOG es no estar en ninguna columna.
+    ...(columnId ? { columnId: columnId === BACKLOG ? null : columnId } : {}),
     ...(priority ? { priority } : {}),
     ...(assigneeId ? { assigneeId } : {}),
   };
@@ -331,16 +296,13 @@ async function deleteInTransaction(db: Db, data: DeleteWorkItemData): Promise<vo
 }
 
 /**
- * MIR-31: como queda una columna en la bitacora. Las columnas por defecto
- * guardan su estado antiguo (TODO, DONE...), igual que antes de MIR-31, asi el
- * historial ya escrito y el nuevo se leen igual en la web. Una columna sin
- * estado antiguo (MIR-48) guarda su nombre del momento: si despues se renombra
- * o se elimina, el historial sigue diciendo donde estuvo. MIR-49 revisa esto
- * al sacar el puente.
+ * Como queda una columna en la bitacora: su nombre del momento (MIR-49), asi
+ * el historial sigue diciendo donde estuvo aunque despues se renombre o se
+ * elimine. Sin columna es BACKLOG. La migracion de MIR-49 paso a nombres los
+ * estados antiguos (TODO, DONE...) que guardaba el historial previo.
  */
 export function activityValueOfColumn(column: BoardColumnRecord | null): string {
-  if (column === null) return 'BACKLOG';
-  return column.legacyStatus ?? column.name;
+  return column?.name ?? BACKLOG;
 }
 
 async function changeStatusInTransaction(db: Db, data: ChangeStatusData): Promise<WorkItemForDto> {
@@ -480,13 +442,6 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
 
     async findColumnInProject(projectId, columnId) {
       return db.boardColumn.findFirst({ where: { id: columnId, projectId }, ...columnForDto });
-    },
-
-    async findColumnByLegacyStatus(projectId, status) {
-      return db.boardColumn.findUnique({
-        where: { projectId_legacyStatus: { projectId, legacyStatus: status } },
-        ...columnForDto,
-      });
     },
 
     async listBoardByProject(projectId) {

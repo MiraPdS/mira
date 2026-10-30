@@ -6,6 +6,7 @@ import { renderConProviders, screen, within } from '@/test/render';
 import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { ProjectBacklogPage } from './ProjectBacklogPage';
+import { COLUMNAS_DE_PRUEBA, enColumna } from '@/test/columns';
 
 const PROJECT_ID = 'project_123';
 const PROJECT_URL = `http://localhost:3000/api/projects/${PROJECT_ID}`;
@@ -18,7 +19,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Elemento existente',
     description: null,
     type: 'TASK',
-    status: 'BACKLOG',
+    ...enColumna('BACKLOG'),
     priority: 'MEDIUM',
     estimate: null,
     dueDate: null,
@@ -124,7 +125,8 @@ describe('ProjectBacklogPage', () => {
             description: input.description ?? null,
             type: input.type,
             priority: input.priority,
-            status: input.status,
+            columnId: input.columnId ?? null,
+            column: COLUMNAS_DE_PRUEBA.find((c) => c.id === input.columnId) ?? null,
           });
           items.push(item);
           return HttpResponse.json({ item }, { status: 201 });
@@ -147,7 +149,7 @@ describe('ProjectBacklogPage', () => {
           title: 'Nuevo elemento del backlog',
           description: 'Descripcion de la tarea',
           type: 'TASK',
-          status: 'BACKLOG',
+          columnId: null,
           priority: 'MEDIUM',
         },
       ]);

@@ -12,6 +12,7 @@ import {
   useUpdateWorkItem,
 } from '@/features/work-items/useWorkItems';
 import { useBoard } from './useBoard';
+import { COLUMNAS_DE_PRUEBA, enColumna } from '@/test/columns';
 
 /**
  * Las mutaciones que cambian lo que muestra una tarjeta deben refrescar el
@@ -34,7 +35,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Titulo',
     description: null,
     type: 'TASK',
-    status: 'TODO',
+    ...enColumna('TODO'),
     priority: 'MEDIUM',
     estimate: null,
     dueDate: null,
@@ -59,7 +60,10 @@ function contarPeticionesDelTablero() {
     http.get(`${BASE_URL}/projects/:projectId/board`, ({ params }) => {
       const projectId = String(params.projectId);
       peticiones[projectId] = (peticiones[projectId] ?? 0) + 1;
-      return HttpResponse.json({ items: [itemDePrueba({ projectId })] });
+      return HttpResponse.json({
+        items: [itemDePrueba({ projectId })],
+        columns: COLUMNAS_DE_PRUEBA,
+      });
     }),
   );
   return peticiones;
@@ -126,7 +130,7 @@ describe('invalidacion del tablero - MIR-18', () => {
           crear.mutateAsync({
             title: 'Nuevo item',
             type: 'TASK',
-            status: 'TODO',
+            ...enColumna('TODO'),
             priority: 'MEDIUM',
           }),
       };

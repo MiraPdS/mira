@@ -13,6 +13,7 @@ import { renderConProviders, screen, within } from '@/test/render';
 import { server } from '@/test/msw/server';
 import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { App } from './App';
+import { COLUMNAS_DE_PRUEBA, enColumna } from '@/test/columns';
 
 /**
  * Mapeo de rutas de App.
@@ -85,7 +86,7 @@ describe('App', () => {
     server.use(
       http.get(`${BASE_URL}/projects/:projectId/board`, ({ params }) => {
         proyectoSolicitado = params.projectId as string;
-        return HttpResponse.json<BoardResponse>({ items: [] });
+        return HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [] });
       }),
       http.get(`${BASE_URL}/projects/:projectId/members`, () => HttpResponse.json({ members: [] })),
     );
@@ -207,7 +208,7 @@ describe('App', () => {
       title: 'Historial de cambios',
       description: null,
       type: 'STORY',
-      status: 'IN_PROGRESS',
+      ...enColumna('IN_PROGRESS'),
       priority: 'MEDIUM',
       estimate: null,
       dueDate: null,
@@ -221,7 +222,7 @@ describe('App', () => {
     conCookieDeSesion();
     server.use(
       http.get(`${BASE_URL}/projects/:projectId/board`, () =>
-        HttpResponse.json<BoardResponse>({ items: [item] }),
+        HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [item] }),
       ),
       http.get(`${BASE_URL}/projects/:projectId/members`, () =>
         HttpResponse.json({
@@ -238,8 +239,8 @@ describe('App', () => {
               workItemId: 'item_456',
               actor: { id: USUARIO_DE_PRUEBA.id, name: USUARIO_DE_PRUEBA.name },
               field: 'status',
-              fromValue: 'TODO',
-              toValue: 'IN_PROGRESS',
+              fromValue: 'Por hacer',
+              toValue: 'En progreso',
               createdAt: '2026-10-02T10:00:00.000Z',
             },
           ],
@@ -270,7 +271,7 @@ describe('App', () => {
       title: 'Elemento en backlog',
       description: null,
       type: 'BUG',
-      status: 'BACKLOG',
+      ...enColumna('BACKLOG'),
       priority: 'LOW',
       estimate: null,
       dueDate: null,

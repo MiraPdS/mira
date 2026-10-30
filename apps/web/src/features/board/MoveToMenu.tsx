@@ -1,12 +1,15 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
-import { BOARD_STATUSES, STATUS_LABELS, type WorkItemStatus } from '@mira/shared';
+import type { BoardColumnDto } from '@mira/shared';
 import { cn } from '@/lib/utils';
 
 export interface MoveToMenuProps {
   /** Referencia legible del item, para nombrar el menu ("Mover MIR-3 a"). */
   reference: string;
-  currentStatus: WorkItemStatus;
-  onMove: (status: WorkItemStatus) => void;
+  /** MIR-49: columnas del proyecto, en el orden del tablero. */
+  columns: readonly BoardColumnDto[];
+  /** Columna actual de la tarjeta; no se ofrece como destino. */
+  currentColumnId: string | null;
+  onMove: (column: BoardColumnDto) => void;
 }
 
 /**
@@ -17,17 +20,17 @@ export interface MoveToMenuProps {
  *
  * Sigue el patron de menu de botones de WAI-ARIA: el boton abre el menu y
  * enfoca la primera opcion, las flechas recorren las opciones, Escape cierra
- * y devuelve el foco al boton. Solo ofrece las columnas del tablero distintas
- * de la actual.
+ * y devuelve el foco al boton. Ofrece todas las columnas del proyecto
+ * (MIR-49), en su orden, menos la actual.
  */
-export function MoveToMenu({ reference, currentStatus, onMove }: MoveToMenuProps) {
+export function MoveToMenu({ reference, columns, currentColumnId, onMove }: MoveToMenuProps) {
   const [open, setOpen] = useState(false);
   const menuId = useId();
   const containerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const itemRefs = useRef<(HTMLButtonElement | null)[]>([]);
 
-  const destinos = BOARD_STATUSES.filter((status) => status !== currentStatus);
+  const destinos = columns.filter((column) => column.id !== currentColumnId);
   itemRefs.current.length = destinos.length;
 
   useEffect(() => {
@@ -47,9 +50,9 @@ export function MoveToMenu({ reference, currentStatus, onMove }: MoveToMenuProps
     triggerRef.current?.focus();
   };
 
-  const elegir = (status: WorkItemStatus) => {
+  const elegir = (column: BoardColumnDto) => {
     cerrar();
-    onMove(status);
+    onMove(column);
   };
 
   const navegar = (event: KeyboardEvent<HTMLUListElement>) => {
@@ -105,10 +108,10 @@ export function MoveToMenu({ reference, currentStatus, onMove }: MoveToMenuProps
           role="menu"
           aria-label={`Mover ${reference} a`}
           onKeyDown={navegar}
-          className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-slate-200 bg-white py-1 shadow-lg"
+          className="absolute right-0 z-10 mt-1 max-h-72 w-48 overflow-y-auto rounded-md border border-slate-200 bg-white py-1 shadow-lg"
         >
-          {destinos.map((status, index) => (
-            <li key={status} role="none">
+          {destinos.map((column, index) => (
+            <li key={column.id} role="none">
               <button
                 ref={(el) => {
                   itemRefs.current[index] = el;
@@ -116,13 +119,13 @@ export function MoveToMenu({ reference, currentStatus, onMove }: MoveToMenuProps
                 type="button"
                 role="menuitem"
                 tabIndex={-1}
-                onClick={() => elegir(status)}
+                onClick={() => elegir(column)}
                 className={cn(
-                  'block min-h-11 w-full px-3 py-1.5 text-left text-sm text-slate-800 sm:min-h-0',
+                  'block min-h-11 w-full px-3 py-1.5 text-left text-sm wrap-anywhere text-slate-800 sm:min-h-0',
                   'hover:bg-slate-100 focus:bg-slate-100 focus:outline-none',
                 )}
               >
-                {STATUS_LABELS[status]}
+                {column.name}
               </button>
             </li>
           ))}

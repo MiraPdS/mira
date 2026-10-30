@@ -38,6 +38,7 @@ describe('updateWorkItemSchema', () => {
   it.each([
     ['assigneeId', 'user_2'],
     ['status', 'DONE'],
+    ['columnId', 'col_1'],
     ['sprintId', 'sprint_1'],
   ])('rechaza %s porque pertenece a otra historia', (field, value) => {
     expect(updateWorkItemSchema.safeParse({ [field]: value }).success).toBe(false);
@@ -55,7 +56,7 @@ describe('workItemFiltersSchema', () => {
       workItemFiltersSchema.parse({
         q: '  Login  ',
         type: 'BUG',
-        status: 'TODO',
+        columnId: ' col_1 ',
         priority: 'HIGH',
         assigneeId: 'user_2',
       }),
@@ -64,10 +65,19 @@ describe('workItemFiltersSchema', () => {
       pageSize: 20,
       q: 'Login',
       type: 'BUG',
-      status: 'TODO',
+      columnId: 'col_1',
       priority: 'HIGH',
       assigneeId: 'user_2',
     });
+  });
+
+  // MIR-49: el filtro "Estado" son las columnas del proyecto, mas el backlog.
+  it('acepta BACKLOG como columna para filtrar lo que no esta en ninguna', () => {
+    expect(workItemFiltersSchema.parse({ columnId: 'BACKLOG' }).columnId).toBe('BACKLOG');
+  });
+
+  it('ya no filtra por el estado antiguo', () => {
+    expect(workItemFiltersSchema.parse({ status: 'TODO' })).not.toHaveProperty('status');
   });
 
   it('rechaza valores de filtro invalidos', () => {
@@ -77,23 +87,6 @@ describe('workItemFiltersSchema', () => {
 });
 
 describe('changeStatusSchema', () => {
-  it.each(['BACKLOG', 'TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const)(
-    'acepta el estado %s',
-    (status) => {
-      expect(changeStatusSchema.parse({ status })).toEqual({ status });
-    },
-  );
-
-  it.each([
-    ['un estado desconocido', { status: 'ARCHIVED' }],
-    ['el estado en minuscula', { status: 'done' }],
-    ['un cuerpo sin estado', {}],
-    ['campos ajenos al movimiento', { status: 'DONE', title: 'Otro titulo' }],
-  ])('rechaza %s', (_caso, body) => {
-    expect(changeStatusSchema.safeParse(body).success).toBe(false);
-  });
-
-  // MIR-31: el destino puede ser una columna del proyecto.
   it.each([
     ['una columna', { columnId: 'col_1' }],
     ['null para volver al backlog', { columnId: null }],
@@ -102,7 +95,10 @@ describe('changeStatusSchema', () => {
   });
 
   it.each([
+    // MIR-49: el estado antiguo ya no es un destino valido.
+    ['el estado antiguo', { status: 'DONE' }],
     ['columna y estado a la vez', { columnId: 'col_1', status: 'DONE' }],
+    ['un cuerpo sin columna', {}],
     ['una columna vacia', { columnId: '   ' }],
     ['columna con campos ajenos', { columnId: 'col_1', title: 'Otro' }],
   ])('rechaza %s', (_caso, body) => {

@@ -6,10 +6,9 @@ import type {
   ProjectRole,
   User,
   WorkItemPriority,
-  WorkItemStatus,
   WorkItemType,
 } from '@prisma/client';
-import { DEFAULT_BOARD_COLUMNS, legacyStatusOf, type ItemCategory } from '@mira/shared';
+import { DEFAULT_BOARD_COLUMNS, type ItemCategory } from '@mira/shared';
 
 import {
   activityActorInclude,
@@ -45,8 +44,6 @@ export type RecentProjectActivity = ActivityWithActor;
 /** MIR-23: conteos del proyecto y su actividad reciente. */
 export interface ProjectSummaryData {
   total: number;
-  /** Puente MIR-31 -> MIR-49. */
-  byStatus: Record<WorkItemStatus, number>;
   /** MIR-31: por categoria de columna, mas BACKLOG (sin columna). */
   byCategory: Record<ItemCategory, number>;
   byType: Record<WorkItemType, number>;
@@ -459,7 +456,7 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         db.workItem.groupBy({ by: ['columnId'], where: { projectId }, _count: { _all: true } }),
         db.boardColumn.findMany({
           where: { projectId },
-          select: { id: true, category: true, legacyStatus: true },
+          select: { id: true, category: true },
         }),
         db.workItem.groupBy({ by: ['type'], where: { projectId }, _count: { _all: true } }),
         db.workItem.groupBy({ by: ['priority'], where: { projectId }, _count: { _all: true } }),
@@ -473,13 +470,6 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
       ]);
 
       // Partir de ceros: un proyecto vacio responde todas las claves.
-      const byStatus: Record<WorkItemStatus, number> = {
-        BACKLOG: 0,
-        TODO: 0,
-        IN_PROGRESS: 0,
-        IN_REVIEW: 0,
-        DONE: 0,
-      };
       const byType: Record<WorkItemType, number> = { EPIC: 0, STORY: 0, TASK: 0, BUG: 0 };
       const byPriority: Record<WorkItemPriority, number> = {
         LOW: 0,
@@ -495,13 +485,12 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
         DONE: 0,
       };
 
-      // MIR-31: se cuenta por columna y cada columna aporta a su categoria y
-      // a su estado antiguo. Sin columna es BACKLOG en ambos.
+      // MIR-31: se cuenta por columna y cada columna aporta a su categoria.
+      // Sin columna es BACKLOG.
       const columnById = new Map(columns.map((column) => [column.id, column]));
       for (const group of columnGroups) {
         const column = group.columnId === null ? null : (columnById.get(group.columnId) ?? null);
         const count = group._count._all;
-        byStatus[legacyStatusOf(column)] += count;
         byCategory[column?.category ?? 'BACKLOG'] += count;
       }
       for (const group of typeGroups) byType[group.type] = group._count._all;
@@ -512,7 +501,6 @@ export function createProjectsRepository(db: Db = prisma): ProjectsRepository {
 
       return {
         total: columnGroups.reduce((sum, group) => sum + group._count._all, 0),
-        byStatus,
         byCategory,
         byType,
         byPriority,

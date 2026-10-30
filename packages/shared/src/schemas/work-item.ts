@@ -1,10 +1,5 @@
 import { z } from 'zod';
-import {
-  COLUMN_CATEGORIES,
-  WORK_ITEM_PRIORITIES,
-  WORK_ITEM_STATUSES,
-  WORK_ITEM_TYPES,
-} from '../domain.js';
+import { BACKLOG, COLUMN_CATEGORIES, WORK_ITEM_PRIORITIES, WORK_ITEM_TYPES } from '../domain.js';
 import { publicUserSchema } from './auth.js';
 import { paginationQuerySchema } from './common.js';
 
@@ -29,12 +24,7 @@ export const createWorkItemSchema = z.object({
   description: z.string().trim().max(10_000).optional(),
   type: z.enum(WORK_ITEM_TYPES).default('TASK'),
   priority: z.enum(WORK_ITEM_PRIORITIES).default('MEDIUM'),
-  /**
-   * Estado antiguo (puente MIR-31 -> MIR-49): se traduce a la columna por
-   * defecto equivalente. Si viene `columnId`, este campo se ignora.
-   */
-  status: z.enum(WORK_ITEM_STATUSES).default('BACKLOG'),
-  /** MIR-31: columna donde nace; `null` lo deja en el backlog. */
+  /** MIR-31: columna donde nace; `null` o ausente lo deja en el backlog. */
   columnId: targetColumnIdSchema.optional(),
   assigneeId: z.string().nullable().optional(),
   /** Estimacion en story points (escala Fibonacci acotada). */
@@ -78,14 +68,9 @@ export type UpdateWorkItemInput = z.infer<typeof updateWorkItemSchema>;
  * Estricto: mover no es editar, asi que cualquier otro campo se rechaza.
  *
  * MIR-31: el destino es una columna del proyecto (`columnId`, o `null` para
- * el backlog). Mientras la web no use columnas (MIR-49) se sigue aceptando el
- * estado antiguo, que se traduce a su columna por defecto. Uno u otro, no
- * ambos.
+ * el backlog). MIR-49 quito el estado antiguo: ahora solo se mueve por columna.
  */
-export const changeStatusSchema = z.union([
-  z.object({ columnId: targetColumnIdSchema }).strict(),
-  z.object({ status: z.enum(WORK_ITEM_STATUSES) }).strict(),
-]);
+export const changeStatusSchema = z.object({ columnId: targetColumnIdSchema }).strict();
 export type ChangeStatusInput = z.infer<typeof changeStatusSchema>;
 
 /**
@@ -104,9 +89,11 @@ export const workItemFiltersSchema = paginationQuerySchema.extend({
   /** Texto libre; busca en titulo y descripcion, sin distinguir mayusculas. */
   q: z.string().trim().max(200).optional(),
   type: z.enum(WORK_ITEM_TYPES).optional(),
-  status: z.enum(WORK_ITEM_STATUSES).optional(),
-  /** MIR-31: elementos de una columna concreta del proyecto. */
-  columnId: z.string().trim().min(1).optional(),
+  /**
+   * MIR-49: el filtro "Estado" del backlog. Una columna del proyecto, o
+   * `BACKLOG` para los elementos que no estan en ninguna.
+   */
+  columnId: z.union([z.literal(BACKLOG), z.string().trim().min(1)]).optional(),
   priority: z.enum(WORK_ITEM_PRIORITIES).optional(),
   assigneeId: z.string().optional(),
 });
@@ -120,15 +107,9 @@ export const workItemSchema = z.object({
   title: z.string(),
   description: z.string().nullable(),
   type: z.enum(WORK_ITEM_TYPES),
-  /** Estado antiguo derivado de la columna (puente MIR-31; se quita en MIR-49). */
-  status: z.enum(WORK_ITEM_STATUSES),
-  /**
-   * MIR-31: columna del elemento; `null` = backlog. Opcionales solo durante el
-   * puente, para no tocar los datos de prueba de la web: la API los envia
-   * siempre y MIR-49 los vuelve obligatorios.
-   */
-  columnId: z.string().nullable().optional(),
-  column: boardColumnSchema.nullable().optional(),
+  /** MIR-31: columna del elemento (su estado); `null` = backlog. */
+  columnId: z.string().nullable(),
+  column: boardColumnSchema.nullable(),
   priority: z.enum(WORK_ITEM_PRIORITIES),
   estimate: z.number().nullable(),
   dueDate: z.string().datetime().nullable(),
@@ -145,12 +126,12 @@ export type WorkItemDto = z.infer<typeof workItemSchema>;
  * paginar.  Va plana a proposito: el frontend recorre las columnas para
  * armarlas, asi una columna sin items existe igual.
  *
- * MIR-31: `columns` trae las columnas del proyecto en su orden. Opcional solo
- * durante el puente (la API la envia siempre); MIR-49 la usa en la web.
+ * MIR-31: `columns` trae las columnas del proyecto en su orden; MIR-49 dibuja
+ * el tablero con ellas.
  */
 export const boardResponseSchema = z.object({
   items: z.array(workItemSchema),
-  columns: z.array(boardColumnSchema).optional(),
+  columns: z.array(boardColumnSchema),
 });
 export type BoardResponse = z.infer<typeof boardResponseSchema>;
 

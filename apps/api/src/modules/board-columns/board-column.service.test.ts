@@ -14,7 +14,7 @@ const PROJECT_ID = 'project_1';
 const ACTOR_ID = 'user_1';
 
 function columna(id: string, position: number, category: ColumnCategory): BoardColumnRecord {
-  return { id, name: `Columna ${id}`, position, category, legacyStatus: null };
+  return { id, name: `Columna ${id}`, position, category };
 }
 
 const POR_HACER = columna('col_todo', 0, 'TODO');
@@ -74,7 +74,6 @@ describe('create', () => {
     conRol('OWNER');
     repo.createColumn.mockImplementation(async (data) => ({
       id: 'col_qa',
-      legacyStatus: null,
       ...data,
     }));
 
@@ -96,7 +95,6 @@ describe('create', () => {
     conRol('OWNER', []);
     repo.createColumn.mockImplementation(async (data) => ({
       id: 'col_1',
-      legacyStatus: null,
       ...data,
     }));
 

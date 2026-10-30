@@ -17,10 +17,14 @@ import { PrismaClient } from '@prisma/client';
  *   2. MIR-43 (sprints) y asignacion de algunos elementos a sprints;
  *   3. MIR-31, verificando que cada elemento quedo en la columna de su estado
  *      anterior y que los datos de sprints no cambiaron.
+ *
+ * MIR-49: sobre esa misma base aplica despues la migracion que quita el
+ * puente, y verifica que el historial pasa de estados a nombres de columna.
  */
 
 const MIGRACION = '20261030120000_mir31_board_columns';
 const MIGRACION_SPRINTS = '20261028120000_mir43_sprints';
+const MIGRACION_MIR49 = '20261030130000_mir49_drop_legacy_status';
 const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const MIGRATIONS_DIR = path.join(API_DIR, 'prisma/migrations');
 const BASE = 'mira_test_mir31_migracion';
@@ -48,10 +52,14 @@ function aplicar(migracion: string): void {
   );
 }
 
-const anteriores = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
-  .filter((entry) => entry.isDirectory() && entry.name < MIGRACION)
+const migraciones = readdirSync(MIGRATIONS_DIR, { withFileTypes: true })
+  .filter((entry) => entry.isDirectory())
   .map((entry) => entry.name)
   .sort();
+const anteriores = migraciones.filter((nombre) => nombre < MIGRACION);
+const entreMir31yMir49 = migraciones.filter(
+  (nombre) => nombre > MIGRACION && nombre < MIGRACION_MIR49,
+);
 const deEntrega1 = anteriores.filter((nombre) => nombre < MIGRACION_SPRINTS);
 const desdeSprints = anteriores.filter((nombre) => nombre >= MIGRACION_SPRINTS);
 
@@ -240,5 +248,60 @@ describe(`migracion ${MIGRACION}`, () => {
        WHERE id IN (${antes.map((fila) => `'${fila.id}'`).join(', ')}) ORDER BY id`,
     );
     expect(despues).toEqual(antes.map((fila) => ({ ...fila, sprintId: null })));
+  });
+});
+
+describe(`migracion ${MIGRACION_MIR49}`, () => {
+  beforeAll(async () => {
+    // Historial como lo dejaba el puente: estado antiguo en las columnas por
+    // defecto, nombre en las creadas despues, BACKLOG sin columna. Un
+    // ITEM_UPDATED con un valor parecido no es un movimiento y no se toca.
+    const movimientos = [
+      ['a1', 'ITEM_STATUS_CHANGED', 'status', 'BACKLOG', 'TODO'],
+      ['a2', 'ITEM_STATUS_CHANGED', 'status', 'TODO', 'IN_PROGRESS'],
+      ['a3', 'ITEM_STATUS_CHANGED', 'status', 'IN_REVIEW', 'DONE'],
+      ['a4', 'ITEM_STATUS_CHANGED', 'status', 'DONE', 'Bloqueado'],
+      ['a5', 'ITEM_UPDATED', 'title', 'TODO', 'DONE'],
+    ];
+    for (const [id, action, field, fromValue, toValue] of movimientos) {
+      await db.$executeRawUnsafe(
+        `INSERT INTO activity_log (id, action, "projectId", "workItemId", "actorId", field, "fromValue", "toValue")
+         VALUES ('${id}', '${action}'::"ActivityAction", 'p1', 'p1-TODO', 'u1', '${field}', '${fromValue}', '${toValue}')`,
+      );
+    }
+
+    for (const migracion of entreMir31yMir49) aplicar(migracion);
+    aplicar(MIGRACION_MIR49);
+  }, 120_000);
+
+  it('traduce el historial de estados a los nombres de las columnas por defecto', async () => {
+    const filas = await db.$queryRawUnsafe<
+      Array<{ id: string; fromValue: string; toValue: string }>
+    >(`SELECT id, "fromValue", "toValue" FROM activity_log ORDER BY id`);
+
+    expect(filas).toEqual([
+      { id: 'a1', fromValue: 'BACKLOG', toValue: 'Por hacer' },
+      { id: 'a2', fromValue: 'Por hacer', toValue: 'En progreso' },
+      { id: 'a3', fromValue: 'En revision', toValue: 'Hecho' },
+      { id: 'a4', fromValue: 'Hecho', toValue: 'Bloqueado' },
+      { id: 'a5', fromValue: 'TODO', toValue: 'DONE' },
+    ]);
+  });
+
+  it('quita legacyStatus y el enum WorkItemStatus sin tocar las columnas', async () => {
+    const legacy = await db.$queryRawUnsafe<Array<{ column_name: string }>>(
+      `SELECT column_name FROM information_schema.columns
+       WHERE table_name = 'board_columns' AND column_name = 'legacyStatus'`,
+    );
+    const enums = await db.$queryRawUnsafe<Array<{ typname: string }>>(
+      `SELECT typname FROM pg_type WHERE typname = 'WorkItemStatus'`,
+    );
+    const [conteo] = await db.$queryRawUnsafe<Array<{ total: number }>>(
+      `SELECT COUNT(*)::int AS total FROM work_items WHERE "columnId" IS NOT NULL`,
+    );
+
+    expect(legacy).toEqual([]);
+    expect(enums).toEqual([]);
+    expect(conteo?.total).toBe(8);
   });
 });
