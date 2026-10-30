@@ -11,6 +11,9 @@
 export const PROJECT_ROLES = ['OWNER', 'MEMBER', 'VIEWER'] as const;
 export type ProjectRole = (typeof PROJECT_ROLES)[number];
 
+export const SPRINT_STATUSES = ['PLANNED', 'ACTIVE', 'CLOSED'] as const;
+export type SprintStatus = (typeof SPRINT_STATUSES)[number];
+
 export const WORK_ITEM_TYPES = ['EPIC', 'STORY', 'TASK', 'BUG'] as const;
 export type WorkItemType = (typeof WORK_ITEM_TYPES)[number];
 

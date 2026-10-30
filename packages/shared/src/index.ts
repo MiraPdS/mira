@@ -5,3 +5,4 @@ export * from './schemas/auth.js';
 export * from './schemas/activity.js';
 export * from './schemas/project.js';
 export * from './schemas/work-item.js';
+export * from './schemas/sprint.js';
