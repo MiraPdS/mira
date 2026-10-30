@@ -63,10 +63,28 @@ efímero y el build. Es check obligatorio para fusionar a `main`.
 
 ## Cobertura
 
-Se **reporta** desde la Entrega 1 (v8, HTML + lcov + json-summary, artefacto de
-CI) pero **no rompe el build todavía**: un umbral sin línea base empuja a
-escribir pruebas de relleno. El umbral bloqueante llega en la Entrega 2, sobre
-`services` y `hooks`.
+Se mide con v8 (HTML + lcov + json-summary, artefacto de CI). En la Entrega 1
+solo se reportaba; desde la Entrega 2 (MIR-55) el umbral es **bloqueante**: está
+en [`vitest.config.ts`](https://github.com/MiraPdS/mira/blob/develop/vitest.config.ts)
+y, si la cobertura baja, `npm run test:coverage` falla y el pipeline queda rojo,
+tanto en GitHub Actions como en Jenkins (ambos corren ese comando).
+
+Línea base medida en el CI de `develop` al inicio de la entrega (commit
+`35308c1`) y umbral vigente:
+
+| Alcance | Línea base (sent. / ramas / func. / líneas) | Umbral |
+| --- | --- | --- |
+| Todo el código | 97,18 / 89,33 / 97,9 / 97,18 % | 95 / 87 / 95 / 95 % |
+| Services de la API | 100 / ≥ 97,9 / 100 / 100 % | 98 / 95 / 98 / 98 % |
+| Hooks de la web | 100 / ≥ 88,9 / 100 / 100 % | 98 / 85 / 98 / 98 % |
+
+Cada umbral es la línea base redondeada hacia abajo menos unos 2 puntos: deja
+margen para el código nuevo de la entrega, pero una caída real rompe el build.
+Services y hooks llevan un umbral más alto porque concentran las reglas de
+negocio, los permisos y la caché; el global evita que un módulo nuevo sin
+pruebas pase inadvertido. El umbral se sube si la cobertura sube, y nunca se
+baja para que pase un PR. Justificación completa en la
+[estrategia de pruebas del repositorio](https://github.com/MiraPdS/mira/blob/develop/docs/estrategia-pruebas.md#4-cobertura).
 
 La cobertura de cada entrega queda congelada en el repositorio, ver
 [Evidencias](Proyecto-Evidencias.md).
@@ -90,7 +108,7 @@ que falla antes del arreglo.**
 | Entrega | Qué se suma |
 | --- | --- |
 | **1** | Unitario, integración y componente; cobertura reportada; CI en cada PR |
-| **2** | Jenkins como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante; Slack |
+| **2** | Jenkins como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55); Slack |
 | **3** | Al menos 10 E2E headless en el pipeline, con capturas y reportes como artefactos |
 
 Decisiones que ya preparan la Entrega 3: sesión por cookie `httpOnly`, menú

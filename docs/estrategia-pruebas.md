@@ -91,14 +91,53 @@ mientras programa.
 
 ## 4. Cobertura
 
-La cobertura se **reporta** desde la Entrega 1 (`v8`, en HTML y lcov, subida
-como artefacto del pipeline) pero **no rompe el build todavía**.
+La cobertura se mide con `v8` y se publica como artefacto del pipeline (HTML,
+lcov y json-summary). En la Entrega 1 solo se **reportaba**: un umbral impuesto
+antes de tener línea base empuja a escribir pruebas de relleno que suben el
+porcentaje sin verificar nada.
 
-Es deliberado: un umbral alto impuesto antes de tener línea base empuja a
-escribir pruebas de relleno que suben el porcentaje sin verificar nada. El
-umbral bloqueante se activa en la Entrega 2, cuando exista un número real que
-defender, y se aplicará sobre `services` y `hooks`, no sobre el proyecto
-completo.
+Desde la Entrega 2 (MIR-55) el umbral es **bloqueante**. Está en
+[`vitest.config.ts`](../vitest.config.ts): si la cobertura baja de él,
+`npm run test:coverage` termina con error y el pipeline queda rojo. GitHub
+Actions ya corre ese comando, y el pipeline de Jenkins (MIR-51) corre el mismo,
+así que ambos fallan igual sin configuración extra.
+
+**Línea base.** Se midió en el CI de `develop` al inicio de la entrega (commit
+`35308c1`, merge de MIR-43), con las cuatro suites, integración incluida:
+
+| Alcance | Sentencias | Ramas | Funciones | Líneas |
+| --- | --- | --- | --- | --- |
+| Todo el código | 97,18 % | 89,33 % | 97,9 % | 97,18 % |
+| Services de la API | 100 % | ≥ 97,9 % | 100 % | 100 % |
+| Hooks de la web | 100 % | ≥ 88,9 % | 100 % | 100 % |
+
+**Umbral vigente:**
+
+| Alcance | Sentencias | Ramas | Funciones | Líneas |
+| --- | --- | --- | --- | --- |
+| Todo el código | 95 % | 87 % | 95 % | 95 % |
+| `apps/api/src/modules/**/*.service.ts` | 98 % | 95 % | 98 % | 98 % |
+| `apps/web/src/features/**/use*.ts` | 98 % | 85 % | 98 % | 98 % |
+
+**Por qué estos números.**
+
+- Cada umbral es la línea base redondeada hacia abajo, menos unos 2 puntos. El
+  margen absorbe el código nuevo de la entrega (columnas, sprints, Jenkins)
+  mientras se escriben sus pruebas, pero una caída real rompe el build.
+- Los **services** y los **hooks** llevan un umbral más alto porque concentran
+  lo que más importa verificar: las reglas de negocio y los permisos de la API,
+  y el estado de servidor y la caché de la web. Era el foco anunciado en la
+  Entrega 1.
+- Se agrega además un umbral **global**, más holgado, para que una pantalla o un
+  módulo nuevo sin pruebas no pase inadvertido solo porque no es un service ni
+  un hook.
+- Las ramas tienen umbrales más bajos porque su línea base es menor: incluyen
+  caminos defensivos (errores de red, respuestas inesperadas) que no siempre
+  vale la pena forzar.
+
+**Regla de mantenimiento.** Si la cobertura sube de forma sostenida, se sube el
+umbral. Nunca se baja para que pase un PR: si un cambio no alcanza, le faltan
+pruebas.
 
 ## 5. Qué se prueba y qué no
 
@@ -116,7 +155,7 @@ Entrega 3 con capturas de los E2E.
 | Entrega | Qué se suma |
 | --- | --- |
 | **1** | Los tres niveles descritos aquí; cobertura reportada; verificación en cada PR con GitHub Actions |
-| **2** | Jenkins como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante; notificaciones a Slack |
+| **2** | Jenkins como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55, sección 4); notificaciones a Slack |
 | **3** | Al menos 10 pruebas E2E sobre navegador en modo headless, integradas al pipeline, con capturas y reportes como artefactos |
 
 ## 7. Preparado para la Entrega 3
