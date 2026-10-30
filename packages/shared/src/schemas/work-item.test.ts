@@ -92,4 +92,20 @@ describe('changeStatusSchema', () => {
   ])('rechaza %s', (_caso, body) => {
     expect(changeStatusSchema.safeParse(body).success).toBe(false);
   });
+
+  // MIR-31: el destino puede ser una columna del proyecto.
+  it.each([
+    ['una columna', { columnId: 'col_1' }],
+    ['null para volver al backlog', { columnId: null }],
+  ])('acepta %s', (_caso, body) => {
+    expect(changeStatusSchema.parse(body)).toEqual(body);
+  });
+
+  it.each([
+    ['columna y estado a la vez', { columnId: 'col_1', status: 'DONE' }],
+    ['una columna vacia', { columnId: '   ' }],
+    ['columna con campos ajenos', { columnId: 'col_1', title: 'Otro' }],
+  ])('rechaza %s', (_caso, body) => {
+    expect(changeStatusSchema.safeParse(body).success).toBe(false);
+  });
 });

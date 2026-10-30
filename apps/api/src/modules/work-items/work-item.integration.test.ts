@@ -298,7 +298,8 @@ describe('POST /api/projects/:projectId/work-items', () => {
       createdById: member.id,
       title: 'Primer elemento',
       type: 'TASK',
-      status: 'BACKLOG',
+      // MIR-31: BACKLOG es no estar en ninguna columna.
+      columnId: null,
       priority: 'MEDIUM',
       assigneeId: null,
       sprintId: null,
@@ -893,6 +894,14 @@ describe('GET /api/projects/:projectId/work-items/:workItemId', () => {
       description: 'Implementar el detalle del elemento.',
       type: 'STORY',
       status: 'IN_PROGRESS',
+      // MIR-31: la columna por defecto que equivale a IN_PROGRESS.
+      columnId: expect.any(String),
+      column: {
+        id: expect.any(String),
+        name: 'En progreso',
+        position: 1,
+        category: 'IN_PROGRESS',
+      },
       priority: 'HIGH',
       estimate: 5,
       dueDate: dueDate.toISOString(),
@@ -1084,7 +1093,9 @@ describe('GET /api/projects/:projectId/board', () => {
     const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ items: [] });
+    // MIR-31: el tablero trae tambien las columnas, aunque esten vacias.
+    expect(res.body).toEqual({ items: [], columns: expect.any(Array) });
+    expect(res.body.columns).toHaveLength(4);
   });
 
   it('permite ver el tablero a un VIEWER', async () => {
@@ -1223,8 +1234,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('FORBIDDEN');
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { legacyStatus: 'TODO' },
     });
     expect(await prisma.activityLog.count()).toBe(0);
   });
@@ -1242,8 +1255,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { legacyStatus: 'TODO' },
     });
   });
 
@@ -1259,8 +1274,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       .send({ status: 'DONE' });
 
     expect(res.status).toBe(404);
-    expect(await prisma.workItem.findUnique({ where: { id: ajeno.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: ajeno.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { legacyStatus: 'TODO' },
     });
     expect(await prisma.activityLog.count()).toBe(0);
   });
@@ -1274,8 +1291,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       .send({ status: 'DONE' });
 
     expect(res.status).toBe(401);
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { legacyStatus: 'TODO' },
     });
   });
 
@@ -1295,8 +1314,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
 
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { legacyStatus: 'TODO' },
       title: workItem.title,
     });
     expect(await prisma.activityLog.count()).toBe(0);
@@ -1341,9 +1362,13 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     expect(first).toBeDefined();
     const second = activities.find((entry) => entry.id !== first.id)!;
     expect(second.fromValue).toBe(first.toValue);
-    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).status).toBe(
-      second.toValue,
-    );
+    // MIR-31: el estado ya no es una columna de work_items; se lee de la
+    // columna del tablero donde quedo el elemento.
+    const final = await prisma.workItem.findUniqueOrThrow({
+      where: { id: workItem.id },
+      include: { column: true },
+    });
+    expect(final.column?.legacyStatus).toBe(second.toValue);
   });
 
   it('serializa dos movimientos concurrentes por HTTP sin estado anterior obsoleto', async () => {
@@ -1371,9 +1396,13 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     expect(first).toBeDefined();
     const second = activities.find((entry) => entry.id !== first!.id)!;
     expect(second.fromValue).toBe(first!.toValue);
-    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).status).toBe(
-      second.toValue,
-    );
+    // MIR-31: el estado ya no es una columna de work_items; se lee de la
+    // columna del tablero donde quedo el elemento.
+    const final = await prisma.workItem.findUniqueOrThrow({
+      where: { id: workItem.id },
+      include: { column: true },
+    });
+    expect(final.column?.legacyStatus).toBe(second.toValue);
   });
 
   it('revierte el cambio de estado si PostgreSQL falla al registrar el historial', async () => {
@@ -1397,8 +1426,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       }),
     ).rejects.toThrow('MIR19_ACTIVITY_BLOCKED');
 
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { legacyStatus: 'TODO' },
     });
     expect(await prisma.activityLog.count()).toBe(0);
   });
@@ -1584,11 +1615,16 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId', () => {
       .send({ title: 'Solo cambia el titulo' });
 
     expect(res.status).toBe(200);
-    expect(await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).toMatchObject({
+    expect(
+      await prisma.workItem.findUniqueOrThrow({
+        where: { id: workItem.id },
+        include: { column: true },
+      }),
+    ).toMatchObject({
       title: 'Solo cambia el titulo',
       description: 'Descripcion original',
       type: 'STORY',
-      status: 'IN_PROGRESS',
+      column: { legacyStatus: 'IN_PROGRESS' },
       priority: 'HIGH',
       estimate: 5,
       dueDate,

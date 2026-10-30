@@ -149,8 +149,8 @@ export function createWorkItemController(service: WorkItemService) {
       try {
         if (!req.user) throw new UnauthorizedError();
 
-        const items = await service.board(req.params.projectId!, req.user.id);
-        res.status(200).json({ items } satisfies BoardResponse);
+        const board = await service.board(req.params.projectId!, req.user.id);
+        res.status(200).json(board satisfies BoardResponse);
       } catch (error) {
         next(error);
       }

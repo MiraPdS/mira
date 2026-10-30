@@ -71,6 +71,12 @@ describe('GET /api/projects/:projectId/summary (MIR-23)', () => {
         IN_REVIEW: 0,
         DONE: 0,
       },
+      byCategory: {
+        BACKLOG: 0,
+        TODO: 0,
+        IN_PROGRESS: 0,
+        DONE: 0,
+      },
       byType: {
         EPIC: 0,
         STORY: 0,

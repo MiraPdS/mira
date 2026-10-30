@@ -17,6 +17,7 @@ const TABLAS = [
   'comments',
   'work_items',
   'sprints',
+  'board_columns',
   'project_members',
   'projects',
   'users',

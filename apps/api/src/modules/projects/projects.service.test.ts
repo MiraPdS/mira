@@ -518,6 +518,7 @@ describe('projectsService', () => {
     const resumenVacio = {
       total: 0,
       byStatus: { BACKLOG: 0, TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 },
+      byCategory: { BACKLOG: 0, TODO: 0, IN_PROGRESS: 0, DONE: 0 },
       byType: { EPIC: 0, STORY: 0, TASK: 0, BUG: 0 },
       byPriority: { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 },
     };
