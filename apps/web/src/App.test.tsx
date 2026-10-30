@@ -97,6 +97,26 @@ describe('App', () => {
     expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
   });
 
+  it('MIR-44: en /proyectos/:projectId/sprints muestra los sprints de ese proyecto', async () => {
+    let proyectoSolicitado: string | undefined;
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/sprints`, ({ params }) => {
+        proyectoSolicitado = String(params.projectId);
+        return HttpResponse.json({ data: [] });
+      }),
+    );
+
+    renderConProviders(<App />, { route: '/proyectos/project_123/sprints' });
+
+    expect(await screen.findByRole('heading', { name: 'Sprints', level: 1 })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Aun no hay sprints. Crea el primero para planificar el trabajo.'),
+    ).toBeInTheDocument();
+    expect(proyectoSolicitado).toBe('project_123');
+    expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
+  });
+
   it('en /proyectos con sesion muestra la pantalla dentro del layout autenticado', async () => {
     conCookieDeSesion();
     renderConProviders(<App />, { route: '/proyectos' });

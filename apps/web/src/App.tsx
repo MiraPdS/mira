@@ -18,6 +18,7 @@ import { ProjectSettingsPage } from '@/features/projects/ProjectSettingsPage';
 import { ProjectSummaryPage } from '@/features/projects/ProjectSummaryPage';
 import { ProjectBacklogPage } from '@/features/projects/ProjectBacklogPage';
 import { ProjectBoardPage } from '@/features/projects/ProjectBoardPage';
+import { ProjectSprintsPage } from '@/features/sprints/ProjectSprintsPage';
 import { WorkItemDetail } from '@/features/work-items/WorkItemDetail';
 
 function Pendiente({ item, titulo }: { item: string; titulo: string }) {
@@ -106,6 +107,9 @@ export function App() {
 
         {/* MIR-18: Tablero kanban; MIR-30: crear elementos desde el tablero */}
         <Route path="/proyectos/:projectId/tablero" element={<ProjectBoardPage />} />
+
+        {/* MIR-44: pantalla de sprints */}
+        <Route path="/proyectos/:projectId/sprints" element={<ProjectSprintsPage />} />
 
         {/* MIR-14/MIR-22: detalle de un elemento con su historial */}
         <Route path="/proyectos/:projectId/elementos/:workItemId" element={<ElementoPage />} />

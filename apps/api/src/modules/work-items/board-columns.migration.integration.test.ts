@@ -15,7 +15,7 @@ import { PrismaClient } from '@prisma/client';
  * verifica que cada elemento quedo en la columna de su estado anterior.
  */
 
-const MIGRACION = '20261028120000_mir31_board_columns';
+const MIGRACION = '20261030120000_mir31_board_columns';
 const API_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const MIGRATIONS_DIR = path.join(API_DIR, 'prisma/migrations');
 const BASE = 'mira_test_mir31_migracion';

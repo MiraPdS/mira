@@ -270,8 +270,8 @@ async function createInTransaction(db: Db, data: CreateWorkItemData): Promise<Wo
       priority: data.input.priority,
       estimate: data.input.estimate ?? null,
       dueDate: data.input.dueDate ?? null,
-      // Los sprints estan reservados para MIR-30 / Entrega 2. MIR-11 no
-      // persiste ningun sprint, aunque el contrato compartido ya lo declare.
+      // MIR-43 agrega la FK, pero la asignacion pertenece a MIR-45.
+      // Crear un item sigue dejandolo fuera de cualquier sprint.
       sprintId: null,
     },
     include: includeForDto,
