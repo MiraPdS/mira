@@ -16,6 +16,8 @@ const record: SprintRecord = {
   startDate: new Date('2026-10-28T00:00:00.000Z'),
   endDate: new Date('2026-11-11T00:00:00.000Z'),
   status: 'PLANNED',
+  committedPoints: null,
+  completedPoints: null,
   createdAt: new Date('2026-10-28T12:00:00.000Z'),
   updatedAt: new Date('2026-10-28T13:00:00.000Z'),
 };
@@ -91,6 +93,8 @@ describe('SprintService', () => {
       name: input.name,
       goal: null,
       status: 'PLANNED',
+      committedPoints: null,
+      completedPoints: null,
       startDate: '2026-10-28',
       endDate: '2026-11-11',
       createdAt: '2026-10-28T12:00:00.000Z',

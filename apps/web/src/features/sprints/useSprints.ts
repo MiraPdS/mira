@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import type {
+  CloseSprintInput,
   CreateSprintInput,
   SprintDto,
   SprintListItemDto,
@@ -76,5 +77,38 @@ export function useUpdateSprint(projectId: string, sprintId: string) {
       );
       void queryClient.invalidateQueries({ queryKey: sprintKeys.list(projectId) });
     },
+  });
+}
+
+/** MIR-46: cancela respuestas previas al cambio antes de refrescar las vistas. */
+function useLifecycleRefresh(projectId: string) {
+  const queryClient = useQueryClient();
+  return async () => {
+    const filters = {
+      predicate: ({ queryKey }: { queryKey: readonly unknown[] }) =>
+        (queryKey[0] === 'work-items' && queryKey[2] === projectId) ||
+        (['sprints', 'board', 'projects', 'work-item', 'work-item-activity'].includes(
+          String(queryKey[0]),
+        ) &&
+          queryKey[1] === projectId),
+    };
+    await queryClient.cancelQueries(filters);
+    await queryClient.invalidateQueries(filters);
+  };
+}
+
+export function useStartSprint(projectId: string, sprintId: string) {
+  const refresh = useLifecycleRefresh(projectId);
+  return useMutation<SprintDto, ApiRequestError, void>({
+    mutationFn: () => sprintsApi.start(projectId, sprintId),
+    onSuccess: refresh,
+  });
+}
+
+export function useCloseSprint(projectId: string, sprintId: string) {
+  const refresh = useLifecycleRefresh(projectId);
+  return useMutation<SprintDto, ApiRequestError, CloseSprintInput>({
+    mutationFn: (input) => sprintsApi.close(projectId, sprintId, input),
+    onSuccess: refresh,
   });
 }

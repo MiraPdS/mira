@@ -52,6 +52,14 @@ export const updateSprintSchema = sprintFieldsSchema
   .superRefine(validateDateRange);
 export type UpdateSprintInput = z.infer<typeof updateSprintSchema>;
 
+/** MIR-46: el destino afecta exclusivamente a los elementos no terminados. */
+export const closeSprintSchema = z
+  .object({
+    moveUnfinishedToSprintId: z.string().trim().min(1).nullable(),
+  })
+  .strict();
+export type CloseSprintInput = z.infer<typeof closeSprintSchema>;
+
 const sprintDtoSchema = z.object({
   id: z.string(),
   projectId: z.string(),
@@ -60,6 +68,8 @@ const sprintDtoSchema = z.object({
   startDate: calendarDateSchema,
   endDate: calendarDateSchema,
   status: z.enum(SPRINT_STATUSES),
+  committedPoints: z.number().int().nonnegative().nullable(),
+  completedPoints: z.number().int().nonnegative().nullable(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

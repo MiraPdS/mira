@@ -92,6 +92,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
 | MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
 | MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
+| MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -133,6 +134,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#44]: https://github.com/MiraPdS/mira/pull/44
 [#46]: https://github.com/MiraPdS/mira/pull/46
 [#47]: https://github.com/MiraPdS/mira/pull/47
+[#48]: https://github.com/MiraPdS/mira/pull/48
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -202,5 +204,11 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [ProjectBoardPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBoardPage.test.tsx
 [ProjectBacklogPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBacklogPage.test.tsx
 [work-item.assign.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.assign.integration.test.ts
+[sprint.lifecycle.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.service.test.ts
+[sprint-lifecycle (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/sprint-lifecycle.test.ts
+[prisma-conflicts]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/lib/prisma-conflicts.test.ts
+[sprint.lifecycle.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.integration.test.ts
+[sprint.lifecycle.migration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.migration.integration.test.ts
+[SprintLifecycle]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/sprints/SprintLifecycle.test.tsx
 
 <!-- Generado desde docs/wiki/ en MiraPdS/mira. No editar aquí: se sobrescribe en el próximo sync. -->

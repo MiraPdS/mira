@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { can, SPRINT_STATUS_LABELS, type SprintListItemDto, type SprintStatus } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { useProject } from '@/features/projects/useProjects';
+import { SprintLifecycleControls } from './SprintLifecycleControls';
 import { SprintForm } from './SprintForm';
 import { useSprints } from './useSprints';
 
@@ -119,6 +120,7 @@ export function ProjectSprintsPage() {
                         ) : (
                           <SprintCard
                             sprint={sprint}
+                            sprints={sprints.data}
                             onEdit={puedeEditar ? () => setEdicion(sprint.id) : undefined}
                           />
                         )}
@@ -135,7 +137,15 @@ export function ProjectSprintsPage() {
   );
 }
 
-function SprintCard({ sprint, onEdit }: { sprint: SprintListItemDto; onEdit?: () => void }) {
+function SprintCard({
+  sprint,
+  sprints,
+  onEdit,
+}: {
+  sprint: SprintListItemDto;
+  sprints: SprintListItemDto[];
+  onEdit?: () => void;
+}) {
   return (
     <article
       aria-labelledby={`sprint-${sprint.id}`}
@@ -154,7 +164,22 @@ function SprintCard({ sprint, onEdit }: { sprint: SprintListItemDto; onEdit?: ()
           {sprint.items} {sprint.items === 1 ? 'elemento' : 'elementos'} · {sprint.points}{' '}
           {sprint.points === 1 ? 'punto' : 'puntos'}
         </p>
+        {sprint.status === 'CLOSED' ? (
+          <dl className="text-sm text-slate-700">
+            <div>
+              <dt>Puntos comprometidos</dt>
+              <dd>{sprint.committedPoints ?? 'No disponible'}</dd>
+            </div>
+            <div>
+              <dt>Puntos completados</dt>
+              <dd>{sprint.completedPoints ?? 'No disponible'}</dd>
+            </div>
+          </dl>
+        ) : null}
       </div>
+      {onEdit && sprint.status !== 'CLOSED' ? (
+        <SprintLifecycleControls sprint={sprint} sprints={sprints} />
+      ) : null}
       {onEdit ? (
         <Button variant="secondary" aria-label={`Editar ${sprint.name}`} onClick={onEdit}>
           Editar
