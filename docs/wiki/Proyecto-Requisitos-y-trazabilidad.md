@@ -92,7 +92,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
 | MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
 | MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
-| MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | PR pendiente | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
+| MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -134,6 +134,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#44]: https://github.com/MiraPdS/mira/pull/44
 [#46]: https://github.com/MiraPdS/mira/pull/46
 [#47]: https://github.com/MiraPdS/mira/pull/47
+[#48]: https://github.com/MiraPdS/mira/pull/48
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
