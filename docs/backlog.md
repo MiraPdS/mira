@@ -797,8 +797,8 @@ aunque la columna se llame distinto.
 > **Jenkins se reemplazó por GitHub Actions y Slack por Discord**, con
 > autorización del profesor
 > ([D14](./decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)).
-> `MIR-33` ya está reescrito; `MIR-51` a `MIR-55` todavía describen Jenkins y
-> se reescriben en un PR de documentación aparte.
+> Los items de esta épica ya describen ese CI/CD. `MIR-51` y `MIR-52` bajaron de
+> estimación porque `.github/workflows/ci.yml` ya cubría casi todo lo que pedían.
 
 ### MIR-33 · CI/CD oficial en GitHub Actions
 
@@ -819,64 +819,78 @@ aunque la columna se llame distinto.
 
 ---
 
-### MIR-51 · Pipeline en `Jenkinsfile`
+### MIR-51 · Reportes JUnit del pipeline como artefacto
 
-**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 5
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 1
 
-- `Jenkinsfile` declarativo versionado en la raíz del repositorio.
-- Etapas: instalación (`npm ci`), lint, tipos, pruebas unitarias, de
-  integración (con Postgres efímero) y de componentes (RTL), y build.
-- Falla rápido: si una etapa falla, las siguientes no corren y el build queda
-  rojo.
-- Publica los reportes de pruebas (JUnit) y de cobertura como artefactos del
-  build, para dejar trazabilidad de cada ejecución.
+Las etapas ya existen en `ci.yml` (instalación, formato, lint, tipos,
+migraciones, pruebas contra un Postgres efímero y build), fallan rápido y la
+cobertura ya se publica en el artefacto `cobertura`. Falta solo:
+
+- El paso `Pruebas con cobertura` genera además un reporte JUnit, sin dejar de
+  generar `coverage/test-results.json`, que usa `npm run wiki:evidencias`.
+- El reporte se publica como artefacto de la ejecución, también cuando las
+  pruebas fallan, para dejar trazabilidad de cada ejecución.
+- Los jobs de `ci.yml` no se renombran: son los checks obligatorios de `main`.
 
 ---
 
-### MIR-52 · Webhook de GitHub y estado en el commit
+### MIR-52 · Webhook de GitHub y estado en el commit — propuesto cerrar
 
-**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 3
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 0
 
-- Un webhook de GitHub dispara el pipeline en cada push y en cada Pull Request
-  hacia `develop` y `main` (multibranch pipeline).
+No queda trabajo: con GitHub Actions no hay webhook que configurar y cada
+criterio original ya se cumple, así que se propone cerrarlo como cubierto por
+`ci.yml` y `MIR-25`.
+
+- `ci.yml` corre en cada push y en cada Pull Request hacia `develop` y `main`.
 - El resultado queda asociado al commit y al PR como check verde o rojo.
-- El check de Jenkins se agrega como obligatorio en la protección de `main`
-  (junto al de GitHub Actions de MIR-25).
+- `Lint, tipos y pruebas` y `Build` son checks obligatorios de `main`.
+
+La evidencia de esas ejecuciones entra a la Wiki con `MIR-56`.
 
 ---
 
-### MIR-53 · Notificaciones a Slack
+### MIR-53 · Notificaciones a Discord
 
 **Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 2
 
-- Jenkins avisa en el canal del equipo cuando un build falla, cuando vuelve a
-  pasar después de un fallo y cuando termina un despliegue.
-- El mensaje incluye la rama, el commit, el autor y un enlace al build.
+- El pipeline avisa en `#mira-ci`, por el secreto `NOTIFY_WEBHOOK_URL`, cuando
+  una ejecución falla, cuando vuelve a pasar después de un fallo y cuando
+  termina un despliegue.
+- El mensaje incluye la rama, el commit, el autor y un enlace a la ejecución.
+- El aviso de despliegue se engancha al job de `MIR-54`: el que se fusione
+  segundo lo deja funcionando.
 
 ---
 
-### MIR-54 · Despliegue desde Jenkins
+### MIR-54 · Despliegue desde GitHub Actions
 
 **Tipo:** Tarea técnica · **Prioridad:** Medium · **Estimación:** 3
 
-- Un build verde en `main` despliega la API en Render y el frontend en Vercel
-  mediante sus deploy hooks, y después verifica `/api/health`.
-- Un build rojo no despliega.
-- Se documentan las dependencias entre Jenkins y la aplicación (qué usa cada
-  etapa y de dónde sale cada credencial).
+- Un job con `environment: deploy` corre en cada push a `main`, después de que
+  `Lint, tipos y pruebas` y `Build` pasen. Despliega la API en Render y el
+  frontend en Vercel con `RENDER_DEPLOY_HOOK_URL` y `VERCEL_DEPLOY_HOOK_URL`, y
+  verifica `/api/health` con reintentos, porque el hook responde antes de que
+  el despliegue termine.
+- Una ejecución roja no despliega, y tampoco un PR ni un push a `develop`.
+- El auto-deploy de Render y de Vercel queda apagado (ver
+  [Pendiente en `MIR-54`](./ci-cd.md#pendiente-en-mir-54)): un release produce
+  un solo despliegue en cada servicio.
+- [`docs/ci-cd.md`](./ci-cd.md) describe el job y deja de listarlo como
+  pendiente.
 
 ---
 
-### MIR-55 · Umbral de cobertura que rompe el build
+### MIR-55 · Umbral de cobertura que rompe el build — ✅ implementado
 
 **Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 2
 
-Compromiso pendiente de la Entrega 1.
+Compromiso pendiente de la Entrega 1. Fusionado en #43.
 
 - Umbral de cobertura fijado en `vitest.config.ts` a partir de la línea base
   real medida al inicio de la entrega.
-- Si la cobertura baja del umbral, el pipeline queda rojo, tanto en Jenkins
-  como en GitHub Actions.
+- Si la cobertura baja del umbral, el pipeline queda rojo.
 - El umbral y su justificación quedan en la estrategia de pruebas.
 
 ---
@@ -891,9 +905,9 @@ Compromiso pendiente de la Entrega 1.
   qué se implementó, arquitectura e infraestructura (obligatoria), pipeline,
   integraciones, cómo ejecutar, mejoras en la aplicación, pruebas y su
   relación con CI, y problemas encontrados con sus soluciones.
-- Diagrama de la infraestructura: dónde corren la app y Jenkins, y cómo se
-  conectan GitHub, Jenkins, Slack, Render y Vercel.
-- Evidencias del pipeline: capturas, logs y el historial de builds.
+- Diagrama de la infraestructura: dónde corren la app y el pipeline, y cómo se
+  conectan GitHub, GitHub Actions, Discord, Render y Vercel.
+- Evidencias del pipeline: capturas, logs y el historial de ejecuciones.
 - Trazabilidad actualizada con los requerimientos nuevos.
 
 ---
@@ -902,8 +916,8 @@ Compromiso pendiente de la Entrega 1.
 
 **Tipo:** Tarea · **Prioridad:** Highest · **Estimación:** 2
 
-- Pull Request de release de `develop` a `main`, con los checks de Jenkins y de
-  GitHub Actions en verde.
+- Pull Request de release de `develop` a `main`, con los checks `Lint, tipos y
+  pruebas` y `Build` en verde.
 - Tag `v2.0-entrega2` sobre el merge commit, desplegado por el pipeline.
 - GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y
   limitaciones conocidas.
@@ -916,8 +930,8 @@ Compromiso pendiente de la Entrega 1.
 **Tipo:** Documentación · **Prioridad:** High · **Estimación:** 3
 
 - Cubre alcance de la herramienta, trabajo realizado (proyecto y dependencias
-  entre Jenkins y la aplicación), uso de Jenkins y problemas encontrados con
-  sus soluciones.
+  entre GitHub Actions y la aplicación), uso de GitHub Actions y problemas
+  encontrados con sus soluciones.
 - Enlace publicado en el README y en la Wiki.
 
 ---
@@ -935,6 +949,10 @@ Compromiso pendiente de la Entrega 1.
 | **Total Entrega 1** | **30** | **133** |
 | 7 — Sprints | 5 | 23 |
 | 8 — Columnas configurables | 4 | 23 |
-| 9 — Integración y despliegue continuo | 6 | 18 |
+| 9 — Integración y despliegue continuo | 6 | 11 |
 | 6 — Calidad y entrega (Entrega 2) | 3 | 8 |
-| **Total Entrega 2** | **18** | **72** |
+| **Total Entrega 2** | **18** | **65** |
+
+La Entrega 2 bajó de 72 a 65 puntos al alinearse con D14: `MIR-51` pasó de 5 a 1
+y `MIR-52` de 3 a 0. Sigue contando 18 items porque `MIR-52` se conserva con su
+ID, aunque no tenga trabajo.

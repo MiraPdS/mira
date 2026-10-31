@@ -67,10 +67,7 @@ Se mide con v8 (HTML + lcov + json-summary, artefacto de CI). En la Entrega 1
 solo se reportaba; desde la Entrega 2 (MIR-55) el umbral es **bloqueante**: está
 en [`vitest.config.ts`](https://github.com/MiraPdS/mira/blob/develop/vitest.config.ts)
 y, si la cobertura baja, `npm run test:coverage` falla (código de salida 1). En
-GitHub Actions eso deja el PR en rojo, verificado con un run real. En Jenkins
-queda **pendiente**: el pipeline (MIR-51) aún no existe; cuando su Jenkinsfile
-ejecute el mismo comando y propague el código de salida, fallará igual sin
-configuración extra.
+GitHub Actions eso deja el PR en rojo, verificado con un run real.
 
 Línea base medida en el CI de `develop` al inicio de la entrega (commit
 `35308c1`) y umbral vigente:
@@ -111,7 +108,7 @@ que falla antes del arreglo.**
 | Entrega | Qué se suma |
 | --- | --- |
 | **1** | Unitario, integración y componente; cobertura reportada; CI en cada PR |
-| **2** | Jenkins como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55); Slack |
+| **2** | GitHub Actions como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55); Discord |
 | **3** | Al menos 10 E2E headless en el pipeline, con capturas y reportes como artefactos |
 
 Decisiones que ya preparan la Entrega 3: sesión por cookie `httpOnly`, menú
