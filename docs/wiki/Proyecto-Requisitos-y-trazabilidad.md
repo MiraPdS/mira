@@ -93,6 +93,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
 | MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
 | MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
+| MIR-47 | Tablero del sprint activo | ➡️ después del tag | [#50] | C [ProjectBoardPage.sprint] (con sprint activo solo sus elementos y su nombre y fechas; «Todos los elementos» quita el filtro; sin sprint activo, el tablero de la Entrega 1), [ProjectBoardPage] |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -135,6 +136,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#46]: https://github.com/MiraPdS/mira/pull/46
 [#47]: https://github.com/MiraPdS/mira/pull/47
 [#48]: https://github.com/MiraPdS/mira/pull/48
+[#50]: https://github.com/MiraPdS/mira/pull/50
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -202,6 +204,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [activityInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/activityInvalidation.test.tsx
 [App]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/App.test.tsx
 [ProjectBoardPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBoardPage.test.tsx
+[ProjectBoardPage.sprint]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBoardPage.sprint.test.tsx
 [ProjectBacklogPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBacklogPage.test.tsx
 [work-item.assign.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.assign.integration.test.ts
 [sprint.lifecycle.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.service.test.ts
