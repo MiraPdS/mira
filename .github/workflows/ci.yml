@@ -1,11 +1,13 @@
 name: CI
 
-# Gate de calidad de la Entrega 1.
+# Gate de calidad de cada Pull Request y de cada push a main y develop.
 #
-# En la Entrega 2 Jenkins asume el rol de CI/CD oficial (build + deploy +
-# notificaciones a Slack). Este workflow se mantiene como verificacion rapida
-# de Pull Request, que es lo que permite exigir "check verde" en la proteccion
-# de la rama main desde el primer dia.
+# GitHub Actions es el CI/CD oficial del proyecto desde la Entrega 2 (D14):
+# secretos, environment `deploy` y como recrear todo en docs/ci-cd.md.
+#
+# Los nombres de los jobs ("Lint, tipos y pruebas" y "Build") son los checks
+# obligatorios de la proteccion de main: si se renombran, la proteccion queda
+# esperando un check que nunca llega y ningun PR se puede fusionar.
 
 on:
   push:
@@ -16,6 +18,11 @@ on:
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+# Explicito para no depender del ajuste por defecto del repositorio (que hoy
+# tambien es solo lectura). Un job que necesite mas lo pide en su propio bloque.
+permissions:
+  contents: read
 
 env:
   NODE_VERSION: '20'

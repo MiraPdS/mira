@@ -1,7 +1,8 @@
 # Despliegue del ambiente de demostración
 
 Cómo está montado el ambiente público de Mira y cómo recrearlo desde cero.
-Las decisiones detrás están en [D12 y D13](./decisiones-tecnicas.md).
+Las decisiones detrás están en [D12 y D13](./decisiones-tecnicas.md). El
+pipeline, los deploy hooks y sus secretos están en [ci-cd.md](./ci-cd.md).
 
 ```
 Navegador ──► Vercel (apps/web)  ──/api/*──►  Render (apps/api)  ──►  Supabase (PostgreSQL)

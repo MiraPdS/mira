@@ -151,8 +151,10 @@ Cada Pull Request ejecuta [`.github/workflows/ci.yml`](.github/workflows/ci.yml)
 formato, lint, tipos, las tres suites de pruebas contra un PostgreSQL efímero, y
 el build. El reporte de cobertura queda como artefacto del workflow.
 
-En la Entrega 2, Jenkins asume el rol de CI/CD oficial (build, despliegue y
-notificaciones a Slack) y este workflow queda como verificación rápida de PR.
+Desde la Entrega 2, GitHub Actions es el CI/CD oficial
+([D14](./docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)).
+Checks obligatorios, secretos, environment `deploy` y cómo recrear la
+configuración: [`docs/ci-cd.md`](./docs/ci-cd.md).
 
 ## Despliegue
 
