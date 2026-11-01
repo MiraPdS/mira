@@ -1,4 +1,5 @@
 import type {
+  CloseSprintInput,
   CreateSprintInput,
   SprintDto,
   SprintListItemDto,
@@ -12,6 +13,23 @@ const base = (projectId: string) => `/projects/${encodeURIComponent(projectId)}/
 
 /** MIR-44: cliente HTTP de la API de sprints (MIR-43). */
 export const sprintsApi = {
+  start: async (projectId: string, sprintId: string): Promise<SprintDto> => {
+    const { sprint } = await api.post<SprintResponse>(
+      `${base(projectId)}/${encodeURIComponent(sprintId)}/start`,
+    );
+    return sprint;
+  },
+  close: async (
+    projectId: string,
+    sprintId: string,
+    input: CloseSprintInput,
+  ): Promise<SprintDto> => {
+    const { sprint } = await api.post<SprintResponse>(
+      `${base(projectId)}/${encodeURIComponent(sprintId)}/close`,
+      input,
+    );
+    return sprint;
+  },
   /** Sprints del proyecto ordenados por fecha de inicio, con items y puntos. */
   list: async (projectId: string): Promise<SprintListItemDto[]> => {
     const { data } = await api.get<SprintListResponse>(base(projectId));

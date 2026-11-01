@@ -17,7 +17,13 @@ import {
   resolveActivityNames,
   type ActivityWithActor,
 } from '../../lib/activity.js';
-import { findMemberRole, hasTransaction, prisma, type Db } from '../../lib/prisma.js';
+import {
+  findMemberRole,
+  hasTransaction,
+  isSerializationConflict,
+  prisma,
+  type Db,
+} from '../../lib/prisma.js';
 
 /** Datos de usuario que necesita la representacion publica de un item. */
 export interface WorkItemUser {
@@ -424,12 +430,7 @@ export function createWorkItemRepository(db: Db = prisma): WorkItemRepository {
             isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
           });
         } catch (error) {
-          if (
-            attempt >= 2 ||
-            !(error instanceof Prisma.PrismaClientKnownRequestError) ||
-            error.code !== 'P2034'
-          )
-            throw error;
+          if (attempt >= 2 || !isSerializationConflict(error)) throw error;
         }
       }
     },
