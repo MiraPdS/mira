@@ -17,8 +17,12 @@ Navegador ──► Vercel (apps/web)  ──/api/*──►  Render (apps/api) 
 | Pinger | UptimeRobot | Free | — |
 
 Las tres apps despliegan **la rama `main`**: la demo siempre corresponde a un
-release. Vercel además publica una preview por cada PR (usa la misma API y la
-misma base que producción, así que solo sirve para revisar cambios del frontend).
+release. El despliegue lo dispara el job `Desplegar` de GitHub Actions con CI
+verde, no el push (ver [ci-cd.md](./ci-cd.md#despliegue)); hasta que se haga el
+[corte](./ci-cd.md#corte-al-despliegue-desde-actions), Render y Vercel siguen
+desplegando solos. Vercel además publica una preview por cada PR (usa la misma
+API y la misma base que producción, así que solo sirve para revisar cambios del
+frontend).
 
 ---
 
@@ -118,6 +122,8 @@ conservando el servicio y vuelve a crearlo desde `main`.
 - [ ] En DevTools, el `Set-Cookie` viene de `vercel.app` con `HttpOnly; Secure`.
 - [ ] F5 sobre `/projects/<id>` no da 404; cerrar sesión borra la cookie.
 - [ ] El monitor de UptimeRobot está verde.
+- [ ] Render tiene Auto-Deploy en _Off_ (después del
+      [corte](./ci-cd.md#corte-al-despliegue-desde-actions)).
 
 ---
 
