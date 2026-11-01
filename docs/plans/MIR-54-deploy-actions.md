@@ -71,14 +71,17 @@ release; `main` solo cambia con un release, asi que esa ventana no pierde
 despliegues. El orden exacto esta en
 [`docs/ci-cd.md`](../ci-cd.md#corte-al-despliegue-desde-actions).
 
-**Sin permisos nuevos.** El job no hace checkout ni usa `GITHUB_TOKEN`: hereda
-`contents: read`.
+**Sin permisos nuevos.** El job no hace checkout y hereda `contents: read`.
 
 **Secretos.** Viajan por `env:` del paso, no se interpolan en el script; no hay
 `set -x` y no se imprime la respuesta de los hooks.
 
-**`concurrency`.** `cancel-in-progress` sigue igual: un push nuevo a `main`
-cancela el run anterior, y el nuevo despliega el commit mas reciente.
+**`concurrency` (revision del PR).** `cancel-in-progress` no aplica a `main`:
+cancelar un run no detiene el deploy que ya disparo, y se mezclarian versiones.
+Sin cancelacion, un run puede llegar a los hooks con `main` adelantada, y el
+hook de Vercel publicaria ese commit sin CI. Por eso el job parte confirmando
+que su commit sigue siendo la punta, y si no, queda rojo sin disparar hooks.
+Consulta con `github.token` y `contents: read`, sin permisos nuevos.
 
 ## Enganche de MIR-53
 

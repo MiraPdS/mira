@@ -149,6 +149,7 @@ _Skipped_.
 
 | Paso | Qué hace | Falla en rojo si |
 | --- | --- | --- |
+| `Confirmar que el commit sigue siendo la punta de main` | Compara el commit del run con la punta de `main`. El hook de Vercel construye la punta: sin este paso publicaría un commit sin CI | `main` avanzó. No se dispara ningún hook: despliega el run del commit más nuevo |
 | `Disparar despliegue de la API en Render` | Llama a `RENDER_DEPLOY_HOOK_URL` con `ref=<commit>`: pide desplegar el commit que pasó el CI | El hook no responde 2xx. En ese caso Vercel no se dispara |
 | `Disparar despliegue del frontend en Vercel` | Llama a `VERCEL_DEPLOY_HOOK_URL`. El hook no acepta commit: construye la punta de `main` | El hook no responde 2xx |
 | `Comprobar que la API responde` | Espera 3 min y consulta `https://mira-pds.vercel.app/api/health` cada 15 s, con 20 s de tope por intento | No hay un 200 en 15 min |
@@ -181,11 +182,16 @@ a que coincida con el commit del job, y no está hecho.
 - **El `buildFilter` de `render.yaml` ya no filtra:** solo actúa sobre
   auto-deploys, así que cada release redespliega la API, aunque solo cambie el
   frontend.
-- **`concurrency` cancela el run anterior** de la misma rama: si llegan dos
-  pushes a `main` seguidos, despliega el más reciente.
-- **No re-ejecutes un run viejo de `main`.** Render recibiría ese commit y
-  Vercel la punta de `main`, y quedarían desalineados. Para volver atrás, usa
-  el rollback de cada panel.
+- **En `main` los runs van en serie y no se cancelan:** cancelar un run no
+  detiene el despliegue que ya disparó. `concurrency` sigue cancelando en PR y
+  en `develop`. Si llegan varios pushes a `main`, GitHub deja en espera solo el
+  más reciente, y un run que arranca con `main` adelantada queda rojo sin
+  disparar hooks.
+- **Serie en GitHub no significa serie en Render.** El job termina con el
+  primer 200, y el despliegue anterior puede seguir en curso cuando llega el
+  hook siguiente. Lo resuelve la política de deploys superpuestos de Render.
+- **Un run viejo de `main` no despliega,** aunque se re-ejecute: queda rojo en
+  el paso de la punta. Para volver atrás, usa el rollback de cada panel.
 - **Después de un Instant Rollback en Vercel, usa _Undo Rollback_.** Mientras
   no se deshaga, Vercel no asigna los dominios de producción a los despliegues
   nuevos: el release siguiente no se publica y el job igual queda verde.

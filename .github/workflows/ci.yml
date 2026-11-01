@@ -16,9 +16,12 @@ on:
   pull_request:
     branches: [main, develop]
 
+# En main no se cancela: cancelar un run no detiene el deploy que ya disparo en
+# Render o Vercel. Sus runs van en serie; si se acumulan, GitHub deja solo el
+# mas reciente en espera.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 # Explicito para no depender del ajuste por defecto del repositorio (que hoy
 # tambien es solo lectura). Un job que necesite mas lo pide en su propio bloque.
@@ -141,6 +144,20 @@ jobs:
       INTERVALO_S: '15'
       TOPE_S: '900'
     steps:
+      # Como en main los runs ya no se cancelan, uno puede llegar aqui con un
+      # commit mas nuevo en main, aun sin CI. El hook de Vercel construye la
+      # punta de main: sin esta guarda publicaria ese commit. Tambien frena
+      # re-ejecutar un run viejo, que desalinearia Render y Vercel.
+      - name: Confirmar que el commit sigue siendo la punta de main
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          punta=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          if [ "$punta" != "$GITHUB_SHA" ]; then
+            echo "::error::main avanzo a $punta: no se despliega $GITHUB_SHA. Despliega el run de la punta."
+            exit 1
+          fi
+
       # Los secretos entran por env y no se imprime la respuesta: el log nunca
       # muestra una URL de hook. No usar `set -x` en estos pasos.
       - name: Disparar despliegue de la API en Render
