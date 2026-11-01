@@ -1,4 +1,4 @@
-import { can, type BoardColumnDto, type WorkItemDto } from '@mira/shared';
+import { can, type BoardColumnDto, type SprintDto, type WorkItemDto } from '@mira/shared';
 import { useRef, useState } from 'react';
 import {
   DndContext,
@@ -26,11 +26,17 @@ import {
   type CardDragData,
   type ColumnDropData,
 } from './boardDnd';
+import { rangoDeSprint } from '@/features/sprints/sprintDates';
 import { useBoard, useMoveWorkItem } from './useBoard';
 import { TarjetaArrastrada, WorkItemCard } from './WorkItemCard';
 
 export interface KanbanBoardProps {
   projectId: string;
+  /**
+   * MIR-47: sprint cuyos elementos se muestran; sin el (o null) se ven todos,
+   * como en la Entrega 1. El contenedor decide cual (el activo por defecto).
+   */
+  sprint?: Pick<SprintDto, 'id' | 'name' | 'startDate' | 'endDate'> | null;
 }
 
 interface BoardColumnProps {
@@ -139,7 +145,7 @@ const AUTO_SCROLL = { threshold: { x: 0.1, y: 0.2 }, acceleration: 3 };
  * salen de la respuesta del tablero, no de los items recibidos: asi una
  * columna vacia existe igual.
  */
-export function KanbanBoard({ projectId }: KanbanBoardProps) {
+export function KanbanBoard({ projectId, sprint = null }: KanbanBoardProps) {
   const board = useBoard(projectId);
   const move = useMoveWorkItem(projectId);
 
@@ -240,12 +246,20 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
 
   const { items, columns } = board.data;
   const enVuelo = enVueloId ? items.find((item) => item.id === enVueloId) : undefined;
+  // MIR-47: con un sprint elegido solo se ven sus elementos.
+  const visibles = sprint ? items.filter((item) => item.sprintId === sprint.id) : items;
 
   return (
     <section aria-labelledby="tablero-titulo" className="min-w-0">
       <h2 id="tablero-titulo" className="text-xl font-semibold text-slate-900">
         Tablero
       </h2>
+      {sprint ? (
+        <p className="mt-1 text-sm wrap-anywhere text-slate-700">
+          Sprint activo: <span className="font-medium text-slate-900">{sprint.name}</span> ·{' '}
+          {rangoDeSprint(sprint)}
+        </p>
+      ) : null}
       {/* Hasta xl cuatro columnas no caben y el tablero se desplaza; con mas
           de cuatro (MIR-49) tampoco caben en xl. */}
       <p
@@ -294,7 +308,7 @@ export function KanbanBoard({ projectId }: KanbanBoardProps) {
               key={column.id}
               column={column}
               columns={columns}
-              items={items.filter((item) => item.columnId === column.id)}
+              items={visibles.filter((item) => item.columnId === column.id)}
               onMove={
                 canMove ? (item, destino) => move.mutate({ item, column: destino }) : undefined
               }

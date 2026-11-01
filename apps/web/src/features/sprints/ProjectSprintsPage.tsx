@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { useProject } from '@/features/projects/useProjects';
 import { SprintLifecycleControls } from './SprintLifecycleControls';
 import { SprintForm } from './SprintForm';
+import { fechaCalendario } from './sprintDates';
 import { useSprints } from './useSprints';
 
 /** Titulo de cada grupo, en el orden de la pantalla. */
@@ -13,10 +14,6 @@ const SECCIONES: { status: SprintStatus; titulo: string }[] = [
   { status: 'PLANNED', titulo: 'Planificados' },
   { status: 'CLOSED', titulo: 'Cerrados' },
 ];
-
-/** Las fechas del sprint son dias de calendario: se leen en UTC para no correrse. */
-const calendarDate = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeZone: 'UTC' });
-const fechaCalendario = (date: string) => calendarDate.format(new Date(`${date}T00:00:00Z`));
 
 /** `null`: nada abierto; `'nuevo'`: creando; otro valor: id del sprint en edicion. */
 type Edicion = null | 'nuevo' | string;
