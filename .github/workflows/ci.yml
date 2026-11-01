@@ -146,8 +146,9 @@ jobs:
       - name: Disparar despliegue de la API en Render
         env:
           DEPLOY_HOOK_URL: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
-        # `ref` fija el commit que paso el CI. Va primero: si falla, el
-        # frontend no se adelanta a la API.
+        # `ref` fija el commit que paso el CI. Va primero para que un hook
+        # rechazado frene a Vercel; si Render lo acepta y su build falla, el
+        # frontend igual sale.
         run: |
           curl --fail --silent --show-error --max-time 30 --output /dev/null \
             --get --data-urlencode "ref=$GITHUB_SHA" "$DEPLOY_HOOK_URL"
@@ -166,7 +167,8 @@ jobs:
         # Los hooks responden antes de que el despliegue termine, de ahi los
         # reintentos. Un 200 NO prueba que salio la version nueva: la anterior
         # contesta 200 hasta que Render la reemplaza, y si el build falla sigue
-        # contestando. La espera inicial evita medir siempre a la version
+        # contestando. La espera inicial da tiempo al despliegue, pero no
+        # garantiza que haya terminado: el primer 200 puede venir de la version
         # anterior. Ver "Que verifica el job" en docs/ci-cd.md.
         run: |
           sleep "$ESPERA_INICIAL_S"

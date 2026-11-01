@@ -38,9 +38,9 @@ cambiar la API o agregar una `RENDER_API_KEY` no se puede distinguir, asi que:
   de este item.
 
 **Reintentos.** Espera inicial de 3 min, porque sin ella el primer intento le
-pega siempre a la version anterior y no comprueba nada. Luego un intento cada
-15 s con 20 s de tope cada uno, durante 15 min. Al agotarse, el job falla en
-rojo. El tope cubre un arranque en frio (30-60 s, puede dar 504 en el rewrite).
+pega siempre a la version anterior y no comprueba nada; con ella tampoco se
+garantiza que el despliegue haya terminado. Luego un intento cada 15 s con 20 s
+de tope cada uno, durante 15 min. Al agotarse, el job falla en rojo. El tope cubre un arranque en frio (30-60 s, puede dar 504 en el rewrite).
 Se consulta el dominio publico de Vercel: es el camino que usa la demo
 (rewrite, API y base).
 

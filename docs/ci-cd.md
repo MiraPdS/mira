@@ -149,7 +149,7 @@ _Skipped_.
 
 | Paso | Qué hace | Falla en rojo si |
 | --- | --- | --- |
-| `Disparar despliegue de la API en Render` | Llama a `RENDER_DEPLOY_HOOK_URL` con `ref=<commit>`: pide desplegar el commit que pasó el CI | El hook no responde 2xx. Vercel ya no se dispara: el frontend no se adelanta a la API |
+| `Disparar despliegue de la API en Render` | Llama a `RENDER_DEPLOY_HOOK_URL` con `ref=<commit>`: pide desplegar el commit que pasó el CI | El hook no responde 2xx. En ese caso Vercel no se dispara |
 | `Disparar despliegue del frontend en Vercel` | Llama a `VERCEL_DEPLOY_HOOK_URL`. El hook no acepta commit: construye la punta de `main` | El hook no responde 2xx |
 | `Comprobar que la API responde` | Espera 3 min y consulta `https://mira-pds.vercel.app/api/health` cada 15 s, con 20 s de tope por intento | No hay un 200 en 15 min |
 
@@ -167,7 +167,9 @@ Lee esto antes de confiar en un job verde:
 
 `/api/health` no informa el commit y el despliegue de Render es sin corte:
 la versión anterior contesta 200 hasta que la nueva la reemplaza, y si el build
-falla sigue contestando. Un despliegue fallido en Render o en Vercel se ve **en
+falla sigue contestando. La espera de 3 min da tiempo al despliegue, pero no
+garantiza que haya terminado: el job acaba con el primer 200, y ese 200 puede
+venir de la versión anterior. Un despliegue fallido en Render o en Vercel se ve **en
 su panel**, no en este job. La respuesta 2xx de un hook solo significa que el
 pedido fue aceptado.
 
@@ -184,6 +186,12 @@ a que coincida con el commit del job, y no está hecho.
 - **No re-ejecutes un run viejo de `main`.** Render recibiría ese commit y
   Vercel la punta de `main`, y quedarían desalineados. Para volver atrás, usa
   el rollback de cada panel.
+- **Después de un Instant Rollback en Vercel, usa _Undo Rollback_.** Mientras
+  no se deshaga, Vercel no asigna los dominios de producción a los despliegues
+  nuevos: el release siguiente no se publica y el job igual queda verde.
+- **El frontend puede adelantarse a la API.** Vercel se dispara apenas Render
+  acepta el hook, sin esperar a que termine. Si el build de Render falla, el
+  frontend nuevo queda contra la API anterior con el job verde.
 
 ---
 
@@ -211,9 +219,16 @@ Lo hace una persona, **en este orden**:
    3. Vercel → Deployments: debe aparecer un Preview de esa rama.
    4. Borra el hook y la rama.
 
-   Si no aparece el Preview, **no sigas**: el hook no sirve con esta clave. Saca
-   la clave de `apps/web/vercel.json` y replantea `MIR-54` (despliegue con la
-   CLI de Vercel y un token).
+   **No sigas** con el corte en ninguno de estos dos casos. Saca la clave de
+   `apps/web/vercel.json` y replantea `MIR-54` (despliegue con la CLI de Vercel y
+   un token):
+
+   - Si el push de la rama sí creó un despliegue, Vercel ignora la clave: `main`
+     publicaría el frontend por Git, sin esperar al CI y aunque quede rojo.
+   - Si el hook no creó el Preview, el hook no sirve con esta clave.
+
+   Esta prueba usa un Preview: no ejercita el hook de `main`, que se comprueba
+   recién en el paso 7.
 2. **Revisar `RENDER_DEPLOY_HOOK_URL` y `VERCEL_DEPLOY_HOOK_URL`** con
    `gh secret list --env deploy`, y que el hook de Vercel sea el de `main`.
 3. **Revisar el Blueprint** en Render → Blueprints → `mira`. Debe leer `main`. Si
