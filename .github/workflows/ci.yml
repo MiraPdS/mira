@@ -89,7 +89,13 @@ jobs:
         # El reporter JSON deja los resultados por archivo dentro de coverage/,
         # para que viajen en el mismo artefacto. De ahi los lee
         # `npm run wiki:evidencias` al congelar la evidencia de una entrega.
-        run: npm run test:coverage -- --reporter=default --reporter=json --outputFile.json=coverage/test-results.json
+        # El reporter JUnit (MIR-51) va aparte, a test-results/, porque tiene
+        # su propio artefacto.
+        run: >-
+          npm run test:coverage --
+          --reporter=default
+          --reporter=json --outputFile.json=coverage/test-results.json
+          --reporter=junit --outputFile.junit=test-results/junit.xml
 
       - name: Publicar reporte de cobertura
         # Se sube siempre, incluso si las pruebas fallaron: el reporte del
@@ -101,6 +107,16 @@ jobs:
           path: coverage/
           # El maximo en repos publicos. Aun asi expira: la evidencia de cada
           # entrega se congela en la Wiki (scripts/wiki-evidencias.mjs).
+          retention-days: 90
+
+      - name: Publicar reporte JUnit
+        # Igual que la cobertura: se sube siempre. Si las pruebas fallaron, aqui
+        # queda cual fallo y por que, para cada ejecucion.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-junit
+          path: test-results/junit.xml
           retention-days: 90
 
   build:
