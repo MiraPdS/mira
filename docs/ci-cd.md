@@ -294,6 +294,8 @@ Lo hace una persona, **en este orden**:
    - Vercel → Deployments: **un** despliegue de Production, marcado como Deploy
      Hook, y en estado Ready.
    - Un PR abierto sigue recibiendo su Preview.
+   - `#mira-ci` recibió 🚀 Despliegue terminado, con la rama `main`, el commit
+     del release, el autor y el enlace a la ejecución.
 
 **Si el primer release sale mal:**
 
