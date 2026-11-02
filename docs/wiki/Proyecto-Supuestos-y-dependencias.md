@@ -55,7 +55,7 @@ Los IDs no se reutilizan: si un supuesto deja de valer, se marca como
 | D-EXT-05 | **GitHub** (repositorio, Actions, Wiki) | Código, CI obligatorio para `main`, Wiki | Caída o límite de minutos de Actions. Mitigación: repositorio público (minutos ilimitados); todo se puede correr en local. |
 | D-EXT-06 | **Jira** (Atlassian Cloud) | Backlog, tablero Kanban y trazabilidad de items | Pérdida del tablero. Mitigación: `docs/backlog.md` y `jira-import.csv` permiten reimportarlo. |
 | D-EXT-07 | **npm** y librerías clave: Prisma, Express, React, TanStack Query, dnd-kit, Zod, Vitest, React Testing Library, MSW, Supertest | Todo el código de la aplicación y sus pruebas | Cambio incompatible en una versión mayor. Mitigación: `package-lock.json` versionado y `npm ci` en CI y en los despliegues. |
-| D-EXT-08 | **Docker** (`postgres:16`) | PostgreSQL local de desarrollo y pruebas, y servicio en CI | Sin Docker no hay pruebas de integración. En la Entrega 2 el agente de Jenkins también lo necesita ([D4](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d4--pirámide-de-pruebas-de-dos-niveles-en-el-backend)). |
+| D-EXT-08 | **Docker** (`postgres:16`) | PostgreSQL local de desarrollo y pruebas, y servicio en CI | Sin Docker no hay pruebas de integración ([D4](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d4--pirámide-de-pruebas-de-dos-niveles-en-el-backend)). |
 
 ## Limitaciones tecnológicas conocidas
 

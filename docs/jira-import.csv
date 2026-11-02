@@ -270,59 +270,60 @@ Criterios de aceptacion:
 - Como OWNER puedo agregar, renombrar, reordenar y eliminar columnas.
 - Al eliminar una columna con elementos se me pide la columna de destino.
 - MEMBER y VIEWER ven las columnas pero no pueden modificarlas."
-MIR-33 Jenkins en la nube,Task,Highest,5,,Integracion y despliegue continuo,"ci,jenkins,infra,entrega-2","Como equipo queremos un servidor Jenkins propio como CI/CD oficial.
+MIR-33 CI/CD oficial en GitHub Actions,Task,Highest,3,,Integracion y despliegue continuo,"ci,infra,entrega-2","Como equipo queremos dejar registrado y configurado GitHub Actions como CI/CD oficial.
 
 Criterios de aceptacion:
-- Jenkins instalado en una VM en la nube, con HTTPS y acceso autenticado.
-- Node 20 y Docker disponibles en el agente para el Postgres efimero de las pruebas de integracion.
-- Credenciales (GitHub, Slack, deploy hooks) en el almacen de credenciales de Jenkins, nunca en el repositorio.
-- Instalacion documentada en docs/jenkins.md."
-MIR-51 Pipeline en Jenkinsfile,Task,Highest,5,,Integracion y despliegue continuo,"ci,jenkins,entrega-2","Como equipo queremos que build y pruebas corran siempre igual, sin pasos manuales.
+- Queda registrada la decision D14, citando la autorizacion del profesor.
+- Existe el environment deploy, restringido a main, con RENDER_DEPLOY_HOOK_URL y VERCEL_DEPLOY_HOOK_URL. NOTIFY_WEBHOOK_URL existe como secreto de repositorio.
+- Los workflows declaran permissions minimos y la proteccion de main aplica tambien a los administradores.
+- docs/ci-cd.md documenta disparadores, jobs, secretos y como recrear la configuracion."
+MIR-51 Reportes JUnit del pipeline como artefacto,Task,Highest,1,,Integracion y despliegue continuo,"ci,entrega-2","Como equipo queremos un reporte JUnit de cada ejecucion. Las etapas y la cobertura ya existen en ci.yml.
 
 Criterios de aceptacion:
-- Jenkinsfile declarativo versionado en la raiz.
-- Etapas: npm ci, lint, tipos, pruebas unitarias, de integracion y de componentes, y build.
-- Falla rapido: si una etapa falla, las siguientes no corren.
-- Publica reportes JUnit y de cobertura como artefactos del build."
-MIR-52 Webhook de GitHub y estado en el commit,Task,Highest,3,,Integracion y despliegue continuo,"ci,jenkins,github,entrega-2","Como equipo queremos que cada push y PR dispare Jenkins y que el resultado quede en GitHub.
+- El paso Pruebas con cobertura genera ademas un reporte JUnit, sin dejar de generar coverage/test-results.json.
+- El reporte se publica como artefacto, tambien cuando las pruebas fallan.
+- Los jobs de ci.yml no se renombran."
+MIR-52 Webhook de GitHub y estado en el commit,Task,Highest,0,,Integracion y despliegue continuo,"ci,github,entrega-2","Propuesto cerrar: cubierto por ci.yml y MIR-25, sin trabajo pendiente.
 
 Criterios de aceptacion:
-- Un webhook de GitHub dispara el pipeline en cada push y PR hacia develop y main.
+- ci.yml corre en cada push y PR hacia develop y main.
 - El resultado queda en el commit y el PR como check verde o rojo.
-- El check de Jenkins es obligatorio en la proteccion de main."
-MIR-53 Notificaciones a Slack,Task,High,2,,Integracion y despliegue continuo,"ci,jenkins,slack,entrega-2","Como equipo queremos enterarnos de inmediato cuando el pipeline falla o pasa.
+- Lint, tipos y pruebas y Build son checks obligatorios de main."
+MIR-53 Notificaciones a Discord,Task,High,2,,Integracion y despliegue continuo,"ci,discord,entrega-2","Como equipo queremos enterarnos de inmediato cuando el pipeline falla o se recupera.
 
 Criterios de aceptacion:
-- Jenkins avisa en el canal del equipo cuando un build falla, cuando vuelve a pasar y cuando termina un despliegue.
-- El mensaje incluye rama, commit, autor y enlace al build."
-MIR-54 Despliegue desde Jenkins,Task,Medium,3,,Integracion y despliegue continuo,"ci,jenkins,deploy,entrega-2","Como equipo queremos que un build verde en main despliegue la aplicacion.
+- El pipeline avisa en #mira-ci, por NOTIFY_WEBHOOK_URL, cuando una ejecucion falla, cuando vuelve a pasar y cuando termina un despliegue.
+- El mensaje incluye rama, commit, autor y enlace a la ejecucion.
+- El aviso de despliegue se engancha al job de MIR-54: el que se fusione segundo lo deja funcionando."
+MIR-54 Despliegue desde GitHub Actions,Task,Medium,3,,Integracion y despliegue continuo,"ci,deploy,entrega-2","Como equipo queremos que una ejecucion verde en main despliegue la aplicacion.
 
 Criterios de aceptacion:
-- Un build verde en main despliega la API en Render y el frontend en Vercel con sus deploy hooks y verifica /api/health.
-- Un build rojo no despliega.
-- Quedan documentadas las dependencias entre Jenkins y la aplicacion."
+- Un job con environment deploy despliega la API en Render y el frontend en Vercel con sus deploy hooks, despues de los checks, y verifica /api/health con reintentos.
+- Una ejecucion roja no despliega, y tampoco un PR ni un push a develop.
+- El auto-deploy de Render y Vercel queda apagado: un release produce un solo despliegue en cada servicio.
+- docs/ci-cd.md describe el job y deja de listarlo como pendiente."
 MIR-55 Umbral de cobertura que rompe el build,Task,High,2,,Integracion y despliegue continuo,"ci,pruebas,entrega-2","Compromiso pendiente de la Entrega 1.
 
 Criterios de aceptacion:
 - Umbral fijado en vitest.config.ts a partir de la linea base real.
-- Si la cobertura baja del umbral, el pipeline queda rojo en Jenkins y en GitHub Actions.
+- Si la cobertura baja del umbral, el pipeline queda rojo.
 - El umbral y su justificacion quedan en la estrategia de pruebas."
 MIR-56 Wiki de la Entrega 2,Task,High,3,,"Calidad, infraestructura y entrega","docs,entrega-2","Como equipo queremos documentar la Entrega 2 segun el Anexo A del enunciado.
 
 Criterios de aceptacion:
 - Pagina Entrega 2 con objetivo, que se implemento, arquitectura e infraestructura, pipeline, integraciones, como ejecutar, mejoras, pruebas y relacion con CI, y problemas con sus soluciones.
-- Diagrama de infraestructura: app, Jenkins, GitHub, Slack, Render y Vercel.
-- Evidencias del pipeline: capturas, logs e historial de builds.
+- Diagrama de infraestructura: app, GitHub, GitHub Actions, Discord, Render y Vercel.
+- Evidencias del pipeline: capturas, logs e historial de ejecuciones.
 - Trazabilidad actualizada con los requerimientos nuevos."
 MIR-57 Release v2.0-entrega2,Task,Highest,2,,"Calidad, infraestructura y entrega","release,entrega-2","Como equipo queremos cerrar la Entrega 2 desde un commit estable de main.
 
 Criterios de aceptacion:
-- PR de release de develop a main con los checks de Jenkins y GitHub Actions en verde.
+- PR de release de develop a main con los checks Lint, tipos y pruebas y Build en verde.
 - Tag v2.0-entrega2 sobre el merge commit, desplegado por el pipeline.
 - GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas y limitaciones conocidas.
 - Evidencia congelada con npm run wiki:evidencias -- entrega-2."
 MIR-58 Capsula de video de la Entrega 2,Task,High,3,,"Calidad, infraestructura y entrega","docs,entrega-2","Como equipo queremos explicar en video el trabajo de la Entrega 2.
 
 Criterios de aceptacion:
-- Cubre alcance de la herramienta, trabajo realizado y dependencias entre Jenkins y la aplicacion, uso de Jenkins y problemas con sus soluciones.
+- Cubre alcance de la herramienta, trabajo realizado y dependencias entre GitHub Actions y la aplicacion, uso de GitHub Actions y problemas con sus soluciones.
 - El enlace queda publicado en el README y en la Wiki."

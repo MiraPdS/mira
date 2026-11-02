@@ -99,17 +99,10 @@ porcentaje sin verificar nada.
 Desde la Entrega 2 (MIR-55) el umbral es **bloqueante**. Está en
 [`vitest.config.ts`](../vitest.config.ts): si la cobertura baja de él,
 `npm run test:coverage` termina con error (código de salida 1) y el pipeline
-queda rojo.
-
-- **GitHub Actions:** ya corre ese comando en el paso "Pruebas con cobertura",
-  sin `continue-on-error`, así que un PR que baje la cobertura queda rojo. Está
-  verificado con un run real que falla por el umbral (ver la fila de MIR-55 en
-  la trazabilidad de la Wiki).
-- **Jenkins: pendiente.** Todavía no existe el pipeline (MIR-51). El umbral no
-  necesita configuración propia de Jenkins: basta con que el Jenkinsfile ejecute
-  `npm run test:coverage` y propague su código de salida. Hasta que MIR-51 se
-  integre y haya una ejecución real de Jenkins que falle por el umbral, esa
-  parte del criterio de MIR-55 queda abierta.
+queda rojo. GitHub Actions corre ese comando en el paso "Pruebas con cobertura",
+sin `continue-on-error`, así que un PR que baje la cobertura queda rojo. Está
+verificado con un run real que falla por el umbral (ver la fila de MIR-55 en la
+trazabilidad de la Wiki).
 
 **Línea base.** Se midió en el CI de `develop` al inicio de la entrega (commit
 `35308c1`, merge de MIR-43), con las cuatro suites, integración incluida:
@@ -131,7 +124,7 @@ queda rojo.
 **Por qué estos números.**
 
 - Cada umbral es la línea base redondeada hacia abajo, menos unos 2 puntos. El
-  margen absorbe el código nuevo de la entrega (columnas, sprints, Jenkins)
+  margen absorbe el código nuevo de la entrega (columnas y sprints)
   mientras se escriben sus pruebas, pero una caída real rompe el build.
 - Los **services** y los **hooks** llevan un umbral más alto porque concentran
   lo que más importa verificar: las reglas de negocio y los permisos de la API,
@@ -164,7 +157,7 @@ Entrega 3 con capturas de los E2E.
 | Entrega | Qué se suma |
 | --- | --- |
 | **1** | Los tres niveles descritos aquí; cobertura reportada; verificación en cada PR con GitHub Actions |
-| **2** | Jenkins como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55, sección 4); notificaciones a Slack |
+| **2** | GitHub Actions como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55, sección 4); notificaciones a Discord |
 | **3** | Al menos 10 pruebas E2E sobre navegador en modo headless, integradas al pipeline, con capturas y reportes como artefactos |
 
 ## 7. Preparado para la Entrega 3
