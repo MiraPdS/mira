@@ -15,7 +15,7 @@ se obtienen.
 
 | Workflow | Disparadores | Jobs | Qué bloquea |
 | --- | --- | --- | --- |
-| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube el artefacto `cobertura`. `Build`: compila web y API, solo si el anterior pasó | Los dos jobs son checks obligatorios de `main` |
+| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó | Los dos jobs son checks obligatorios de `main` |
 | [`wiki.yml`](../.github/workflows/wiki.yml) | PR a `develop` y `main`; push a `develop` que toque `docs/wiki/`; a mano (`workflow_dispatch`) | `Verificar Wiki`: reglas de forma, y en el PR de release a `main` que no queden pendientes. `Publicar Wiki` (o `Vista previa de la Wiki` en un PR): copia `docs/wiki/` a la Wiki de GitHub | No es obligatorio en `main`; un rojo se ve en el PR |
 
 Ambos declaran `permissions: contents: read` a nivel de workflow. Un job que
