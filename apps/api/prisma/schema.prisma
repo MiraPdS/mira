@@ -158,6 +158,10 @@ model Sprint {
   endDate   DateTime     @db.Date
   status    SprintStatus @default(PLANNED)
 
+  /// Snapshot final; null antes del cierre o para cierres historicos sin evidencia.
+  committedPoints Int?
+  completedPoints Int?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

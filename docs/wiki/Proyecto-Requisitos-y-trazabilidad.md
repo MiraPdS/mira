@@ -63,6 +63,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-31 | Migrar los estados a columnas por proyecto | ➡️ después del tag | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
 | MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ➡️ después del tag | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
 | MIR-49 | Tablero y backlog con las columnas del proyecto | ➡️ después del tag | [#41] | U [work-item.service], [domain (shared)] · I [board-columns.migration], [work-item.integration], [summary.integration] · C [KanbanBoard], [KanbanBoard.dnd], [ProjectBoardPage], [ProjectBacklogPage], [WorkItemBacklog], [ProjectSummaryPage], [describeActivity] |
+| MIR-50 | Pantalla de configuración de columnas | ➡️ después del tag | [#46] | C [BoardColumnsSettings] (OWNER agrega, renombra, reordena y elimina; eliminar con elementos pide la columna de destino; MEMBER y VIEWER ven sin modificar), [ProjectSettingsPage] |
 
 ## Épica 5 — Colaboración y trazabilidad
 
@@ -90,6 +91,9 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | --- | --- | --- | --- | --- |
 | MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
 | MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
+| MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
+| MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
+| MIR-47 | Tablero del sprint activo | ➡️ después del tag | [#50] | C [ProjectBoardPage.sprint] (con sprint activo solo sus elementos y su nombre y fechas; «Todos los elementos» quita el filtro; sin sprint activo, el tablero de la Entrega 1), [ProjectBoardPage] |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -129,6 +133,10 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#42]: https://github.com/MiraPdS/mira/pull/42
 [#43]: https://github.com/MiraPdS/mira/pull/43
 [#44]: https://github.com/MiraPdS/mira/pull/44
+[#46]: https://github.com/MiraPdS/mira/pull/46
+[#47]: https://github.com/MiraPdS/mira/pull/47
+[#48]: https://github.com/MiraPdS/mira/pull/48
+[#50]: https://github.com/MiraPdS/mira/pull/50
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
@@ -140,6 +148,10 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [sprint.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.service.test.ts
 [sprint (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/sprint.test.ts
 [sprint.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.integration.test.ts
+[work-item.sprint.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.sprint.service.test.ts
+[work-item.sprint.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.sprint.integration.test.ts
+[activity]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/lib/activity.test.ts
+[work-item-sprint (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/work-item-sprint.test.ts
 [domain (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/domain.test.ts
 [work-item (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/work-item.test.ts
 [board-columns.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/board-columns.integration.test.ts
@@ -168,6 +180,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [LogoutButton]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/auth/LogoutButton.test.tsx
 [guards]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/auth/guards.test.tsx
 [query-client]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/lib/query-client.test.ts
+[BoardColumnsSettings]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/BoardColumnsSettings.test.tsx
 [KanbanBoard]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/KanbanBoard.test.tsx
 [KanbanBoard.dnd]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/KanbanBoard.dnd.test.tsx
 [boardInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/board/boardInvalidation.test.tsx
@@ -182,6 +195,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [WorkItemBacklog]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemBacklog.test.tsx
 [WorkItemComments]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemComments.test.tsx
 [WorkItemDetail]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemDetail.test.tsx
+[WorkItemSprint]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/WorkItemSprint.test.tsx
 [summaryInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/summaryInvalidation.test.tsx
 [describeActivity]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/activity/describeActivity.test.ts
 [activity (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/activity.test.ts
@@ -190,7 +204,14 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [activityInvalidation]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/work-items/activityInvalidation.test.tsx
 [App]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/App.test.tsx
 [ProjectBoardPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBoardPage.test.tsx
+[ProjectBoardPage.sprint]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBoardPage.sprint.test.tsx
 [ProjectBacklogPage]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/projects/ProjectBacklogPage.test.tsx
 [work-item.assign.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/work-items/work-item.assign.integration.test.ts
+[sprint.lifecycle.service]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.service.test.ts
+[sprint-lifecycle (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/sprint-lifecycle.test.ts
+[prisma-conflicts]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/lib/prisma-conflicts.test.ts
+[sprint.lifecycle.integration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.integration.test.ts
+[sprint.lifecycle.migration]: https://github.com/MiraPdS/mira/blob/develop/apps/api/src/modules/sprints/sprint.lifecycle.migration.integration.test.ts
+[SprintLifecycle]: https://github.com/MiraPdS/mira/blob/develop/apps/web/src/features/sprints/SprintLifecycle.test.tsx
 
 <!-- Generado desde docs/wiki/ en MiraPdS/mira. No editar aquí: se sobrescribe en el próximo sync. -->

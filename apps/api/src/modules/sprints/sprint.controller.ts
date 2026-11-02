@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type {
+  CloseSprintInput,
   CreateSprintInput,
   SprintDto,
   SprintListItemDto,
@@ -14,6 +15,33 @@ type SprintListResponse = { data: SprintListItemDto[] };
 /** Adaptador HTTP: autenticacion en router; autorizacion y negocio en service. */
 export function createSprintController(service: SprintService) {
   return {
+    async start(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+        const sprint = await service.start(
+          req.params.projectId!,
+          req.user.id,
+          req.params.sprintId!,
+        );
+        res.status(200).json({ sprint } satisfies SprintResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
+    async close(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+        const sprint = await service.close(
+          req.params.projectId!,
+          req.user.id,
+          req.params.sprintId!,
+          req.body as CloseSprintInput,
+        );
+        res.status(200).json({ sprint } satisfies SprintResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
     async create(req: Request, res: Response, next: NextFunction) {
       try {
         if (!req.user) throw new UnauthorizedError();

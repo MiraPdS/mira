@@ -74,13 +74,23 @@ describe('describeActivity en el historial de un elemento (MIR-22)', () => {
       'quitó el responsable',
     ],
     ['comentario', entrada('COMMENT_ADDED', 'reference', null, 'MIR-12'), 'agregó un comentario'],
-    [
-      'campo desconocido',
-      entrada('ITEM_UPDATED', 'sprintId', 'sprint_1', 'sprint_2'),
-      'actualizó el ítem',
-    ],
+    ['campo desconocido', entrada('ITEM_UPDATED', 'unknown', 'a', 'b'), 'actualizó el ítem'],
   ])('%s', (_, actividad, esperado) => {
     expect(describeActivity(actividad, 'item')).toBe(esperado);
+  });
+});
+
+describe('MIR-45 nombres de sprints', () => {
+  it.each(['item', 'project'] as const)('describe asignar, cambiar y quitar en %s', (context) => {
+    expect(
+      describeActivity(entrada('ITEM_UPDATED', 'sprintId', null, 'Primero'), context),
+    ).toContain('al sprint «Primero»');
+    expect(
+      describeActivity(entrada('ITEM_UPDATED', 'sprintId', 'Primero', 'Segundo'), context),
+    ).toContain('de «Primero» a «Segundo»');
+    expect(
+      describeActivity(entrada('ITEM_UPDATED', 'sprintId', 'Sprint eliminado', null), context),
+    ).toContain('quitó el sprint');
   });
 });
 

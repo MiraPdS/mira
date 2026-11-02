@@ -20,7 +20,7 @@ type CommentsResponse = { comments: CommentDto[] };
  */
 export type WorkItemListFilters = Pick<
   WorkItemFilters,
-  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId'
+  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId' | 'sprintId'
 >;
 
 /** Normaliza valores vacios para no enviarlos ni distinguirlos en la cache. */
@@ -35,6 +35,7 @@ export function normalizeWorkItemListFilters(
     ...(filters.columnId ? { columnId: filters.columnId } : {}),
     ...(filters.priority ? { priority: filters.priority } : {}),
     ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+    ...(filters.sprintId?.trim() ? { sprintId: filters.sprintId.trim() } : {}),
   };
 }
 
@@ -106,6 +107,19 @@ export async function assignWorkItem(
   const { item } = await api.patch<WorkItemResponse>(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/assignee`,
     { assigneeId },
+  );
+  return item;
+}
+
+/** Asigna o quita el sprint mediante el endpoint dedicado de MIR-45. */
+export async function assignWorkItemSprint(
+  projectId: string,
+  workItemId: string,
+  sprintId: string | null,
+): Promise<WorkItemDto> {
+  const { item } = await api.patch<WorkItemResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/sprint`,
+    { sprintId },
   );
   return item;
 }

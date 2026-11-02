@@ -1,5 +1,6 @@
 import {
   can,
+  type AssignWorkItemSprintInput,
   type AssignWorkItemInput,
   type BoardColumnDto,
   type BoardResponse,
@@ -13,7 +14,7 @@ import {
   type WorkItemFilters,
 } from '@mira/shared';
 import { toActivityDto } from '../../lib/activity.js';
-import { BadRequestError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
+import { BadRequestError, ConflictError, ForbiddenError, NotFoundError } from '../../lib/errors.js';
 import type {
   BoardColumnRecord,
   WorkItemForDto,
@@ -153,6 +154,53 @@ async function resolveTargetColumn(
  */
 export function createWorkItemService(repo: WorkItemRepository) {
   return {
+    async assignSprint(
+      projectId: string,
+      actorId: string,
+      workItemId: string,
+      input: AssignWorkItemSprintInput,
+    ): Promise<WorkItemDto> {
+      return repo.withTransaction(async (tx) => {
+        const role = await tx.findMemberRole(projectId, actorId);
+        if (role === null) throw new NotFoundError('Elemento de trabajo');
+        if (!can(role, 'work-item:update')) throw new ForbiddenError();
+
+        const item = await tx.findByIdInProject(projectId, workItemId);
+        if (!item) {
+          const actualProjectId = await tx.findWorkItemProjectId(workItemId);
+          if (actualProjectId !== null && actualProjectId !== projectId) {
+            throw new BadRequestError(
+              'El elemento pertenece a otro proyecto',
+              'WORK_ITEM_PROJECT_MISMATCH',
+            );
+          }
+          throw new NotFoundError('Elemento de trabajo');
+        }
+
+        if (input.sprintId !== null) {
+          const sprint = await tx.findSprintForAssignment(input.sprintId);
+          if (!sprint) throw new NotFoundError('Sprint', 'SPRINT_NOT_FOUND');
+          if (sprint.projectId !== projectId) {
+            throw new BadRequestError(
+              'El sprint pertenece a otro proyecto',
+              'SPRINT_PROJECT_MISMATCH',
+            );
+          }
+          // Antes del caso sin cambios: reenviar el mismo CLOSED sigue siendo 409.
+          if (sprint.status === 'CLOSED')
+            throw new ConflictError('El sprint esta cerrado', 'SPRINT_CLOSED');
+        }
+        if (item.sprintId === input.sprintId) return toWorkItemDto(item);
+        const updated = await tx.assignSprintAtomically({
+          projectId,
+          workItemId,
+          actorId,
+          fromSprintId: item.sprintId,
+          toSprintId: input.sprintId,
+        });
+        return toWorkItemDto(updated);
+      });
+    },
     async create(
       projectId: string,
       actorId: string,

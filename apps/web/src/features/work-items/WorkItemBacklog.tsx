@@ -7,6 +7,7 @@ import {
   TYPE_LABELS,
   WORK_ITEM_PRIORITIES,
   WORK_ITEM_TYPES,
+  NO_SPRINT_FILTER,
   type WorkItemPriority,
   type WorkItemType,
 } from '@mira/shared';
@@ -16,6 +17,7 @@ import { Select } from '@/components/ui/select';
 import { ApiRequestError } from '@/lib/api-client';
 import { useProjectMembers } from '@/features/projects/useProjects';
 import { useBoardColumns } from '@/features/board/useBoard';
+import { useSprints } from '@/features/sprints/useSprints';
 import { useWorkItems } from './useWorkItems';
 import { normalizeWorkItemListFilters, type WorkItemListFilters } from './work-items.api';
 
@@ -60,6 +62,7 @@ export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklog
   const backlog = useWorkItems(projectId, page, PAGE_SIZE, filters);
   const members = useProjectMembers(projectId);
   const columns = useBoardColumns(projectId);
+  const sprints = useSprints(projectId);
   const totalPages = backlog.data ? Math.max(1, Math.ceil(backlog.data.total / PAGE_SIZE)) : 1;
 
   // Si mientras se navega se eliminan elementos, la pagina solicitada puede
@@ -217,6 +220,28 @@ export function WorkItemBacklog({ projectId, showTitle = true }: WorkItemBacklog
                 : 'No se pudo cargar la lista de miembros.'}
             </p>
           ) : null}
+        </div>
+
+        <div>
+          <label htmlFor="backlog-sprint" className="text-sm font-medium text-slate-700">
+            Sprint
+          </label>
+          <Select
+            id="backlog-sprint"
+            className="mt-1"
+            value={filters.sprintId ?? ''}
+            onChange={(event) => changeFilters({ sprintId: event.target.value || undefined })}
+          >
+            <option value="">Todos</option>
+            <option value={NO_SPRINT_FILTER}>Sin sprint</option>
+            {sprints.data?.map((sprint) => (
+              <option key={sprint.id} value={sprint.id}>
+                {sprint.name}
+              </option>
+            ))}
+          </Select>
+          {sprints.isPending ? <p role="status">Cargando sprints...</p> : null}
+          {sprints.isError ? <p role="alert">No se pudo cargar la lista de sprints.</p> : null}
         </div>
 
         <div className="flex items-end">

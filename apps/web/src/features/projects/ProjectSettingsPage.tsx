@@ -15,13 +15,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Field } from '@/components/ui/field';
+import { BoardColumnsSettings } from '@/features/board/BoardColumnsSettings';
 import { projectKeys, useDeleteProject, useProject, useUpdateProject } from './useProjects';
 
 const CAMPOS = ['name', 'description'] as const;
 
 /**
  * Configuracion del proyecto (MIR-7): cualquier miembro lo ve; solo quien
- * puede `project:update` (el OWNER) ve el boton "Editar".
+ * puede `project:update` (el OWNER) ve el boton "Editar". Incluye las columnas
+ * del tablero (MIR-50).
  */
 export function ProjectSettingsPage() {
   const { projectId = '' } = useParams<{ projectId: string }>();
@@ -142,6 +144,12 @@ function ProjectDetails({
         </Link>
         {can(project.myRole, 'project:update') ? <Button onClick={onEdit}>Editar</Button> : null}
       </div>
+
+      {/* MIR-50: todos ven las columnas; solo quien puede column:manage las cambia. */}
+      <BoardColumnsSettings
+        projectId={project.id}
+        canManage={can(project.myRole, 'column:manage')}
+      />
 
       {can(project.myRole, 'project:delete') ? <DeleteProjectSection project={project} /> : null}
     </section>

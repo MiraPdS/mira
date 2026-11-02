@@ -1,5 +1,6 @@
 import type { NextFunction, Request, Response } from 'express';
 import type {
+  AssignWorkItemSprintInput,
   AssignWorkItemInput,
   BoardResponse,
   ChangeStatusInput,
@@ -23,6 +24,20 @@ type WorkItemResponse = { item: WorkItemDto };
  */
 export function createWorkItemController(service: WorkItemService) {
   return {
+    async assignSprint(req: Request, res: Response, next: NextFunction) {
+      try {
+        if (!req.user) throw new UnauthorizedError();
+        const item = await service.assignSprint(
+          req.params.projectId!,
+          req.user.id,
+          req.params.workItemId!,
+          req.body as AssignWorkItemSprintInput,
+        );
+        res.status(200).json({ item } satisfies WorkItemResponse);
+      } catch (error) {
+        next(error);
+      }
+    },
     async create(req: Request, res: Response, next: NextFunction) {
       try {
         if (!req.user) throw new UnauthorizedError();

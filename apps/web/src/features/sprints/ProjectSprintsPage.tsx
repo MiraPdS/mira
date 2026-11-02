@@ -3,7 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 import { can, SPRINT_STATUS_LABELS, type SprintListItemDto, type SprintStatus } from '@mira/shared';
 import { Button } from '@/components/ui/button';
 import { useProject } from '@/features/projects/useProjects';
+import { SprintLifecycleControls } from './SprintLifecycleControls';
 import { SprintForm } from './SprintForm';
+import { fechaCalendario } from './sprintDates';
 import { useSprints } from './useSprints';
 
 /** Titulo de cada grupo, en el orden de la pantalla. */
@@ -12,10 +14,6 @@ const SECCIONES: { status: SprintStatus; titulo: string }[] = [
   { status: 'PLANNED', titulo: 'Planificados' },
   { status: 'CLOSED', titulo: 'Cerrados' },
 ];
-
-/** Las fechas del sprint son dias de calendario: se leen en UTC para no correrse. */
-const calendarDate = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeZone: 'UTC' });
-const fechaCalendario = (date: string) => calendarDate.format(new Date(`${date}T00:00:00Z`));
 
 /** `null`: nada abierto; `'nuevo'`: creando; otro valor: id del sprint en edicion. */
 type Edicion = null | 'nuevo' | string;
@@ -119,6 +117,7 @@ export function ProjectSprintsPage() {
                         ) : (
                           <SprintCard
                             sprint={sprint}
+                            sprints={sprints.data}
                             onEdit={puedeEditar ? () => setEdicion(sprint.id) : undefined}
                           />
                         )}
@@ -135,7 +134,15 @@ export function ProjectSprintsPage() {
   );
 }
 
-function SprintCard({ sprint, onEdit }: { sprint: SprintListItemDto; onEdit?: () => void }) {
+function SprintCard({
+  sprint,
+  sprints,
+  onEdit,
+}: {
+  sprint: SprintListItemDto;
+  sprints: SprintListItemDto[];
+  onEdit?: () => void;
+}) {
   return (
     <article
       aria-labelledby={`sprint-${sprint.id}`}
@@ -154,7 +161,22 @@ function SprintCard({ sprint, onEdit }: { sprint: SprintListItemDto; onEdit?: ()
           {sprint.items} {sprint.items === 1 ? 'elemento' : 'elementos'} · {sprint.points}{' '}
           {sprint.points === 1 ? 'punto' : 'puntos'}
         </p>
+        {sprint.status === 'CLOSED' ? (
+          <dl className="text-sm text-slate-700">
+            <div>
+              <dt>Puntos comprometidos</dt>
+              <dd>{sprint.committedPoints ?? 'No disponible'}</dd>
+            </div>
+            <div>
+              <dt>Puntos completados</dt>
+              <dd>{sprint.completedPoints ?? 'No disponible'}</dd>
+            </div>
+          </dl>
+        ) : null}
       </div>
+      {onEdit && sprint.status !== 'CLOSED' ? (
+        <SprintLifecycleControls sprint={sprint} sprints={sprints} />
+      ) : null}
       {onEdit ? (
         <Button variant="secondary" aria-label={`Editar ${sprint.name}`} onClick={onEdit}>
           Editar
