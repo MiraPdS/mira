@@ -292,8 +292,39 @@ cruzada (por ejemplo en [#43](https://github.com/MiraPdS/mira/pull/43),
 
 ## Evidencia
 
-La evidencia se entrega como enlaces revisables. Índice general en
-[Evidencias](Proyecto-Evidencias.md).
+Capturas del pipeline y enlaces a cada ejecución, con sus logs y artefactos.
+Índice general en [Evidencias](Proyecto-Evidencias.md).
+
+### Capturas
+
+**Pipeline completo en `develop`** al fusionar MIR-53
+([run 41511211159](https://github.com/MiraPdS/mira/actions/runs/41511211159)):
+calidad, build y aviso en verde; `Desplegar` _Skipped_ porque no es `main`.
+
+![Run de ci.yml en develop con los cuatro jobs](images/e2-pipeline-develop.png)
+
+**Resultado de las pruebas y cobertura** en el log del mismo run: 72 archivos,
+1215 pruebas, 97,24 % de statements.
+
+![Log de Pruebas con cobertura: 1215 passed y tabla de cobertura](images/e2-pruebas-cobertura.png)
+
+**El umbral rompe el build** (MIR-55): con el umbral global de statements
+subido a 99 % a propósito, el job queda rojo y `Build` no corre
+([run 40994045311](https://github.com/MiraPdS/mira/actions/runs/40994045311)).
+
+![Log rojo: Coverage for statements (97.06%) does not meet global threshold (99%)](images/e2-umbral-rojo.png)
+
+**Avisos en `#mira-ci`** (MIR-53): el fallo forzado y su recuperación, con
+rama, commit, autor y enlace a la ejecución.
+
+![Mensajes de Discord: Pipeline en rojo y El pipeline volvió a pasar](images/e2-discord-mira-ci.png)
+
+**Historial de ejecuciones** de `ci.yml`, con PRs, pushes a `develop`, verdes,
+rojos y cancelados.
+
+![Lista de ejecuciones del workflow CI](images/e2-historial-ci.png)
+
+### Enlaces
 
 - **Historial del pipeline:**
   [ejecuciones de `ci.yml`](https://github.com/MiraPdS/mira/actions/workflows/ci.yml);
