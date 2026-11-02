@@ -57,8 +57,9 @@ la regla, y en la Entrega 1 ocurrió dos veces:
   directo a `main` el 2026-10-09; se integraron de vuelta a `develop` en
   [#35](https://github.com/MiraPdS/mira/pull/35).
 
-Pendiente para la Entrega 2: activar `enforce_admins` para que la regla
-aplique también a los administradores.
+En la Entrega 2 se activó `enforce_admins` (MIR-33): la regla aplica también
+a los administradores, y un `hotfix/*` también va por PR. Ver
+[`docs/ci-cd.md`](https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md#checks-obligatorios-de-main).
 
 ## Entrega 1
 
@@ -68,6 +69,16 @@ aplique también a los administradores.
 - **Release y tag:** [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1).
 - **Trazabilidad, PRs representativos, uso de IA y defectos:** en
   [Entrega 1](Entrega-1.md#evidencia).
+
+## Entrega 2
+
+- **Pipeline, avisos y umbral de cobertura:** enlaces a cada ejecución en
+  [Entrega 2](Entrega-2.md#evidencia).
+- **Pruebas y cobertura en `develop`:** 1215 pruebas en 72 archivos, todas
+  pasan; 97,24 % de líneas
+  ([run de CI 41511211159](https://github.com/MiraPdS/mira/actions/runs/41511211159), commit `4287759`).
+- **Release, tag y primer despliegue desde Actions:** se enlazan en
+  [Entrega 2](Entrega-2.md#evidencia) al etiquetar `v2.0-entrega2` (MIR-57).
 
 ## Ambiente desplegado
 

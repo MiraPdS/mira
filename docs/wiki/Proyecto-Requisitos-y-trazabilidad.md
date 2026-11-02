@@ -1,6 +1,6 @@
 # Proyecto - Requisitos y trazabilidad
 
-Cada requisito de la Entrega 1 es un item de Jira con el mismo ID que aparece en
+Cada requisito de las entregas es un item de Jira con el mismo ID que aparece en
 su rama, sus commits y su Pull Request. Esta tabla une las cuatro cosas: el
 item, sus criterios de aceptación, el PR que lo implementó y las pruebas que lo
 verifican.
@@ -19,6 +19,8 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 **Estado al cierre de la Entrega 1** (tag
 [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1)):
 ✅ incluido en el release · ➡️ queda fuera del tag (se entrega después).
+Los items de la Entrega 2 marcados ➡️ van en `v2.0-entrega2`: MIR-57 cambia su
+estado al etiquetar.
 
 ## Épica 1 — Autenticación y cuenta de usuario
 
@@ -84,6 +86,7 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-28 | Release `v1.0-entrega1` | ✅ v1.0-entrega1 | [#31], [#32] | [Evidencias de la Entrega 1](Evidencias-Entrega-1.md); [release](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1) |
 | MIR-29 | Cápsula de video | ➡️ después del tag | — | se graba sobre el release desplegado |
 | MIR-55 | Umbral de cobertura que rompe el build | ➡️ después del tag | [#43] | umbral en [`vitest.config.ts`] y [estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md#cobertura); Actions: [run verde](https://github.com/MiraPdS/mira/actions/runs/40987420686) y [run rojo por umbral](https://github.com/MiraPdS/mira/actions/runs/40994045311) (`467f5bd`, 947/947 tests en verde, statements 97,06 % < 99 %) |
+| MIR-56 | Wiki de la Entrega 2 | ➡️ después del tag | [#54] | `verificar` de [`wiki.yml`]; [Entrega 2](Entrega-2.md) con objetivo, arquitectura, pipeline, integraciones, pruebas, problemas y evidencias |
 
 ## Épica 7 — Sprints
 
@@ -94,6 +97,16 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 | MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
 | MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
 | MIR-47 | Tablero del sprint activo | ➡️ después del tag | [#50] | C [ProjectBoardPage.sprint] (con sprint activo solo sus elementos y su nombre y fechas; «Todos los elementos» quita el filtro; sin sprint activo, el tablero de la Entrega 1), [ProjectBoardPage] |
+
+## Integración y despliegue continuo (épica MIR-40)
+
+| Item | Tarea | Estado | PR | Verificación |
+| --- | --- | --- | --- | --- |
+| MIR-33 | CI/CD oficial en GitHub Actions | ➡️ después del tag | [#45], [#49] | environment `deploy` solo para `main`, `enforce_admins` y secretos según [`docs/ci-cd.md`]; comandos de verificación en la misma página |
+| MIR-51 | Reportes JUnit del pipeline como artefacto | ➡️ después del tag | [#51] | artefacto `reporte-junit` en cada ejecución de [`ci.yml`], también con pruebas fallidas |
+| MIR-52 | Webhook de GitHub y estado en el commit | ➡️ cerrado sin trabajo | — | Actions publica el estado de cada job en el commit y en el PR; ver [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) |
+| MIR-53 | Notificaciones a Discord | ➡️ después del tag | [#53] | Actions: [fallo con aviso](https://github.com/MiraPdS/mira/actions/runs/41380199238) y [recuperación con aviso](https://github.com/MiraPdS/mira/actions/runs/41380480549); aviso de despliegue en el primer release (MIR-57) |
+| MIR-54 | Despliegue desde GitHub Actions | ➡️ después del tag | [#52] | job `Desplegar` de [`ci.yml`], _Skipped_ fuera de `main`; primer despliegue real en el release (MIR-57) |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -137,10 +150,17 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 [#47]: https://github.com/MiraPdS/mira/pull/47
 [#48]: https://github.com/MiraPdS/mira/pull/48
 [#50]: https://github.com/MiraPdS/mira/pull/50
+[#45]: https://github.com/MiraPdS/mira/pull/45
+[#49]: https://github.com/MiraPdS/mira/pull/49
+[#51]: https://github.com/MiraPdS/mira/pull/51
+[#52]: https://github.com/MiraPdS/mira/pull/52
+[#53]: https://github.com/MiraPdS/mira/pull/53
+[#54]: https://github.com/MiraPdS/mira/pull/54
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 
 [`ci.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/ci.yml
+[`docs/ci-cd.md`]: https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md
 [`vitest.config.ts`]: https://github.com/MiraPdS/mira/blob/develop/vitest.config.ts
 [`wiki.yml`]: https://github.com/MiraPdS/mira/blob/develop/.github/workflows/wiki.yml
 [auth (shared)]: https://github.com/MiraPdS/mira/blob/develop/packages/shared/src/schemas/auth.test.ts
