@@ -800,7 +800,7 @@ aunque la columna se llame distinto.
 > Los items de esta épica ya describen ese CI/CD. `MIR-51` y `MIR-52` bajaron de
 > estimación porque `.github/workflows/ci.yml` ya cubría casi todo lo que pedían.
 
-### MIR-33 · CI/CD oficial en GitHub Actions
+### MIR-33 · CI/CD oficial en GitHub Actions — ✅ implementado
 
 **Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 3
 
@@ -819,17 +819,17 @@ aunque la columna se llame distinto.
 
 ---
 
-### MIR-51 · Reportes JUnit del pipeline como artefacto
+### MIR-51 · Reportes JUnit del pipeline como artefacto — ✅ implementado
 
 **Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 1
 
-Las etapas ya existen en `ci.yml` (instalación, formato, lint, tipos,
+Las etapas ya existían en `ci.yml` (instalación, formato, lint, tipos,
 migraciones, pruebas contra un Postgres efímero y build), fallan rápido y la
-cobertura ya se publica en el artefacto `cobertura`. Falta solo:
+cobertura ya se publicaba en el artefacto `cobertura`. Fusionado en #51.
 
 - El paso `Pruebas con cobertura` genera además un reporte JUnit, sin dejar de
   generar `coverage/test-results.json`, que usa `npm run wiki:evidencias`.
-- El reporte se publica como artefacto de la ejecución, también cuando las
+- El reporte se publica en el artefacto `reporte-junit`, también cuando las
   pruebas fallan, para dejar trazabilidad de cada ejecución.
 - Los jobs de `ci.yml` no se renombran: son los checks obligatorios de `main`.
 
@@ -875,8 +875,8 @@ La evidencia de esas ejecuciones entra a la Wiki con `MIR-56`.
   el despliegue termine.
 - Una ejecución roja no despliega, y tampoco un PR ni un push a `develop`.
 - El auto-deploy de Render y de Vercel queda apagado (ver
-  [Pendiente en `MIR-54`](./ci-cd.md#pendiente-en-mir-54)): un release produce
-  un solo despliegue en cada servicio.
+  [`docs/ci-cd.md`](./ci-cd.md)): un release produce un solo despliegue en cada
+  servicio.
 - [`docs/ci-cd.md`](./ci-cd.md) describe el job y deja de listarlo como
   pendiente.
 

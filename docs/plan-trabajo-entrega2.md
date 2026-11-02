@@ -11,10 +11,10 @@ cada item (historia y criterios de aceptación) está en
 - **Columnas configurables** (épica 8, 23 pts): requerimiento funcional nuevo.
 - **CI/CD con GitHub Actions** (épica 9, 11 pts) más el cierre de la entrega (8 pts).
 
-**Estado:** 8 items fusionados en `develop` (40 pts), marcados con ✅ en este
-documento. Quedan **9 items · 25 pts** pendientes, más `MIR-52`, que se propone
-cerrar sin trabajo. `MIR-33` y `MIR-46` cuentan como pendientes mientras sus PR
-sigan abiertos.
+**Estado:** 12 items fusionados en `develop` (52 pts), marcados con ✅ en este
+documento. Quedan **5 items · 13 pts** pendientes, más `MIR-52`, que se propone
+cerrar sin trabajo. `MIR-54` cuenta como pendiente mientras su PR (#52) siga
+abierto.
 
 ---
 
@@ -27,8 +27,8 @@ completo**, para que trabaje casi siempre en sus propios archivos.
 
 | Item | Pts | Prioridad | Descripción |
 | --- | --- | --- | --- |
-| `MIR-33` | 3 | Highest | CI/CD oficial en GitHub Actions |
-| `MIR-51` | 1 | Highest | Reportes JUnit del pipeline como artefacto |
+| `MIR-33` | 3 | Highest | CI/CD oficial en GitHub Actions ✅ |
+| `MIR-51` | 1 | Highest | Reportes JUnit del pipeline como artefacto ✅ |
 | `MIR-52` | 0 | Highest | Webhook de GitHub y estado en el commit (propuesto cerrar) |
 | `MIR-53` | 2 | High | Notificaciones a Discord |
 | `MIR-54` | 3 | Medium | Despliegue desde GitHub Actions |
@@ -47,7 +47,7 @@ resto; un reparto más parejo queda por decidir en equipo.
 | --- | --- | --- | --- |
 | `MIR-43` | 5 | Highest | Modelo y API de Sprints ✅ |
 | `MIR-45` | 5 | High | Asignar elementos a un sprint ✅ |
-| `MIR-46` | 5 | High | Iniciar y cerrar un sprint |
+| `MIR-46` | 5 | High | Iniciar y cerrar un sprint ✅ |
 | `MIR-58` | 3 | High | Cápsula de video de la Entrega 2 |
 
 Los sprints cuelgan de los elementos de trabajo, que son su módulo.
@@ -67,7 +67,7 @@ Es dueño del tablero desde la Entrega 1. Su módulo está completo.
 | Item | Pts | Prioridad | Descripción |
 | --- | --- | --- | --- |
 | `MIR-44` | 5 | Highest | Pantalla de Sprints ✅ |
-| `MIR-47` | 3 | Medium | Tablero del sprint activo |
+| `MIR-47` | 3 | Medium | Tablero del sprint activo ✅ |
 | `MIR-50` | 5 | High | Pantalla de configuración de columnas ✅ |
 | `MIR-55` | 2 | High | Umbral de cobertura que rompe el build ✅ |
 | `MIR-56` | 3 | High | Wiki de la Entrega 2 |
@@ -91,8 +91,8 @@ flowchart LR
   classDef mauro  fill:#fef3c7,stroke:#d97706,color:#78350f
   classDef diego  fill:#f5d0fe,stroke:#c026d3,color:#701a75
 
-  J10["MIR-33 CI/CD en Actions · 3"]:::benja
-  J11["MIR-51 Reportes JUnit · 1"]:::benja
+  J10["✅ MIR-33 CI/CD en Actions · 3"]:::benja
+  J11["✅ MIR-51 Reportes JUnit · 1"]:::benja
   J12["MIR-52 Propuesto cerrar · 0"]:::benja
   J13["MIR-53 Discord · 2"]:::benja
   J14["MIR-54 Deploy desde Actions · 3"]:::benja
@@ -100,7 +100,7 @@ flowchart LR
 
   S01["✅ MIR-43 Modelo y API Sprints · 5"]:::isaias
   S03["✅ MIR-45 Asignar a sprint · 5"]:::isaias
-  S04["MIR-46 Iniciar y cerrar sprint · 5"]:::isaias
+  S04["✅ MIR-46 Iniciar y cerrar sprint · 5"]:::isaias
   V18["MIR-58 Video · 3"]:::isaias
 
   C06["✅ MIR-31 Migrar a columnas · 8"]:::mauro
@@ -108,7 +108,7 @@ flowchart LR
   C08["✅ MIR-49 Tablero con columnas · 5"]:::mauro
 
   S02["✅ MIR-44 Pantalla Sprints · 5"]:::diego
-  S05["MIR-47 Tablero del sprint · 3"]:::diego
+  S05["✅ MIR-47 Tablero del sprint · 3"]:::diego
   C09["✅ MIR-50 Configurar columnas · 5"]:::diego
   Q15["✅ MIR-55 Umbral cobertura · 2"]:::diego
   W16["MIR-56 Wiki Entrega 2 · 3"]:::diego
@@ -146,37 +146,35 @@ flowchart LR
 | Amarillo | Mauro |
 | Morado | Diego |
 
-`MIR-33`, `MIR-46` y `MIR-51` no tienen predecesores pendientes: **se pueden
-trabajar hoy**, los tres en paralelo.
+`MIR-53` y `MIR-54` no tienen predecesores pendientes: **se pueden trabajar
+hoy**, en paralelo.
 
 ---
 
 ## 3. La ruta crítica
 
-Contando solo los items pendientes, la ruta crítica es hoy la de CI/CD, con 14
-puntos. Le sigue por uno la de Sprints:
+Contando solo los items pendientes, la ruta crítica es la del despliegue, con 11
+puntos. Le sigue por uno la de las notificaciones:
 
 ```
-MIR-33 → MIR-54 → MIR-56 → MIR-57 → MIR-58
-  3       3       3       2       3              = 14 pts
+MIR-54 → MIR-56 → MIR-57 → MIR-58
+  3       3       2       3                      = 11 pts
 
-MIR-46 → MIR-47 → MIR-57 → MIR-58
-  5       3       2       3                      = 13 pts
+MIR-53 → MIR-56 → MIR-57 → MIR-58
+  2       3       2       3                      = 10 pts
 ```
 
-La cadena con `MIR-53` también suma 13, y la de `MIR-51` suma 9. Columnas ya no
-tiene trabajo por delante del release.
+Sprints y Columnas ya no tienen trabajo por delante del release.
 
-1. **Fusionar `MIR-33` cambia la ruta crítica.** La cadena de CI/CD baja a 11
-   puntos y `MIR-46` pasa a ser la más larga, con 13.
+1. **`MIR-54` es la cabeza de la ruta crítica.** Su PR (#52) sigue abierto y es
+   lo único que falta para que `MIR-57` quede "desplegado por el pipeline".
 
-2. **`MIR-46` es el único requerimiento funcional sin fusionar.** Lo que
-   esperaba de `MIR-45` y `MIR-31` ya está en `develop`, y de él depende
-   `MIR-47`.
+2. **`MIR-53` y `MIR-54` se tocan en el aviso de despliegue.** El que se fusione
+   segundo lo deja funcionando.
 
-3. **`MIR-47` (tablero del sprint, 3 pts) es el primer candidato a recortar.**
-   El requerimiento de Sprints ya se cumple con crear, asignar, iniciar y
-   cerrar; filtrar el tablero es comodidad.
+3. **`MIR-56` espera a los dos.** Sus secciones de pipeline, integraciones y
+   evidencias dependen de `MIR-53` y `MIR-54`, y quedan marcadas con ⏳ mientras
+   tanto.
 
 ---
 
@@ -184,26 +182,20 @@ tiene trabajo por delante del release.
 
 ### Ola 0 — fusionada
 
-`MIR-43` · `MIR-45` (Isaías) · `MIR-31` · `MIR-48` · `MIR-49` (Mauro) · `MIR-44` ·
-`MIR-50` · `MIR-55` (Diego)
+`MIR-33` · `MIR-51` (Benjamín) · `MIR-43` · `MIR-45` · `MIR-46` (Isaías) ·
+`MIR-31` · `MIR-48` · `MIR-49` (Mauro) · `MIR-44` · `MIR-47` · `MIR-50` ·
+`MIR-55` (Diego)
 
 ### Ola 1 — se puede trabajar ya
 
-| Quién | Item |
-| --- | --- |
-| Benjamín | Fusionar `MIR-33` ← **desbloquea `MIR-53` y `MIR-54`** · `MIR-51` reportes JUnit |
-| Isaías | Fusionar `MIR-46` iniciar y cerrar un sprint ← **desbloquea `MIR-47`** |
+`MIR-54` deploy, con su PR abierto, y `MIR-53` Discord (Benjamín)
 
-### Ola 2 — apenas se fusione `MIR-33`
+### Ola 2 — cierre de la documentación
 
-`MIR-53` Discord y `MIR-54` deploy (Benjamín)
+`MIR-56` Wiki (Diego, pero se alimenta con capturas y problemas encontrados
+durante toda la entrega)
 
-### Ola 3 — cierre de funcionalidad
-
-`MIR-47` tablero del sprint (Diego) · `MIR-56` Wiki (Diego, pero se alimenta
-con capturas y problemas encontrados durante toda la entrega)
-
-### Ola 4 — entrega
+### Ola 3 — entrega
 
 `MIR-57` release (Benjamín) · `MIR-58` video (Isaías)
 
