@@ -1,7 +1,7 @@
 # CI/CD
 
-Cómo se verifica, se protege y (desde `MIR-54`) se despliega Mira con GitHub
-Actions, y cómo recrear la configuración desde cero. La decisión de usar
+Cómo se verifica, se protege y se despliega Mira con GitHub Actions, y cómo
+recrear la configuración desde cero. La decisión de usar
 Actions en lugar de Jenkins y Discord en lugar de Slack está en
 [D14](./decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial). El
 ambiente de demostración en sí está en [despliegue.md](./despliegue.md).
@@ -15,7 +15,7 @@ se obtienen.
 
 | Workflow | Disparadores | Jobs | Qué bloquea |
 | --- | --- | --- | --- |
-| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó | Los dos jobs son checks obligatorios de `main` |
+| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `Desplegar`: solo en push a `main` con los dos anteriores en verde ([ver Despliegue](#despliegue)) | Los dos primeros son checks obligatorios de `main`; `Desplegar` no lo es, porque corre después de fusionar |
 | [`wiki.yml`](../.github/workflows/wiki.yml) | PR a `develop` y `main`; push a `develop` que toque `docs/wiki/`; a mano (`workflow_dispatch`) | `Verificar Wiki`: reglas de forma, y en el PR de release a `main` que no queden pendientes. `Publicar Wiki` (o `Vista previa de la Wiki` en un PR): copia `docs/wiki/` a la Wiki de GitHub | No es obligatorio en `main`; un rojo se ve en el PR |
 
 Ambos declaran `permissions: contents: read` a nivel de workflow. Un job que
@@ -47,8 +47,8 @@ La protección de `main` exige:
 
 | Secreto | Nivel | De dónde sale el valor | Lo usa |
 | --- | --- | --- | --- |
-| `RENDER_DEPLOY_HOOK_URL` | environment `deploy` | Render → servicio `mira-api` → Settings → Deploy Hook | `MIR-54` |
-| `VERCEL_DEPLOY_HOOK_URL` | environment `deploy` | Vercel → proyecto web → Settings → Git → Deploy Hooks (rama `main`) | `MIR-54` |
+| `RENDER_DEPLOY_HOOK_URL` | environment `deploy` | Render → servicio `mira-api` → Settings → Deploy Hook | Job `Desplegar` |
+| `VERCEL_DEPLOY_HOOK_URL` | environment `deploy` | Vercel → proyecto web → Settings → Git → Deploy Hooks (rama `main`) | Job `Desplegar` |
 | `NOTIFY_WEBHOOK_URL` | repositorio | Discord → canal `#mira-ci` → Integraciones → Webhooks → nuevo webhook | `MIR-53` |
 
 - **Los deploy hooks son secretos reales:** quien tenga la URL dispara un
@@ -140,10 +140,129 @@ reglas de revisores; `main` como única rama; los dos deploy hooks en `deploy`;
 
 ---
 
-## Pendiente en `MIR-54`
+## Despliegue
 
-Hoy Render y Vercel despliegan solos cada push a `main` (ver
-[despliegue.md](./despliegue.md)). Cuando `MIR-54` dispare los deploy hooks
-desde Actions, tiene que **apagar ese auto-deploy** en los dos servicios (Render:
-Auto-Deploy en _Off_; Vercel: ignorar los builds de `main` por Git), o cada
-release se desplegaría dos veces, y sin esperar a que el CI esté verde.
+El job `Desplegar` de [`ci.yml`](../.github/workflows/ci.yml) corre en cada push
+a `main`, con `environment: deploy` y solo si `Lint, tipos y pruebas` y `Build`
+pasaron. Una ejecución roja no despliega, y en un PR o en `develop` el job queda
+_Skipped_.
+
+| Paso | Qué hace | Falla en rojo si |
+| --- | --- | --- |
+| `Confirmar que el commit sigue siendo la punta de main` | Compara el commit del run con la punta de `main`. El hook de Vercel construye la punta: sin este paso publicaría un commit sin CI | `main` avanzó. No se dispara ningún hook: despliega el run del commit más nuevo |
+| `Disparar despliegue de la API en Render` | Llama a `RENDER_DEPLOY_HOOK_URL` con `ref=<commit>`: pide desplegar el commit que pasó el CI | El hook no responde 2xx. En ese caso Vercel no se dispara |
+| `Disparar despliegue del frontend en Vercel` | Llama a `VERCEL_DEPLOY_HOOK_URL`. El hook no acepta commit: construye la punta de `main` | El hook no responde 2xx |
+| `Comprobar que la API responde` | Espera 3 min y consulta `https://mira-pds.vercel.app/api/health` cada 15 s, con 20 s de tope por intento | No hay un 200 en 15 min |
+
+El log nunca muestra las URL: entran por `env`, no se imprime la respuesta de
+los hooks y los pasos no usan `set -x`.
+
+### Qué verifica el job
+
+Lee esto antes de confiar en un job verde:
+
+| Verde significa | Verde **no** significa |
+| --- | --- |
+| El CI pasó y los dos servicios aceptaron el despliegue | Que los despliegues hayan terminado bien |
+| La demo, el rewrite y la base contestan 200 después de la espera | Que esté corriendo la versión nueva |
+
+`/api/health` no informa el commit y el despliegue de Render es sin corte:
+la versión anterior contesta 200 hasta que la nueva la reemplaza, y si el build
+falla sigue contestando. La espera de 3 min da tiempo al despliegue, pero no
+garantiza que haya terminado: el job acaba con el primer 200, y ese 200 puede
+venir de la versión anterior. Un despliegue fallido en Render o en Vercel se ve **en
+su panel**, no en este job. La respuesta 2xx de un hook solo significa que el
+pedido fue aceptado.
+
+Cerrar ese hueco requiere exponer `RENDER_GIT_COMMIT` en `/api/health` y esperar
+a que coincida con el commit del job, y no está hecho.
+
+### Consecuencias
+
+- **El `buildFilter` de `render.yaml` ya no filtra:** solo actúa sobre
+  auto-deploys, así que cada release redespliega la API, aunque solo cambie el
+  frontend.
+- **En `main` los runs van en serie y no se cancelan:** cancelar un run no
+  detiene el despliegue que ya disparó. `concurrency` sigue cancelando en PR y
+  en `develop`. Si llegan varios pushes a `main`, GitHub deja en espera solo el
+  más reciente, y un run que arranca con `main` adelantada queda rojo sin
+  disparar hooks.
+- **Serie en GitHub no significa serie en Render.** El job termina con el
+  primer 200, y el despliegue anterior puede seguir en curso cuando llega el
+  hook siguiente. Lo resuelve la política de deploys superpuestos de Render.
+- **Un run viejo de `main` no despliega,** aunque se re-ejecute: queda rojo en
+  el paso de la punta. Para volver atrás, usa el rollback de cada panel.
+- **Después de un Instant Rollback en Vercel, usa _Undo Rollback_.** Mientras
+  no se deshaga, Vercel no asigna los dominios de producción a los despliegues
+  nuevos: el release siguiente no se publica y el job igual queda verde.
+- **El frontend puede adelantarse a la API.** Vercel se dispara apenas Render
+  acepta el hook, sin esperar a que termine. Si el build de Render falla, el
+  frontend nuevo queda contra la API anterior con el job verde.
+
+---
+
+## Corte al despliegue desde Actions
+
+Hasta el primer release con este job, Render y Vercel despliegan solos cada push
+a `main`. Si el auto-deploy se apaga antes de que el job llegue a `main`, `main`
+deja de desplegar. Si se apaga después, el primer release despliega dos veces.
+
+`apps/web/vercel.json` lleva `git.deploymentEnabled: { "main": false }`: viaja en
+el mismo commit que el job, así que en Vercel el corte ocurre solo. En Render
+hay que apagarlo a mano. `main` solo cambia con un release, por eso se apaga
+justo antes de fusionarlo.
+
+Lo hace una persona, **en este orden**:
+
+1. **Probar que el hook de Vercel sobrevive a `deploymentEnabled`.** Se hace
+   antes del release, una sola vez. La documentación de Vercel no lo confirma, y
+   si la clave lo bloqueara el hook respondería 2xx sin desplegar.
+   1. Crea una rama desechable `chore/prueba-hook-vercel` desde `develop`, con
+      `"chore/prueba-hook-vercel": false` en `git.deploymentEnabled`, y empújala.
+      Vercel **no** debe crear un despliegue por ese push.
+   2. Vercel → proyecto web → Settings → Git → Deploy Hooks: crea un hook para
+      esa rama y llámalo una vez con `POST`.
+   3. Vercel → Deployments: debe aparecer un Preview de esa rama.
+   4. Borra el hook y la rama.
+
+   **No sigas** con el corte en ninguno de estos dos casos. Saca la clave de
+   `apps/web/vercel.json` y replantea `MIR-54` (despliegue con la CLI de Vercel y
+   un token):
+
+   - Si el push de la rama sí creó un despliegue, Vercel ignora la clave: `main`
+     publicaría el frontend por Git, sin esperar al CI y aunque quede rojo.
+   - Si el hook no creó el Preview, el hook no sirve con esta clave.
+
+   Esta prueba usa un Preview: no ejercita el hook de `main`, que se comprueba
+   recién en el paso 7.
+2. **Revisar `RENDER_DEPLOY_HOOK_URL` y `VERCEL_DEPLOY_HOOK_URL`** con
+   `gh secret list --env deploy`, y que el hook de Vercel sea el de `main`.
+3. **Revisar el Blueprint** en Render → Blueprints → `mira`. Debe leer `main`. Si
+   sigue en `feature/MIR-27-despliegue-demo`, no lo sincronices: esa rama trae
+   `autoDeployTrigger: commit` y volvería a encender el auto-deploy.
+4. **Dejar listo el PR de release** `develop` → `main`: aprobado y con checks
+   verdes, a un clic de fusionarse.
+5. **Render:** servicio `mira-api` → Settings → Build & Deploy → Auto-Deploy →
+   _Off_. Si el release se aborta, vuelve a _On Commit_.
+6. **Fusionar el release.** Vercel no despliega por Git, Render tampoco, y el job
+   `Desplegar` dispara los dos hooks.
+7. **Verificar el primer release:**
+
+   ```bash
+   gh run list --workflow ci.yml --branch main --limit 1
+   gh api "repos/MiraPdS/mira/deployments?environment=Production&per_page=3" --jq '.[]|[.sha[0:7],.created_at]|@tsv'
+   ```
+
+   - El job `Desplegar` está verde.
+   - Render → Events: **un** deploy, con el commit del release.
+   - Vercel → Deployments: **un** despliegue de Production, marcado como Deploy
+     Hook, y en estado Ready.
+   - Un PR abierto sigue recibiendo su Preview.
+
+**Si el primer release sale mal:**
+
+- Si el job queda rojo por un hook, dispara el despliegue a mano (Render:
+  Manual Deploy; Vercel: Redeploy) y corrige el secreto.
+- Si el job queda verde pero Vercel no creó el despliegue, usa Redeploy en su
+  panel y abre un hotfix que saque `git.deploymentEnabled`: `main` vuelve a
+  desplegar por Git.
