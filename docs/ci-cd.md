@@ -15,7 +15,7 @@ se obtienen.
 
 | Workflow | Disparadores | Jobs | Qué bloquea |
 | --- | --- | --- | --- |
-| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `Desplegar`: solo en push a `main` con los dos anteriores en verde ([ver Despliegue](#despliegue)) | Los dos primeros son checks obligatorios de `main`; `Desplegar` no lo es, porque corre después de fusionar |
+| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `Desplegar`: solo en push a `main` con los dos anteriores en verde ([ver Despliegue](#despliegue)). `Avisar en Discord`: corre siempre, al final ([ver Notificaciones](#notificaciones)) | Los dos primeros son checks obligatorios de `main`; `Desplegar` no lo es, porque corre después de fusionar, y `Avisar en Discord` tampoco: no bloquea nada |
 | [`wiki.yml`](../.github/workflows/wiki.yml) | PR a `develop` y `main`; push a `develop` que toque `docs/wiki/`; a mano (`workflow_dispatch`) | `Verificar Wiki`: reglas de forma, y en el PR de release a `main` que no queden pendientes. `Publicar Wiki` (o `Vista previa de la Wiki` en un PR): copia `docs/wiki/` a la Wiki de GitHub | No es obligatorio en `main`; un rojo se ve en el PR |
 
 Ambos declaran `permissions: contents: read` a nivel de workflow. Un job que
@@ -49,17 +49,17 @@ La protección de `main` exige:
 | --- | --- | --- | --- |
 | `RENDER_DEPLOY_HOOK_URL` | environment `deploy` | Render → servicio `mira-api` → Settings → Deploy Hook | Job `Desplegar` |
 | `VERCEL_DEPLOY_HOOK_URL` | environment `deploy` | Vercel → proyecto web → Settings → Git → Deploy Hooks (rama `main`) | Job `Desplegar` |
-| `NOTIFY_WEBHOOK_URL` | repositorio | Discord → canal `#mira-ci` → Integraciones → Webhooks → nuevo webhook | `MIR-53` |
+| `NOTIFY_WEBHOOK_URL` | repositorio | Discord → canal `#mira-ci` → Integraciones → Webhooks → nuevo webhook | Job `Avisar en Discord` |
 
 - **Los deploy hooks son secretos reales:** quien tenga la URL dispara un
   despliegue. Nunca van en el código, en un PR, en un issue ni en una captura.
   Si uno se filtra, se regenera en Render o Vercel y se actualiza el secreto.
-- **`NOTIFY_WEBHOOK_URL` es de repositorio**, no de `deploy`, porque `MIR-53`
-  avisa fallos de PR y de `develop`, no solo de `main`. Si se filtra, lo peor
+- **`NOTIFY_WEBHOOK_URL` es de repositorio**, no de `deploy`, porque el aviso
+  cubre fallos de PR y de `develop`, no solo de `main`. Si se filtra, lo peor
   es spam en el canal. Los PR desde forks no reciben secretos.
-- **El nombre es neutro a propósito.** Discord acepta mensajes con formato de
-  Slack agregando `/slack` al final de la URL del webhook: cambiar de
-  herramienta es cambiar el valor, no el nombre.
+- **El nombre es neutro a propósito:** cambiar de herramienta no obliga a
+  renombrarlo. Hoy el job envía el campo `content`, propio de Discord, a la URL
+  sin sufijo. Si se pasa a otra herramienta, también cambia ese payload.
 - `GITHUB_TOKEN` lo crea GitHub en cada ejecución; no se configura.
 
 ---
@@ -89,12 +89,48 @@ Hay dos caminos a Discord, a propósito separados:
 | | Webhook del repositorio | `NOTIFY_WEBHOOK_URL` |
 | --- | --- | --- |
 | Dónde se configura | Settings → Webhooks del repositorio | Secreto de Actions |
-| Qué envía | Toda la actividad del repo (todos los eventos): pushes, PR, comentarios | El resultado del pipeline: build roto, build que se recupera, despliegue terminado (`MIR-53`) |
+| Qué envía | Toda la actividad del repo (todos los eventos): pushes, PR, comentarios | El resultado del pipeline: build roto, build que se recupera, despliegue terminado |
 | Canal | El canal de actividad que ya existía | `#mira-ci`, con un webhook propio |
 
 Son webhooks distintos en canales distintos para que un build rojo no se
 pierda entre el resto de la actividad, y para poder revocar uno sin romper el
 otro.
+
+### Cuándo avisa `#mira-ci`
+
+El job `Avisar en Discord` de [`ci.yml`](../.github/workflows/ci.yml) corre al
+final de cada ejecución, en PR, `develop` y `main`, con `needs` sobre los otros
+tres jobs e `if: always()`. Cada mensaje trae la rama, el commit, el autor y un
+enlace a la ejecución.
+
+| Resultado de la ejecución | Mensaje |
+| --- | --- |
+| `Lint, tipos y pruebas` o `Build` en rojo | 🔴 Pipeline en rojo, con el job que falló |
+| Verde, y la ejecución anterior comparable había fallado | 🟢 El pipeline volvió a pasar |
+| `Desplegar` en verde | 🚀 Despliegue terminado (con 🟢 si además se recuperó) |
+| `Desplegar` en rojo | 🔴 Despliegue fallido |
+| `Desplegar` cancelado o fuera de su tiempo máximo | ⚠️ Despliegue cancelado |
+| Verde sin fallo previo | Nada: `#mira-ci` solo habla cuando algo cambió |
+| Cancelada porque llegó un push más nuevo | Nada: no es un fallo |
+
+- **"Anterior comparable"** es la última ejecución terminada y no cancelada de
+  `ci.yml` con la misma rama y el mismo evento. Un PR se compara con sus propias
+  ejecuciones, y un push a `develop` no se mezcla con el PR de release que sale
+  de `develop`. Si se re-ejecuta un run, se compara con su intento anterior.
+- **🚀 no prueba la versión nueva,** por lo mismo que un `Desplegar` verde: ver
+  [Qué verifica el job](#qué-verifica-el-job).
+- **Un fallo por ejecución.** Si una rama sigue en rojo, cada ejecución vuelve a
+  avisar.
+- **Sin aviso de un workflow inválido.** Si `ci.yml` no se puede interpretar,
+  ningún job corre, tampoco este. Ese rojo solo se ve en GitHub.
+- **Un aviso que falla no pone rojo el run.** Deja una advertencia en la
+  ejecución. Si no, un webhook roto marcaría rojo un código sano, y la ejecución
+  siguiente anunciaría una recuperación que no ocurrió.
+- **Sin secreto no hay aviso.** Un PR desde un fork o de Dependabot no recibe
+  `NOTIFY_WEBHOOK_URL`: el job termina en verde y deja una nota en la ejecución.
+- **Permisos:** el job hereda `contents: read`. Lee las ejecuciones anteriores
+  con `GITHUB_TOKEN`, y esa lectura funciona porque el repositorio es público.
+  Si deja de serlo, hay que agregar `actions: read` al job.
 
 ---
 
