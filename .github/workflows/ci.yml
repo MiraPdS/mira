@@ -1,7 +1,8 @@
 name: CI
 
 # Gate de calidad de cada Pull Request y de cada push a main y develop. Un push
-# a main con CI verde, ademas, despliega (job "Desplegar").
+# a main con CI verde, ademas, despliega (job "Desplegar"). Los fallos, las
+# recuperaciones y los despliegues se avisan en #mira-ci (job "Avisar en Discord").
 #
 # GitHub Actions es el CI/CD oficial del proyecto desde la Entrega 2 (D14):
 # secretos, environment `deploy` y como recrear todo en docs/ci-cd.md.
@@ -141,8 +142,6 @@ jobs:
           DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
           VITE_API_URL: http://localhost:3000/api
 
-  # Un job posterior (aviso de MIR-53) se engancha con `needs: deploy`,
-  # `if: always()` y leyendo `needs.deploy.result`.
   deploy:
     name: Desplegar
     runs-on: ubuntu-latest
@@ -222,3 +221,105 @@ jobs:
             intento=$((intento + 1))
             sleep "$INTERVALO_S"
           done
+
+  # Corre siempre, tambien con un job en rojo. No hereda el environment `deploy`:
+  # el secreto es de repositorio porque avisa tambien en PR y en develop. Los
+  # casos estan en "Notificaciones", en docs/ci-cd.md.
+  notify:
+    name: Avisar en Discord
+    runs-on: ubuntu-latest
+    needs: [calidad, build, deploy]
+    if: always()
+    timeout-minutes: 5
+    steps:
+      # Todo dato del evento entra por env y el JSON lo arma jq: un nombre de
+      # rama no puede inyectar comandos ni romper el mensaje. No usar `set -x`.
+      - name: Avisar en mira-ci
+        env:
+          NOTIFY_WEBHOOK_URL: ${{ secrets.NOTIFY_WEBHOOK_URL }}
+          GH_TOKEN: ${{ github.token }}
+          CALIDAD: ${{ needs.calidad.result }}
+          BUILD: ${{ needs.build.result }}
+          DEPLOY: ${{ needs.deploy.result }}
+          # En un PR, ref_name es "<n>/merge" y github.sha el merge de prueba:
+          # el aviso muestra la rama y el commit que escribio la persona.
+          RAMA: ${{ github.head_ref || github.ref_name }}
+          COMMIT: ${{ github.event.pull_request.head.sha || github.sha }}
+          AUTOR: ${{ github.event.head_commit.author.name || github.actor }}
+        run: |
+          # Un PR desde un fork no recibe secretos. No es un fallo del pipeline.
+          if [ -z "$NOTIFY_WEBHOOK_URL" ]; then
+            echo "::notice::Sin NOTIFY_WEBHOOK_URL en esta ejecucion: no se avisa."
+            exit 0
+          fi
+
+          # Un run o intento cancelado no dice nada, por eso se salta. Re-ejecutar
+          # un run conserva su id: primero cuentan sus intentos anteriores. Despues,
+          # el ultimo run de esta rama, este evento y este repositorio: develop
+          # tiene runs de push y del PR de release, y un fork puede tener una rama
+          # con el mismo nombre. Devuelve 1 si GitHub no responde.
+          conclusion_anterior() {
+            local n conclusion
+            for ((n = GITHUB_RUN_ATTEMPT - 1; n >= 1; n--)); do
+              conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$n" \
+                --jq .conclusion) || return 1
+              if [ "$conclusion" != "cancelled" ]; then
+                echo "$conclusion"
+                return 0
+              fi
+            done
+            gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+              -f branch="$RAMA" -f event="$GITHUB_EVENT_NAME" -f status=completed -f per_page=30 \
+              --jq "[.workflow_runs[] | select(.id < $GITHUB_RUN_ID and .conclusion != \"cancelled\" and .head_repository.full_name == \"$GITHUB_REPOSITORY\")][0].conclusion"
+          }
+
+          aviso=""
+          if [ "$CALIDAD" = "failure" ]; then
+            aviso="🔴 **Pipeline en rojo:** falló \`Lint, tipos y pruebas\`"
+          elif [ "$BUILD" = "failure" ]; then
+            aviso="🔴 **Pipeline en rojo:** falló \`Build\`"
+          elif [ "$CALIDAD" = "success" ] && [ "$BUILD" = "success" ]; then
+            case "$DEPLOY" in
+              success) aviso="🚀 **Despliegue terminado:** la API responde. Confirma la versión en el panel de Render." ;;
+              failure) aviso="🔴 **Despliegue fallido**" ;;
+              cancelled) aviso="⚠️ **Despliegue cancelado:** puede haber quedado a medias." ;;
+            esac
+
+            if [ "$DEPLOY" = "success" ] || [ "$DEPLOY" = "skipped" ]; then
+              # Sin esta lectura el aviso de recuperacion no se puede decidir:
+              # queda advertencia, y lo demas del aviso sigue su curso.
+              if anterior=$(conclusion_anterior); then
+                echo "Ejecucion anterior: ${anterior:-ninguna}"
+                if [ "$anterior" = "failure" ]; then
+                  salto=$'\n'
+                  aviso="🟢 **El pipeline volvió a pasar**${aviso:+$salto$aviso}"
+                fi
+              else
+                echo "::warning::No se pudo leer la ejecucion anterior: si esta se recupero de un fallo, no se aviso."
+              fi
+            fi
+          fi
+
+          # Sin aviso: todo verde sin cambios, o un run cancelado por uno mas
+          # nuevo de la misma rama.
+          if [ -z "$aviso" ]; then
+            echo "Nada que avisar (calidad=$CALIDAD, build=$BUILD, deploy=$DEPLOY)"
+            exit 0
+          fi
+
+          base="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY"
+          mensaje="$aviso
+          Rama: \`$RAMA\` · Commit: [\`${COMMIT:0:7}\`](<$base/commit/$COMMIT>) · Autor: $AUTOR
+          [Ver ejecución](<$base/actions/runs/$GITHUB_RUN_ID>)"
+
+          # parse: [] evita que una rama llamada "@everyone" mencione al canal.
+          # Un aviso que no sale deja advertencia y no pone rojo el run: el
+          # codigo esta bien, y el run siguiente anunciaria una recuperacion falsa.
+          if jq --null-input --arg content "$mensaje" \
+            '{content: $content, allowed_mentions: {parse: []}}' |
+            curl --fail --silent --show-error --max-time 30 --retry 3 --output /dev/null \
+              --header 'Content-Type: application/json' --data @- "$NOTIFY_WEBHOOK_URL"; then
+            echo "Aviso enviado a mira-ci"
+          else
+            echo "::warning::No se pudo enviar el aviso a Discord. Revisa NOTIFY_WEBHOOK_URL."
+          fi
