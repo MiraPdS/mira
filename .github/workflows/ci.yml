@@ -262,7 +262,6 @@ jobs:
             case "$DEPLOY" in
               success) aviso="🚀 **Despliegue terminado:** la API responde. Confirma la versión en el panel de Render." ;;
               failure) aviso="🔴 **Despliegue fallido**" ;;
-              # Asi termina tambien un job que supero su timeout-minutes.
               cancelled) aviso="⚠️ **Despliegue cancelado:** puede haber quedado a medias." ;;
             esac
 

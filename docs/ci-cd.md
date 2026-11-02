@@ -109,7 +109,7 @@ enlace a la ejecución.
 | Verde, y la ejecución anterior comparable había fallado | 🟢 El pipeline volvió a pasar |
 | `Desplegar` en verde | 🚀 Despliegue terminado (con 🟢 si además se recuperó) |
 | `Desplegar` en rojo | 🔴 Despliegue fallido |
-| `Desplegar` cancelado o fuera de su tiempo máximo | ⚠️ Despliegue cancelado |
+| `Desplegar` cancelado | ⚠️ Despliegue cancelado |
 | Verde sin fallo previo | Nada: `#mira-ci` solo habla cuando algo cambió |
 | Cancelada porque llegó un push más nuevo | Nada: no es un fallo |
 
