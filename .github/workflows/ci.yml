@@ -253,6 +253,26 @@ jobs:
             exit 0
           fi
 
+          # Un run o intento cancelado no dice nada, por eso se salta. Re-ejecutar
+          # un run conserva su id: primero cuentan sus intentos anteriores. Despues,
+          # el ultimo run de esta rama, este evento y este repositorio: develop
+          # tiene runs de push y del PR de release, y un fork puede tener una rama
+          # con el mismo nombre. Devuelve 1 si GitHub no responde.
+          conclusion_anterior() {
+            local n conclusion
+            for ((n = GITHUB_RUN_ATTEMPT - 1; n >= 1; n--)); do
+              conclusion=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$n" \
+                --jq .conclusion) || return 1
+              if [ "$conclusion" != "cancelled" ]; then
+                echo "$conclusion"
+                return 0
+              fi
+            done
+            gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
+              -f branch="$RAMA" -f event="$GITHUB_EVENT_NAME" -f status=completed -f per_page=30 \
+              --jq "[.workflow_runs[] | select(.id < $GITHUB_RUN_ID and .conclusion != \"cancelled\" and .head_repository.full_name == \"$GITHUB_REPOSITORY\")][0].conclusion"
+          }
+
           aviso=""
           if [ "$CALIDAD" = "failure" ]; then
             aviso="🔴 **Pipeline en rojo:** falló \`Lint, tipos y pruebas\`"
@@ -266,22 +286,16 @@ jobs:
             esac
 
             if [ "$DEPLOY" = "success" ] || [ "$DEPLOY" = "skipped" ]; then
-              # La comparacion es por rama y evento: develop tiene runs de push
-              # y runs del PR de release, y son historias distintas. Un run
-              # cancelado no dice nada, por eso se salta. Re-ejecutar un run
-              # conserva su id: ahi la referencia es el intento anterior.
-              if [ "$GITHUB_RUN_ATTEMPT" -gt 1 ]; then
-                anterior=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID/attempts/$((GITHUB_RUN_ATTEMPT - 1))" \
-                  --jq .conclusion || true)
+              # Sin esta lectura el aviso de recuperacion no se puede decidir:
+              # queda advertencia, y lo demas del aviso sigue su curso.
+              if anterior=$(conclusion_anterior); then
+                echo "Ejecucion anterior: ${anterior:-ninguna}"
+                if [ "$anterior" = "failure" ]; then
+                  salto=$'\n'
+                  aviso="🟢 **El pipeline volvió a pasar**${aviso:+$salto$aviso}"
+                fi
               else
-                anterior=$(gh api --method GET "repos/$GITHUB_REPOSITORY/actions/workflows/ci.yml/runs" \
-                  -f branch="$RAMA" -f event="$GITHUB_EVENT_NAME" -f status=completed -f per_page=30 \
-                  --jq "[.workflow_runs[] | select(.id < $GITHUB_RUN_ID and .conclusion != \"cancelled\")][0].conclusion" || true)
-              fi
-              echo "Ejecucion anterior: ${anterior:-desconocida}"
-              if [ "$anterior" = "failure" ]; then
-                salto=$'\n'
-                aviso="🟢 **El pipeline volvió a pasar**${aviso:+$salto$aviso}"
+                echo "::warning::No se pudo leer la ejecucion anterior: si esta se recupero de un fallo, no se aviso."
               fi
             fi
           fi

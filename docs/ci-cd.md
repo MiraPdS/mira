@@ -114,9 +114,13 @@ enlace a la ejecución.
 | Cancelada porque llegó un push más nuevo | Nada: no es un fallo |
 
 - **"Anterior comparable"** es la última ejecución terminada y no cancelada de
-  `ci.yml` con la misma rama y el mismo evento. Un PR se compara con sus propias
-  ejecuciones, y un push a `develop` no se mezcla con el PR de release que sale
-  de `develop`. Si se re-ejecuta un run, se compara con su intento anterior.
+  `ci.yml` con la misma rama, el mismo evento y este repositorio. Un PR se
+  compara con sus propias ejecuciones, un push a `develop` no se mezcla con el
+  PR de release que sale de `develop`, y un fork con una rama del mismo nombre
+  no cuenta. Si se re-ejecuta un run, primero cuentan sus intentos anteriores no
+  cancelados.
+- **Si GitHub no entrega la ejecución anterior,** no se puede saber si hubo
+  recuperación: la ejecución deja una advertencia. Un 🔴 o un 🚀 salen igual.
 - **🚀 no prueba la versión nueva,** por lo mismo que un `Desplegar` verde: ver
   [Qué verifica el job](#qué-verifica-el-job).
 - **Un fallo por ejecución.** Si una rama sigue en rojo, cada ejecución vuelve a
