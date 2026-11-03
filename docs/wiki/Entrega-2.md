@@ -214,7 +214,14 @@ npm run test:integration  # requiere npm run db:up
 npm run test:coverage     # coverage/index.html
 ```
 
-**Resultados en `develop`** al fusionar MIR-53
+**Evidencia congelada para preparar MIR-57:**
+[Evidencias de la Entrega 2](Evidencias-Entrega-2.md), generada desde el
+[run 41553706231](https://github.com/MiraPdS/mira/actions/runs/41553706231)
+del commit [`fa5f0c7`](https://github.com/MiraPdS/mira/commit/fa5f0c77e72aa6ab43577803915aca05f4354526)
+en `develop`. Acredita pruebas y cobertura antes del release; no acredita
+el despliegue, el tag ni la publicación de la GitHub Release.
+
+**Resultados históricos en `develop`** al fusionar MIR-53
 (commit [`4287759`](https://github.com/MiraPdS/mira/commit/42877596728dbbca908726b93e037c3d28de9eee),
 [run 41511211159](https://github.com/MiraPdS/mira/actions/runs/41511211159)):
 
@@ -326,6 +333,8 @@ rojos y cancelados.
 
 ### Enlaces
 
+- **Pruebas y cobertura congeladas antes del release:**
+  [Evidencias de la Entrega 2](Evidencias-Entrega-2.md).
 - **Historial del pipeline:**
   [ejecuciones de `ci.yml`](https://github.com/MiraPdS/mira/actions/workflows/ci.yml);
   cada una con sus logs por paso y los artefactos `cobertura` y

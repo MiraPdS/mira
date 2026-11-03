@@ -14,7 +14,7 @@ URL viva se pueden revisar.
 | Trazabilidad historia → PR → pruebas | [Requisitos y trazabilidad](Proyecto-Requisitos-y-trazabilidad.md) | permanente |
 | Runs de CI (formato, lint, tipos, pruebas, build) | [GitHub Actions](https://github.com/MiraPdS/mira/actions/workflows/ci.yml) | logs: 90 días |
 | Reporte de cobertura HTML | artefacto `cobertura` de cada run | 90 días |
-| **Cobertura y resultados de pruebas por entrega** | página `Evidencias-Entrega-N`, congelada desde el run de CI del commit del release | **permanente** |
+| **Cobertura y resultados de pruebas por entrega** | página `Evidencias-Entrega-N`, congelada desde el run de CI y commit identificados en la página | **permanente** |
 | Ambiente desplegado | [mira-pds.vercel.app](https://mira-pds.vercel.app) · [`/api/health`](https://mira-pds.vercel.app/api/health) | mientras exista la demo |
 | Release y tag de cada entrega | [Releases](https://github.com/MiraPdS/mira/releases) | permanente |
 
@@ -74,11 +74,13 @@ a los administradores, y un `hotfix/*` también va por PR. Ver
 
 - **Pipeline, avisos y umbral de cobertura:** enlaces a cada ejecución en
   [Entrega 2](Entrega-2.md#evidencia).
-- **Pruebas y cobertura en `develop`:** 1215 pruebas en 72 archivos, todas
-  pasan; 97,24 % de líneas
-  ([run de CI 41511211159](https://github.com/MiraPdS/mira/actions/runs/41511211159), commit `4287759`).
-- **Release, tag y primer despliegue desde Actions:** se enlazan en
-  [Entrega 2](Entrega-2.md#evidencia) al etiquetar `v2.0-entrega2` (MIR-57).
+- **Pruebas y cobertura congeladas:**
+  [Evidencias de la Entrega 2](Evidencias-Entrega-2.md), generadas desde el
+  [run de CI 41553706231](https://github.com/MiraPdS/mira/actions/runs/41553706231)
+  del commit `fa5f0c7` en `develop`, como preparación de MIR-57.
+- **Release, tag y primer despliegue desde Actions (pendientes):** sus
+  evidencias se enlazarán en [Entrega 2](Entrega-2.md#evidencia) durante el
+  release real de `v2.0-entrega2`. El run de preparación no acredita esos hitos.
 
 ## Ambiente desplegado
 
