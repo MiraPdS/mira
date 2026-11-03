@@ -17,7 +17,7 @@ Esta página es solo un índice. El detalle vive en cada página.
 ## Entregas
 
 - [Entrega 1](Entrega-1.md) — release [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1)
-- [Entrega 2](Entrega-2.md) _(pendiente)_
+- [Entrega 2](Entrega-2.md) — release [`v2.0-entrega2`](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2)
 - [Entrega 3](Entrega-3.md) _(pendiente)_
 
 ## Documentación del proyecto

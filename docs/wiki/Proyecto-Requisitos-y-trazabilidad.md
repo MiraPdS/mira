@@ -19,8 +19,10 @@ Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
 **Estado al cierre de la Entrega 1** (tag
 [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1)):
 ✅ incluido en el release · ➡️ queda fuera del tag (se entrega después).
-Los items de la Entrega 2 marcados ➡️ van en `v2.0-entrega2`: MIR-57 cambia su
-estado al etiquetar.
+Los items incluidos en la Entrega 2 se marcan ✅ `v2.0-entrega2`, verificados
+contra el [tag publicado](https://github.com/MiraPdS/mira/tree/v2.0-entrega2)
+sobre el merge commit `9d2e518` del [#57]. La evidencia posterior del release
+está en [Entrega 2](Entrega-2.md#cierre-del-release-mir-57).
 
 ## Épica 1 — Autenticación y cuenta de usuario
 
@@ -62,10 +64,10 @@ estado al etiquetar.
 | MIR-18 | Visualizar el tablero | ✅ v1.0-entrega1 | [#16] | U [work-item.service] · I [work-item.integration] · C [KanbanBoard], [boardInvalidation] |
 | MIR-19 | Cambiar el estado desde el menú | ✅ v1.0-entrega1 | [#20] | U [work-item.service] · I [work-item.integration] · C [KanbanBoard] |
 | MIR-20 | Arrastrar y soltar tarjetas | ✅ v1.0-entrega1 | [#22] | C [KanbanBoard.dnd] |
-| MIR-31 | Migrar los estados a columnas por proyecto | ➡️ después del tag | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
-| MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ➡️ después del tag | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
-| MIR-49 | Tablero y backlog con las columnas del proyecto | ➡️ después del tag | [#41] | U [work-item.service], [domain (shared)] · I [board-columns.migration], [work-item.integration], [summary.integration] · C [KanbanBoard], [KanbanBoard.dnd], [ProjectBoardPage], [ProjectBacklogPage], [WorkItemBacklog], [ProjectSummaryPage], [describeActivity] |
-| MIR-50 | Pantalla de configuración de columnas | ➡️ después del tag | [#46] | C [BoardColumnsSettings] (OWNER agrega, renombra, reordena y elimina; eliminar con elementos pide la columna de destino; MEMBER y VIEWER ven sin modificar), [ProjectSettingsPage] |
+| MIR-31 | Migrar los estados a columnas por proyecto | ✅ v2.0-entrega2 | [#40] | U [domain (shared)], [work-item (shared)], [work-item.service], [work-item.repository], [projects.service] · I [board-columns.integration], [board-columns.migration], [work-item.integration], [summary.integration] |
+| MIR-48 | Crear, renombrar, reordenar y eliminar columnas | ✅ v2.0-entrega2 | [#44] | U [board-column.service], [board-column (shared)], [permissions] · I [board-column.integration] |
+| MIR-49 | Tablero y backlog con las columnas del proyecto | ✅ v2.0-entrega2 | [#41] | U [work-item.service], [domain (shared)] · I [board-columns.migration], [work-item.integration], [summary.integration] · C [KanbanBoard], [KanbanBoard.dnd], [ProjectBoardPage], [ProjectBacklogPage], [WorkItemBacklog], [ProjectSummaryPage], [describeActivity] |
+| MIR-50 | Pantalla de configuración de columnas | ✅ v2.0-entrega2 | [#46] | C [BoardColumnsSettings] (OWNER agrega, renombra, reordena y elimina; eliminar con elementos pide la columna de destino; MEMBER y VIEWER ven sin modificar), [ProjectSettingsPage] |
 
 ## Épica 5 — Colaboración y trazabilidad
 
@@ -85,28 +87,29 @@ estado al etiquetar.
 | MIR-27 | Despliegue del ambiente de demostración | ✅ v1.0-entrega1 | [#24] | I [health.integration]; [demo](https://mira-pds.vercel.app/api/health) |
 | MIR-28 | Release `v1.0-entrega1` | ✅ v1.0-entrega1 | [#31], [#32] | [Evidencias de la Entrega 1](Evidencias-Entrega-1.md); [release](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1) |
 | MIR-29 | Cápsula de video | ➡️ después del tag | — | se graba sobre el release desplegado |
-| MIR-55 | Umbral de cobertura que rompe el build | ➡️ después del tag | [#43] | umbral en [`vitest.config.ts`] y [estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md#cobertura); Actions: [run verde](https://github.com/MiraPdS/mira/actions/runs/40987420686) y [run rojo por umbral](https://github.com/MiraPdS/mira/actions/runs/40994045311) (`467f5bd`, 947/947 tests en verde, statements 97,06 % < 99 %) |
-| MIR-56 | Wiki de la Entrega 2 | ➡️ después del tag | [#54] | `verificar` de [`wiki.yml`]; [Entrega 2](Entrega-2.md) con objetivo, arquitectura, pipeline, integraciones, pruebas, problemas y evidencias |
+| MIR-55 | Umbral de cobertura que rompe el build | ✅ v2.0-entrega2 | [#43] | umbral en [`vitest.config.ts`] y [estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md#cobertura); Actions: [run verde](https://github.com/MiraPdS/mira/actions/runs/40987420686) y [run rojo por umbral](https://github.com/MiraPdS/mira/actions/runs/40994045311) (`467f5bd`, 947/947 tests en verde, statements 97,06 % < 99 %) |
+| MIR-56 | Wiki de la Entrega 2 | ✅ v2.0-entrega2 | [#54] | `verificar` de [`wiki.yml`]; [Entrega 2](Entrega-2.md) con objetivo, arquitectura, pipeline, integraciones, pruebas, problemas y evidencias |
+| MIR-57 | Release `v2.0-entrega2` | ✅ v2.0-entrega2 | [#57] | [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260): cuatro jobs en success; [tag](https://github.com/MiraPdS/mira/tree/v2.0-entrega2) sobre `9d2e518`; [GitHub Release](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2) publicado; [cierre y despliegue verificado](Entrega-2.md#cierre-del-release-mir-57) |
 
 ## Épica 7 — Sprints
 
 | Item | Historia | Estado | PR | Pruebas |
 | --- | --- | --- | --- | --- |
-| MIR-43 | Modelo y API de Sprints | ➡️ después del tag | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
-| MIR-44 | Pantalla de Sprints | ➡️ después del tag | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
-| MIR-45 | Asignar elementos a un sprint | ➡️ después del tag | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
-| MIR-46 | Iniciar y cerrar un sprint | ➡️ después del tag | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
-| MIR-47 | Tablero del sprint activo | ➡️ después del tag | [#50] | C [ProjectBoardPage.sprint] (con sprint activo solo sus elementos y su nombre y fechas; «Todos los elementos» quita el filtro; sin sprint activo, el tablero de la Entrega 1), [ProjectBoardPage] |
+| MIR-43 | Modelo y API de Sprints | ✅ v2.0-entrega2 | [#39] | U [sprint.service], [sprint (shared)], [permissions] · I [sprint.integration] |
+| MIR-44 | Pantalla de Sprints | ✅ v2.0-entrega2 | [#42] | U [useSprints] · C [ProjectSprintsPage], [ProjectSummaryPage] |
+| MIR-45 | Asignar elementos a un sprint | ✅ v2.0-entrega2 | [#47] | U [work-item.sprint.service], [activity], [work-item-sprint (shared)], [describeActivity] · I [work-item.sprint.integration] · C [WorkItemSprint] |
+| MIR-46 | Iniciar y cerrar un sprint | ✅ v2.0-entrega2 | [#48] | U [sprint.lifecycle.service], [sprint-lifecycle (shared)], [prisma-conflicts] · I [sprint.lifecycle.integration], [sprint.lifecycle.migration] · C [SprintLifecycle] |
+| MIR-47 | Tablero del sprint activo | ✅ v2.0-entrega2 | [#50] | C [ProjectBoardPage.sprint] (con sprint activo solo sus elementos y su nombre y fechas; «Todos los elementos» quita el filtro; sin sprint activo, el tablero de la Entrega 1), [ProjectBoardPage] |
 
 ## Integración y despliegue continuo (épica MIR-40)
 
 | Item | Tarea | Estado | PR | Verificación |
 | --- | --- | --- | --- | --- |
-| MIR-33 | CI/CD oficial en GitHub Actions | ➡️ después del tag | [#45], [#49] | environment `deploy` solo para `main`, `enforce_admins` y secretos según [`docs/ci-cd.md`]; comandos de verificación en la misma página |
-| MIR-51 | Reportes JUnit del pipeline como artefacto | ➡️ después del tag | [#51] | artefacto `reporte-junit` en cada ejecución de [`ci.yml`], también con pruebas fallidas |
+| MIR-33 | CI/CD oficial en GitHub Actions | ✅ v2.0-entrega2 | [#45], [#49] | environment `deploy` solo para `main`, `enforce_admins` y secretos según [`docs/ci-cd.md`]; comandos de verificación en la misma página |
+| MIR-51 | Reportes JUnit del pipeline como artefacto | ✅ v2.0-entrega2 | [#51] | artefacto `reporte-junit` en cada ejecución de [`ci.yml`], también con pruebas fallidas |
 | MIR-52 | Webhook de GitHub y estado en el commit | ➡️ cerrado sin trabajo | — | Actions publica el estado de cada job en el commit y en el PR; ver [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) |
-| MIR-53 | Notificaciones a Discord | ➡️ después del tag | [#53] | Actions: [fallo con aviso](https://github.com/MiraPdS/mira/actions/runs/41380199238) y [recuperación con aviso](https://github.com/MiraPdS/mira/actions/runs/41380480549); aviso de despliegue en el primer release (MIR-57) |
-| MIR-54 | Despliegue desde GitHub Actions | ➡️ después del tag | [#52] | job `Desplegar` de [`ci.yml`], _Skipped_ fuera de `main`; primer despliegue real en el release (MIR-57) |
+| MIR-53 | Notificaciones a Discord | ✅ v2.0-entrega2 | [#53] | Actions: [fallo con aviso](https://github.com/MiraPdS/mira/actions/runs/41380199238) y [recuperación con aviso](https://github.com/MiraPdS/mira/actions/runs/41380480549); aviso de despliegue aceptado en [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260) (MIR-57) |
+| MIR-54 | Despliegue desde GitHub Actions | ✅ v2.0-entrega2 | [#52] | job `Desplegar` de [`ci.yml`], _Skipped_ fuera de `main`; [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260) exitoso; un deploy por Deploy Hook del commit `9d2e518` en Render Live y Vercel Production Ready, sin duplicados (MIR-57) |
 
 <!-- Enlaces de referencia: PRs -->
 
@@ -156,6 +159,7 @@ estado al etiquetar.
 [#52]: https://github.com/MiraPdS/mira/pull/52
 [#53]: https://github.com/MiraPdS/mira/pull/53
 [#54]: https://github.com/MiraPdS/mira/pull/54
+[#57]: https://github.com/MiraPdS/mira/pull/57
 
 <!-- Enlaces de referencia: pruebas y workflows -->
 

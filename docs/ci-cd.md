@@ -243,9 +243,19 @@ a que coincida con el commit del job, y no está hecho.
 
 ## Corte al despliegue desde Actions
 
-Hasta el primer release con este job, Render y Vercel despliegan solos cada push
-a `main`. Si el auto-deploy se apaga antes de que el job llegue a `main`, `main`
-deja de desplegar. Si se apaga después, el primer release despliega dos veces.
+**Corte realizado en MIR-57:** el [PR #57](https://github.com/MiraPdS/mira/pull/57)
+y el [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260)
+registran el primer release con los cuatro jobs en success. Para el commit
+`9d2e518` se verificó manualmente un deploy por Deploy Hook en Render (Live) y
+uno en Vercel Production (Ready), sin doble despliegue, health 200 y aviso de
+Discord aceptado. [Tag publicado](https://github.com/MiraPdS/mira/tree/v2.0-entrega2)
+y [GitHub Release](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2).
+El procedimiento que sigue documenta ese corte inicial; no se debe repetir por
+cada release. Las limitaciones de la comprobación de health siguen vigentes.
+
+Antes del primer release con este job, Render y Vercel desplegaban solos cada
+push a `main`. Apagar el auto-deploy antes de que el job llegara a `main`
+dejaba de desplegar; apagarlo después producía dos despliegues en el primer release.
 
 `apps/web/vercel.json` lleva `git.deploymentEnabled: { "main": false }`: viaja en
 el mismo commit que el job, así que en Vercel el corte ocurre solo. En Render

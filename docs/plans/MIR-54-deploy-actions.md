@@ -13,14 +13,23 @@ Fuente: `docs/backlog.md` §MIR-54 de `docs/MIR-33-alinear-entrega2-actions`
 
 ## Criterios y como se verifican
 
-| # | Criterio | Verificacion en el PR | Queda para la primera ejecucion real |
+| # | Criterio | Verificacion en el PR | Verificacion posterior al PR |
 | --- | --- | --- | --- |
-| 1 | Job con `environment: deploy` en push a `main`, tras los dos checks; dispara los dos hooks y verifica `/api/health` con reintentos | Lectura de `ci.yml`; GitHub acepta el workflow; los `run:` se ejecutan tal cual contra un servidor local (hook 2xx, hook 404, health 200, 503 seguido de 200, 503 hasta el tope, conexion rechazada) | Que los hooks reales respondan y cada servicio despliegue |
+| 1 | Job con `environment: deploy` en push a `main`, tras los dos checks; dispara los dos hooks y verifica `/api/health` con reintentos | Lectura de `ci.yml`; GitHub acepta el workflow; los `run:` se ejecutan tal cual contra un servidor local (hook 2xx, hook 404, health 200, 503 seguido de 200, 503 hasta el tope, conexion rechazada) | Confirmado en [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260): hooks aceptados, Render Live, Vercel Production Ready y health 200 |
 | 2 | Ejecucion roja, PR y push a `develop` no despliegan | `needs: [calidad, build]` e `if:` en `ci.yml`; en el CI del PR el job aparece _Skipped_ | Push a `develop` al fusionar este PR: job _Skipped_ |
-| 3 | Auto-deploy apagado, un solo despliegue por release | **Pendiente.** En el PR solo llega la configuracion versionada (`vercel.json`, `render.yaml`). Requiere los pasos manuales | Un solo despliegue en cada servicio en el primer release |
+| 3 | Auto-deploy apagado, un solo despliegue por release | En el PR solo llego la configuracion versionada (`vercel.json`, `render.yaml`); el corte manual se verifico al cerrar MIR-57 | Cumplido: [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260), commit `9d2e518`; un deploy por Deploy Hook en Render Live y uno en Vercel Production Ready, sin duplicados |
 | 4 | `docs/ci-cd.md` describe el job y deja de listarlo como pendiente | Lectura del documento | — |
 
 ## Decisiones
+
+**Resultado posterior al plan:** el [PR #57](https://github.com/MiraPdS/mira/pull/57)
+se fusiono y el primer despliegue real termino correctamente. Los cuatro jobs
+del CI de `main` pasaron; health respondio 200 y Discord acepto el aviso.
+El [tag `v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2)
+apunta al merge commit `9d2e518abf9f753415401bee6a1866f045ccc402` y el
+[Release](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2) esta publicado.
+Las comprobaciones de los paneles acreditaron las versiones; la limitacion de
+health descrita a continuacion permanece.
 
 **Un 200 no prueba la version nueva: es una limitacion.** `/api/health` devuelve
 `status`, `db` y `timestamp`, y las cabeceras (`Rndr-Id`, `X-Vercel-Id`) tampoco
