@@ -3,7 +3,8 @@
   "framework": "vite",
   "git": {
     "deploymentEnabled": {
-      "main": false
+      "main": false,
+      "chore/prueba-hook-vercel": false
     }
   },
   "rewrites": [
