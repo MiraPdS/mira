@@ -8,7 +8,8 @@
 // no de la maquina de quien lo corre: dice "esto produjo CI sobre este commit".
 //
 // Los artefactos de Actions expiran; esta pagina queda versionada. Se corre en
-// el PR de release (MIR-28), sobre el commit que se va a etiquetar.
+// la preparacion del release, sobre el commit verde que se quiere documentar.
+// La pagina identifica esa fuente; por si sola no acredita un tag ni un despliegue.
 //
 // Requiere `gh` autenticado y el commit ya empujado con su run de CI terminado.
 import { execFileSync } from 'node:child_process';
@@ -207,7 +208,7 @@ No se editan a mano: se regeneran con \`npm run wiki:evidencias -- entrega-${num
 | --- | --- |
 | Commit | [\`${sha.slice(0, 7)}\`](https://github.com/${REPO}/commit/${sha}) |
 | Run de CI | [${run.databaseId}](${run.url}) (${run.event}, \`${run.headBranch}\`) |
-| Fecha de la corrida | ${fecha} |
+| Fecha de la corrida${numero === '2' ? ' (UTC)' : ''} | ${fecha} |
 | Resultado | ${resultados.success ? '✅ todas las pruebas pasan' : '❌ hay pruebas fallando'} |
 
 ## Pruebas por proyecto
@@ -221,7 +222,7 @@ ${tablaPruebas(resultados)}
 ## Cobertura por paquete
 
 Cobertura v8 de todo el código fuente (sin pruebas, tipos ni puntos de entrada).
-En la Entrega ${numero} se reporta sin umbral bloqueante.
+${numero === '2' ? 'En la Entrega 2 este run aplicó los umbrales bloqueantes de MIR-55; ver [Estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md).' : `En la Entrega ${numero} se reporta sin umbral bloqueante.`}
 
 ${tablaCobertura(cobertura)}
 

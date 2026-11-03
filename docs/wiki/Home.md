@@ -34,6 +34,7 @@ Esta página es solo un índice. El detalle vive en cada página.
 - [Integración continua (GitHub Actions)](https://github.com/MiraPdS/mira/actions/workflows/ci.yml)
 
 - [Evidencias - Entrega 1](Evidencias-Entrega-1.md) (pruebas y cobertura congeladas)
+- [Evidencias - Entrega 2](Evidencias-Entrega-2.md) (pruebas y cobertura congeladas antes del release)
 - [Releases y tags](https://github.com/MiraPdS/mira/releases)
 
 ## Equipo
