@@ -54,7 +54,7 @@ junto con otros requerimientos que el modelo de datos ya contempla. Ver
 | MIR-30 | Sprints: crear, asignar elementos, cerrar |
 | MIR-31 | Columnas del tablero configurables por proyecto |
 | MIR-32 | Organizaciones y multi-equipo |
-| MIR-33 | Jenkins como CI/CD, con integración a Slack |
+| MIR-33 | CI/CD oficial con GitHub Actions, notificaciones a Discord |
 
 ## Principios que guían el diseño
 

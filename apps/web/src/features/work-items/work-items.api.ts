@@ -14,10 +14,13 @@ type WorkItemResponse = { item: WorkItemDto };
 type CommentResponse = { comment: CommentDto };
 type CommentsResponse = { comments: CommentDto[] };
 
-/** Filtros opcionales del backlog; la paginacion conserva la firma de MIR-12. */
+/**
+ * Filtros opcionales del backlog; la paginacion conserva la firma de MIR-12.
+ * MIR-49: el "Estado" es una columna del proyecto, o BACKLOG.
+ */
 export type WorkItemListFilters = Pick<
   WorkItemFilters,
-  'q' | 'type' | 'status' | 'priority' | 'assigneeId'
+  'q' | 'type' | 'columnId' | 'priority' | 'assigneeId' | 'sprintId'
 >;
 
 /** Normaliza valores vacios para no enviarlos ni distinguirlos en la cache. */
@@ -29,9 +32,10 @@ export function normalizeWorkItemListFilters(
   return {
     ...(q ? { q } : {}),
     ...(filters.type ? { type: filters.type } : {}),
-    ...(filters.status ? { status: filters.status } : {}),
+    ...(filters.columnId ? { columnId: filters.columnId } : {}),
     ...(filters.priority ? { priority: filters.priority } : {}),
     ...(filters.assigneeId ? { assigneeId: filters.assigneeId } : {}),
+    ...(filters.sprintId?.trim() ? { sprintId: filters.sprintId.trim() } : {}),
   };
 }
 
@@ -103,6 +107,19 @@ export async function assignWorkItem(
   const { item } = await api.patch<WorkItemResponse>(
     `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/assignee`,
     { assigneeId },
+  );
+  return item;
+}
+
+/** Asigna o quita el sprint mediante el endpoint dedicado de MIR-45. */
+export async function assignWorkItemSprint(
+  projectId: string,
+  workItemId: string,
+  sprintId: string | null,
+): Promise<WorkItemDto> {
+  const { item } = await api.patch<WorkItemResponse>(
+    `/projects/${encodeURIComponent(projectId)}/work-items/${encodeURIComponent(workItemId)}/sprint`,
+    { sprintId },
   );
   return item;
 }

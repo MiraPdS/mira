@@ -13,6 +13,7 @@ import { renderConProviders, screen, within } from '@/test/render';
 import { server } from '@/test/msw/server';
 import { apiError, proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { App } from './App';
+import { COLUMNAS_DE_PRUEBA, enColumna } from '@/test/columns';
 
 /**
  * Mapeo de rutas de App.
@@ -85,7 +86,7 @@ describe('App', () => {
     server.use(
       http.get(`${BASE_URL}/projects/:projectId/board`, ({ params }) => {
         proyectoSolicitado = params.projectId as string;
-        return HttpResponse.json<BoardResponse>({ items: [] });
+        return HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [] });
       }),
       http.get(`${BASE_URL}/projects/:projectId/members`, () => HttpResponse.json({ members: [] })),
     );
@@ -93,6 +94,26 @@ describe('App', () => {
     renderConProviders(<App />, { route: '/proyectos/project_123/tablero' });
 
     expect(await screen.findByRole('heading', { name: 'Tablero' })).toBeInTheDocument();
+    expect(proyectoSolicitado).toBe('project_123');
+    expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
+  });
+
+  it('MIR-44: en /proyectos/:projectId/sprints muestra los sprints de ese proyecto', async () => {
+    let proyectoSolicitado: string | undefined;
+    conCookieDeSesion();
+    server.use(
+      http.get(`${BASE_URL}/projects/:projectId/sprints`, ({ params }) => {
+        proyectoSolicitado = String(params.projectId);
+        return HttpResponse.json({ data: [] });
+      }),
+    );
+
+    renderConProviders(<App />, { route: '/proyectos/project_123/sprints' });
+
+    expect(await screen.findByRole('heading', { name: 'Sprints', level: 1 })).toBeInTheDocument();
+    expect(
+      await screen.findByText('Aun no hay sprints. Crea el primero para planificar el trabajo.'),
+    ).toBeInTheDocument();
     expect(proyectoSolicitado).toBe('project_123');
     expect(screen.getByRole('button', { name: /cerrar sesion/i })).toBeInTheDocument();
   });
@@ -187,7 +208,7 @@ describe('App', () => {
       title: 'Historial de cambios',
       description: null,
       type: 'STORY',
-      status: 'IN_PROGRESS',
+      ...enColumna('IN_PROGRESS'),
       priority: 'MEDIUM',
       estimate: null,
       dueDate: null,
@@ -201,7 +222,7 @@ describe('App', () => {
     conCookieDeSesion();
     server.use(
       http.get(`${BASE_URL}/projects/:projectId/board`, () =>
-        HttpResponse.json<BoardResponse>({ items: [item] }),
+        HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [item] }),
       ),
       http.get(`${BASE_URL}/projects/:projectId/members`, () =>
         HttpResponse.json({
@@ -218,8 +239,8 @@ describe('App', () => {
               workItemId: 'item_456',
               actor: { id: USUARIO_DE_PRUEBA.id, name: USUARIO_DE_PRUEBA.name },
               field: 'status',
-              fromValue: 'TODO',
-              toValue: 'IN_PROGRESS',
+              fromValue: 'Por hacer',
+              toValue: 'En progreso',
               createdAt: '2026-10-02T10:00:00.000Z',
             },
           ],
@@ -250,7 +271,7 @@ describe('App', () => {
       title: 'Elemento en backlog',
       description: null,
       type: 'BUG',
-      status: 'BACKLOG',
+      ...enColumna('BACKLOG'),
       priority: 'LOW',
       estimate: null,
       dueDate: null,

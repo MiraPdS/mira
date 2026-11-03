@@ -82,8 +82,8 @@ transacciones, códigos de estado y cookies.
 en los E2E de la Entrega 3). Solo integración (lento y difícil forzar casos de
 error). Testcontainers (más lento de arrancar y exige Docker igual).
 
-**Consecuencia.** El agente de Jenkins de la Entrega 2 **necesita Docker** o un
-servicio PostgreSQL disponible. Queda registrado como dependencia desde ahora.
+**Consecuencia.** El runner de CI **necesita Docker** o un servicio PostgreSQL
+disponible. En GitHub Actions (D14) lo resuelve el `services:` de `ci.yml`.
 
 ---
 
@@ -149,6 +149,35 @@ como requerimiento nuevo de la Entrega 2**, que exige justamente dos.
 **Consecuencia.** La migración de enum a tabla ya se sabe que viene; el esquema
 se diseñó para que sea aislada.
 
+**Actualización (Entrega 2, MIR-31).** Reemplazada por la tabla `BoardColumn`
+(nombre, orden y categoría `TODO · IN_PROGRESS · DONE`) y `WorkItem.columnId`;
+sin columna es BACKLOG. La migración crea las cuatro columnas en cada proyecto y
+traspasa cada elemento a la de su estado anterior. Los cambios se reparten así:
+
+- MIR-31 hace solo el backend. La API agrega `columnId`, `column`, `columns` y
+  `byCategory`, pero sigue entregando `status` y aceptando mover por estado
+  (columna puente `BoardColumn.legacyStatus`), así la web no cambia todavía.
+- MIR-49 pasa la web a columnas y elimina el puente: `status`,
+  `legacyStatus`, `byStatus` y el enum `WorkItemStatus`.
+- MIR-48 abre la API de columnas (`/api/projects/:projectId/columns`), solo
+  para el OWNER (permiso `column:manage`). Reordenar recibe la lista completa
+  de columnas, no "mover X a N", para que el resultado no dependa del orden de
+  llegada. Eliminar una columna con elementos exige `?moveTo=<columnId>` y cada
+  elemento movido deja su `ITEM_STATUS_CHANGED`. El proyecto siempre conserva
+  una columna `DONE`; esa regla se decide en una transacción serializable para
+  que dos eliminaciones simultáneas no la burlen.
+- MIR-49 cierra el puente. El tablero dibuja las columnas que entrega
+  `/board`, ordenadas por `position`; cada columna es un destino de dnd-kit con
+  su id, y el menú "Mover a…" ofrece todas las demás. Mover envía solo
+  `{ columnId }`. El filtro "Estado" del backlog lista Backlog más las columnas
+  del proyecto (`?columnId=<id>` o `?columnId=BACKLOG`). El historial guarda
+  el **nombre** de la columna en el momento del movimiento (o `BACKLOG`), así
+  sigue legible aunque la columna se renombre o se elimine; la migración pasa a
+  nombres los estados que ya estaban guardados. El panel cuenta por categoría
+  (`byCategory`), que no cambia al renombrar. Con más de cuatro columnas el
+  aviso de desplazamiento se muestra también en pantallas anchas, y los nombres
+  largos se parten en líneas en vez de recortarse.
+
 ---
 
 ## D9 — Kanban con dnd-kit y un camino alternativo obligatorio
@@ -192,7 +221,9 @@ directamente con construir el MVP.
 
 **Consecuencia.** En la Entrega 2 hay que evitar que el `Jenkinsfile` y el
 workflow se contradigan: Jenkins pasa a ser el CI/CD oficial con build y
-despliegue, y Actions queda como verificación rápida de PR.
+despliegue, y Actions queda como verificación rápida de PR. **Reemplazada en
+la Entrega 2 por [D14](#d14--github-actions-como-cicd-oficial):** Actions pasa a
+ser el CI/CD oficial y no hay Jenkins.
 
 ---
 
@@ -246,11 +277,45 @@ producción.
 
 ---
 
+## D14 — GitHub Actions como CI/CD oficial
+
+**Decisión.** En la Entrega 2 el CI/CD oficial es GitHub Actions, no Jenkins,
+y las notificaciones van a Discord, no a Slack. El profesor lo autorizó en el
+Slack del curso: _"si se puede usar Github Actions, tambien se puede usar
+Discord"_, aunque dejó dicho que prefiere Jenkins porque la experiencia de
+aprendizaje es más rica. Los despliegues usan un environment `deploy` atado a
+`main`, y la protección de `main` aplica también a los administradores.
+
+**Por qué.** Los runners `ubuntu-latest` ya traen Node 20 y Docker, y el
+Postgres efímero de las pruebas de integración ya corre como `services:` en
+`ci.yml`: el pipeline existe desde MIR-25 y es el check obligatorio de `main`.
+Jenkins obligaría a mantener una máquina encendida, con HTTPS, credenciales y
+actualizaciones, la misma carga que D12 descartó para el despliegue. Discord es
+donde el equipo ya recibe la actividad del repositorio.
+
+**Descartado.** Jenkins en una VM en la nube: costo y mantención (ver D12), y
+duplicaría lo que el workflow ya hace. Jenkins local expuesto con ngrok:
+depende de que un PC del equipo esté encendido y la URL cambia en cada
+arranque, así que el webhook de GitHub se rompería. Se pierde la experiencia
+"más rica" que menciona el profesor.
+
+**Consecuencia.** El environment se llama `deploy` y no `production`, porque
+los nombres de environment no distinguen mayúsculas y `Production` ya es el de
+Vercel. Solo `main` puede usarlo y no pide revisores: el control está en que a
+`main` solo se llega por PR revisado, y por eso `enforce_admins` queda activo.
+Los secretos (`RENDER_DEPLOY_HOOK_URL` y `VERCEL_DEPLOY_HOOK_URL` en `deploy`,
+`NOTIFY_WEBHOOK_URL` a nivel de repositorio) y cómo recrearlos están en
+[ci-cd.md](./ci-cd.md). `MIR-33` pasa de "Jenkins en la nube" a la base de
+este CI/CD, y `MIR-51` a `MIR-55` se reescriben para Actions y Discord.
+
+---
+
 ## Decisiones pendientes
 
 | Tema | Cuándo se decide |
 | --- | --- |
-| Dónde corre Jenkins (nube o local con ngrok) | Entrega 2 |
-| Los dos requerimientos nuevos de la Entrega 2 | candidatos: Sprints (D8) y columnas configurables |
+| Dónde corre Jenkins (nube o local con ngrok) | Resuelto: no hay Jenkins, el CI/CD es GitHub Actions (D14) |
+| Canal de notificaciones: Slack o Discord | Resuelto: Discord (D14) |
+| Los dos requerimientos nuevos de la Entrega 2 | Resuelto: Sprints (épica MIR-41) y columnas configurables (épica MIR-42) |
 | Herramienta E2E: Selenium o Playwright | Entrega 3 |
-| Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real |
+| Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real (MIR-55) |

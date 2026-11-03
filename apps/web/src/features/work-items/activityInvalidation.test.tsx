@@ -16,6 +16,7 @@ import {
   useUpdateWorkItem,
   useWorkItemActivity,
 } from './useWorkItems';
+import { columnaDe, enColumna } from '@/test/columns';
 
 /**
  * MIR-22: el historial que esta en pantalla se vuelve a pedir tras cada
@@ -38,7 +39,7 @@ const item: WorkItemDto = {
   title: 'Tarea de prueba',
   description: null,
   type: 'TASK',
-  status: 'TODO',
+  ...enColumna('TODO'),
   priority: 'MEDIUM',
   estimate: null,
   dueDate: null,
@@ -134,13 +135,13 @@ describe('Refresco del historial visible - MIR-22', () => {
   it('al mover la tarjeta en el tablero', async () => {
     server.use(
       http.patch(`${ITEM_URL}/status`, () =>
-        HttpResponse.json({ item: { ...item, status: 'IN_PROGRESS' } }),
+        HttpResponse.json({ item: { ...item, ...enColumna('IN_PROGRESS') } }),
       ),
     );
     const { result, pedidos } = await montarConHistorial(() => useMoveWorkItem(PROJECT_ID));
 
     await act(async () => {
-      await result.current.mutacion.mutateAsync({ item, status: 'IN_PROGRESS' });
+      await result.current.mutacion.mutateAsync({ item, column: columnaDe('IN_PROGRESS') });
     });
 
     await comprobarRefetch(pedidos);

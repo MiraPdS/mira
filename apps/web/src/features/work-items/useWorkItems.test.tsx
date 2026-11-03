@@ -22,6 +22,7 @@ import {
 
 import { renderConProviders, screen } from '@/test/render';
 import type { WorkItemListFilters } from './work-items.api';
+import { enColumna } from '@/test/columns';
 
 const WORK_ITEMS_URL = 'http://localhost:3000/api/projects/:projectId/work-items';
 const BASE_URL = 'http://localhost:3000/api';
@@ -38,7 +39,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Titulo original',
     description: 'Descripcion original',
     type: 'STORY',
-    status: 'TODO',
+    ...enColumna('TODO'),
     priority: 'HIGH',
     estimate: 5,
     dueDate: '2026-03-15T12:00:00.000Z',
@@ -102,7 +103,7 @@ describe('useCreateWorkItem - integracion del backlog', () => {
       }),
       http.post(`${BASE_URL}/projects/${PROJECT_ID}/work-items`, async ({ request }) => {
         const input = (await request.json()) as { title: string };
-        const item = itemDePrueba({ title: input.title, type: 'TASK', status: 'BACKLOG' });
+        const item = itemDePrueba({ title: input.title, type: 'TASK', ...enColumna('BACKLOG') });
         items.push(item);
         return HttpResponse.json({ item }, { status: 201 });
       }),
@@ -128,7 +129,7 @@ describe('useCreateWorkItem - integracion del backlog', () => {
         title: 'Nuevo elemento',
         type: 'TASK',
         priority: 'MEDIUM',
-        status: 'BACKLOG',
+        ...enColumna('BACKLOG'),
       });
     });
 
@@ -175,7 +176,7 @@ describe('useCreateWorkItem - integracion del backlog', () => {
           title: 'Elemento rechazado',
           type: 'TASK',
           priority: 'MEDIUM',
-          status: 'BACKLOG',
+          ...enColumna('BACKLOG'),
         }),
       ).rejects.toBeInstanceOf(ApiRequestError);
     });
@@ -273,7 +274,7 @@ function resultado(title: string): Paginated<WorkItemDto> {
         title,
         description: null,
         type: 'BUG',
-        status: 'BACKLOG',
+        ...enColumna('BACKLOG'),
         priority: 'HIGH',
         estimate: null,
         dueDate: null,

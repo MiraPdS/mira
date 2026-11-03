@@ -1,5 +1,5 @@
 import { Link, useParams } from 'react-router-dom';
-import { PRIORITY_LABELS, STATUS_LABELS, TYPE_LABELS } from '@mira/shared';
+import { CATEGORY_LABELS, PRIORITY_LABELS, TYPE_LABELS } from '@mira/shared';
 import { describeActivity } from '@/features/activity/describeActivity';
 import { useProjectSummary } from './useProjects';
 
@@ -141,8 +141,8 @@ export function ProjectSummaryPage() {
         <SummarySection
           id="resumen-estado"
           title="Por estado"
-          values={summary.byStatus}
-          labels={STATUS_LABELS}
+          values={summary.byCategory}
+          labels={CATEGORY_LABELS}
         />
 
         <SummarySection
@@ -190,7 +190,7 @@ export function ProjectSummaryPage() {
         )}
       </section>
 
-      {/* Navegacion hacia el backlog, tablero y miembros */}
+      {/* Navegacion hacia el backlog, tablero, sprints y miembros */}
       <nav aria-label="Secciones del proyecto" className="flex flex-wrap gap-x-6 gap-y-2">
         <Link
           to={`/proyectos/${projectId}/backlog`}
@@ -204,6 +204,13 @@ export function ProjectSummaryPage() {
           className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600 hover:underline sm:min-h-0"
         >
           Ver tablero →
+        </Link>
+
+        <Link
+          to={`/proyectos/${projectId}/sprints`}
+          className="inline-flex min-h-11 items-center text-sm font-medium text-blue-600 hover:underline sm:min-h-0"
+        >
+          Ver sprints →
         </Link>
 
         <Link

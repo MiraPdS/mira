@@ -1,5 +1,7 @@
-import type { Project, ProjectRole, User, WorkItem } from '@prisma/client';
+import type { Project, ProjectRole, Sprint, User, WorkItem } from '@prisma/client';
+import { DEFAULT_BOARD_COLUMNS } from '@mira/shared';
 import { prisma } from '../lib/prisma.js';
+import { defaultBoardColumnsData } from '../modules/projects/projects.repository.js';
 import { hashPassword } from '../lib/password.js';
 import { AUTH_COOKIE, signToken } from '../lib/jwt.js';
 
@@ -61,6 +63,8 @@ export async function createProject(
       key: options.key ?? `P${n}`,
       description: options.description ?? null,
       members: { create: { userId: owner.id, role: 'OWNER' } },
+      // MIR-31: igual que crear un proyecto por la API.
+      boardColumns: { create: defaultBoardColumnsData() },
     },
   });
 
@@ -77,23 +81,57 @@ export async function addMember(
   });
 }
 
+export async function createSprint(options: {
+  project: Project;
+  id?: string;
+  name?: string;
+  goal?: string | null;
+  startDate?: Date;
+  endDate?: Date;
+  status?: Sprint['status'];
+}): Promise<Sprint> {
+  const n = siguiente();
+  return prisma.sprint.create({
+    data: {
+      id: options.id,
+      projectId: options.project.id,
+      name: options.name ?? `Sprint ${n}`,
+      goal: options.goal ?? null,
+      startDate: options.startDate ?? new Date('2026-10-28T00:00:00.000Z'),
+      endDate: options.endDate ?? new Date('2026-11-11T00:00:00.000Z'),
+      status: options.status ?? 'PLANNED',
+    },
+  });
+}
+
 export async function createWorkItem(options: {
   project: Project;
   createdBy: User;
   title?: string;
   description?: string | null;
-  status?: WorkItem['status'];
+  /**
+   * Atajo de las pruebas: el estado de la Entrega 1 se traduce a la columna
+   * por defecto del proyecto (MIR-31). Asi siguen declarando 'TODO', 'DONE'...
+   */
+  status?: EstadoDePrueba;
+  /** MIR-31: columna exacta; tiene prioridad sobre `status`. */
+  columnId?: string | null;
   type?: WorkItem['type'];
   priority?: WorkItem['priority'];
   estimate?: WorkItem['estimate'];
   dueDate?: WorkItem['dueDate'];
   assigneeId?: string | null;
+  sprintId?: string | null;
   /** Para probar el orden del tablero; por defecto los asigna la base. */
   id?: string;
   position?: number;
   createdAt?: Date;
 }): Promise<WorkItem> {
   const n = siguiente();
+  const columnId =
+    options.columnId !== undefined
+      ? options.columnId
+      : await columnIdOfStatus(options.project, options.status ?? 'BACKLOG');
   return prisma.workItem.create({
     data: {
       id: options.id,
@@ -104,12 +142,39 @@ export async function createWorkItem(options: {
       createdById: options.createdBy.id,
       title: options.title ?? `Item ${n}`,
       description: options.description ?? null,
-      status: options.status ?? 'BACKLOG',
+      columnId,
       type: options.type ?? 'TASK',
       priority: options.priority ?? 'MEDIUM',
       estimate: options.estimate ?? null,
       dueDate: options.dueDate ?? null,
       assigneeId: options.assigneeId ?? null,
+      sprintId: options.sprintId ?? null,
     },
   });
+}
+
+/**
+ * Estados de la Entrega 1, solo para las pruebas: cada uno es una columna por
+ * defecto (en el orden de DEFAULT_BOARD_COLUMNS) y BACKLOG es no tener columna.
+ * MIR-49 quito el enum de la API; aqui sobrevive como atajo.
+ */
+const ESTADOS_DE_PRUEBA = ['TODO', 'IN_PROGRESS', 'IN_REVIEW', 'DONE'] as const;
+export type EstadoDePrueba = 'BACKLOG' | (typeof ESTADOS_DE_PRUEBA)[number];
+
+/** Nombre de la columna por defecto que equivale a un estado de prueba. */
+export function columnNameOfStatus(status: Exclude<EstadoDePrueba, 'BACKLOG'>): string {
+  return DEFAULT_BOARD_COLUMNS[ESTADOS_DE_PRUEBA.indexOf(status)]!.name;
+}
+
+/** MIR-31: id de la columna por defecto que equivale a un estado de prueba. */
+export async function columnIdOfStatus(
+  project: Project,
+  status: EstadoDePrueba,
+): Promise<string | null> {
+  if (status === 'BACKLOG') return null;
+  const column = await prisma.boardColumn.findFirstOrThrow({
+    where: { projectId: project.id, name: columnNameOfStatus(status) },
+    select: { id: true },
+  });
+  return column.id;
 }

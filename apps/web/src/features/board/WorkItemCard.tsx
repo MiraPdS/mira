@@ -1,9 +1,9 @@
 import {
   PRIORITY_LABELS,
   TYPE_LABELS,
+  type BoardColumnDto,
   type WorkItemDto,
   type WorkItemPriority,
-  type WorkItemStatus,
 } from '@mira/shared';
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
@@ -21,12 +21,14 @@ const PRIORITY_STYLES: Record<WorkItemPriority, string> = {
 
 export interface WorkItemCardProps {
   item: WorkItemDto;
+  /** MIR-49: columnas del proyecto, destinos del menu "Mover a...". */
+  columns: readonly BoardColumnDto[];
   /**
    * Presente solo si el usuario puede cambiar estados: sin el, la tarjeta no
    * ofrece el menu "Mover a..." ni se puede arrastrar (VIEWER, o rol aun
    * desconocido).
    */
-  onMove?: (status: WorkItemStatus) => void;
+  onMove?: (column: BoardColumnDto) => void;
 }
 
 /**
@@ -44,7 +46,7 @@ export interface WorkItemCardProps {
  * la tarjeta se queda en su lugar como hueco atenuado y lo que sigue al dedo
  * es TarjetaArrastrada, dentro del DragOverlay del tablero.
  */
-export function WorkItemCard({ item, onMove }: WorkItemCardProps) {
+export function WorkItemCard({ item, columns, onMove }: WorkItemCardProps) {
   const titleId = `tarjeta-${item.id}-titulo`;
   const { attributes, listeners, setNodeRef, setActivatorNodeRef, isDragging } = useDraggable({
     id: item.id,
@@ -82,7 +84,12 @@ export function WorkItemCard({ item, onMove }: WorkItemCardProps) {
           }
           menu={
             onMove ? (
-              <MoveToMenu reference={item.reference} currentStatus={item.status} onMove={onMove} />
+              <MoveToMenu
+                reference={item.reference}
+                columns={columns}
+                currentColumnId={item.columnId}
+                onMove={onMove}
+              />
             ) : null
           }
         />

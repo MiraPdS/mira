@@ -68,7 +68,7 @@ Supertest contra un PostgreSQL real.
 | Validación | Zod (compartido) | Una sola definición del contrato para tipos y runtime |
 | Sesión | JWT en cookie `httpOnly` | Los E2E hacen login por la UI y el navegador arrastra la cookie ([D3](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d3--jwt-en-cookie-httponly)) |
 | **Pruebas** | **Vitest + React Testing Library**, Supertest, MSW, `vitest-mock-extended` | Herramienta declarada del equipo. Ver [Estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md) |
-| CI | GitHub Actions | Formato, lint, tipos, las tres suites y build en cada PR; check obligatorio de `main` ([D11](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d11--github-actions-en-la-entrega-1-jenkins-en-la-entrega-2)) |
+| CI/CD | GitHub Actions | Formato, lint, tipos, las tres suites y build en cada PR; check obligatorio de `main` ([D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)) |
 | Despliegue | Vercel + Render + Supabase | URL pública estable: será la `BASE_URL` de los E2E ([D12](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d12--despliegue-en-vercel-render-y-supabase)) |
 
 ## Decisiones técnicas
@@ -91,6 +91,7 @@ Cada decisión tiene su justificación y sus alternativas descartadas en
 | [D11](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d11--github-actions-en-la-entrega-1-jenkins-en-la-entrega-2) | GitHub Actions en la Entrega 1, Jenkins en la Entrega 2 |
 | [D12](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d12--despliegue-en-vercel-render-y-supabase) | Despliegue en Vercel, Render y Supabase |
 | [D13](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d13--mismo-origen-mediante-rewrite-de-vercel) | Mismo origen mediante rewrite de Vercel |
+| [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) | GitHub Actions como CI/CD oficial y Discord para las notificaciones |
 
 ## Herramientas de IA
 

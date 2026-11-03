@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import {
   assignWorkItemSchema,
+  assignWorkItemSprintSchema,
   changeStatusSchema,
   createWorkItemSchema,
   updateWorkItemSchema,
@@ -61,6 +62,13 @@ export function createWorkItemRouter(): Router {
     requireAuth,
     validateBody(assignWorkItemSchema),
     controller.assign,
+  );
+
+  router.patch(
+    '/:projectId/work-items/:workItemId/sprint',
+    requireAuth,
+    validateBody(assignWorkItemSprintSchema),
+    controller.assignSprint,
   );
 
   // Tablero Kanban: GET /api/projects/:projectId/board

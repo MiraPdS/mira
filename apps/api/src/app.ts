@@ -11,6 +11,8 @@ import { createHealthRouter } from './modules/health/health.router.js';
 import { createProjectsRouter } from './modules/projects/projects.router.js';
 import { createWorkItemRouter } from './modules/work-items/work-item.router.js';
 import { createCommentRouter } from './modules/comments/comment.router.js';
+import { createBoardColumnRouter } from './modules/board-columns/board-column.router.js';
+import { createSprintRouter } from './modules/sprints/sprint.router.js';
 
 /**
  * Construye la aplicacion Express SIN escuchar en un puerto.
@@ -49,6 +51,12 @@ export function createApp(): Express {
 
   // Rutas de comentarios de elementos de trabajo (MIR-21).
   app.use('/api/projects', createCommentRouter());
+
+  // Columnas del tablero (MIR-48).
+  app.use('/api/projects', createBoardColumnRouter());
+
+  // Sprints (MIR-43).
+  app.use('/api/projects', createSprintRouter());
 
   app.use(notFoundHandler);
   app.use(errorHandler);

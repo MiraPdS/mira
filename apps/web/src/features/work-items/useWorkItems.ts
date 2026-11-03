@@ -17,6 +17,7 @@ import type {
 import type { ApiRequestError } from '@/lib/api-client';
 import {
   assignWorkItem,
+  assignWorkItemSprint,
   createComment,
   createWorkItem,
   deleteWorkItem,
@@ -30,6 +31,7 @@ import {
 } from './work-items.api';
 import { boardKeys } from '@/features/board/useBoard';
 import { projectKeys } from '@/features/projects/useProjects';
+import { sprintKeys } from '@/features/sprints/useSprints';
 
 export function useDeleteWorkItem(projectId: string, workItemId: string) {
   const queryClient = useQueryClient();
@@ -49,6 +51,7 @@ export function useDeleteWorkItem(projectId: string, workItemId: string) {
       });
       await queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
       await queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+      void queryClient.invalidateQueries({ queryKey: sprintKeys.list(projectId) });
       // MIR-21: igual que el detalle, sin refetch de los comentarios del
       // elemento eliminado mientras su consumidor sigue montado (daria 404).
       // MIR-22: lo mismo para su historial.
@@ -155,6 +158,7 @@ function syncWorkItemCaches(
   void queryClient.invalidateQueries({ queryKey: workItemKeys.backlog(projectId) });
   void queryClient.invalidateQueries({ queryKey: boardKeys.project(projectId) });
   void queryClient.invalidateQueries({ queryKey: projectKeys.summary(projectId) });
+  void queryClient.invalidateQueries({ queryKey: sprintKeys.list(projectId) });
   // MIR-22: editar deja ITEM_UPDATED y asignar ITEM_ASSIGNED en el historial.
   void queryClient.invalidateQueries({
     queryKey: activityQueryKey(projectId, workItemId),
@@ -172,6 +176,32 @@ export function useAssignWorkItem(projectId: string, workItemId: string) {
   return useMutation<WorkItemDto, ApiRequestError, string | null>({
     mutationFn: (assigneeId) => assignWorkItem(projectId, workItemId, assigneeId),
     onSuccess: (item) => syncWorkItemCaches(queryClient, projectId, workItemId, item),
+  });
+}
+
+export function useAssignWorkItemSprint(projectId: string, workItemId: string) {
+  const queryClient = useQueryClient();
+  return useMutation<WorkItemDto, ApiRequestError, string | null>({
+    mutationFn: (sprintId) => assignWorkItemSprint(projectId, workItemId, sprintId),
+    onSuccess: async (item) => {
+      // Incluye cargas iniciales: invalidarlas sin cancelar puede reutilizar
+      // una respuesta iniciada antes del PATCH y dejar datos o historial viejos.
+      await Promise.all(
+        [
+          workItemKeys.detail(projectId, workItemId),
+          workItemKeys.backlog(projectId),
+          boardKeys.project(projectId),
+          projectKeys.summary(projectId),
+          sprintKeys.list(projectId),
+          activityQueryKey(projectId, workItemId),
+        ].map((queryKey) => queryClient.cancelQueries({ queryKey })),
+      );
+      syncWorkItemCaches(queryClient, projectId, workItemId, item);
+    },
+    // Una lista obsoleta puede ofrecer un sprint que acaba de cerrarse o borrarse.
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: sprintKeys.list(projectId) });
+    },
   });
 }
 

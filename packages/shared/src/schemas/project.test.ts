@@ -77,7 +77,7 @@ describe('updateProjectSchema', () => {
 describe('projectSummarySchema (MIR-23)', () => {
   const vacio = {
     total: 0,
-    byStatus: { BACKLOG: 0, TODO: 0, IN_PROGRESS: 0, IN_REVIEW: 0, DONE: 0 },
+    byCategory: { BACKLOG: 0, TODO: 0, IN_PROGRESS: 0, DONE: 0 },
     byType: { EPIC: 0, STORY: 0, TASK: 0, BUG: 0 },
     byPriority: { LOW: 0, MEDIUM: 0, HIGH: 0, CRITICAL: 0 },
     recentActivity: [],
@@ -87,9 +87,9 @@ describe('projectSummarySchema (MIR-23)', () => {
     expect(projectSummarySchema.safeParse(vacio).success).toBe(true);
   });
 
-  it('rechaza un conteo al que le falta un estado', () => {
-    const { DONE: _omitido, ...sinDone } = vacio.byStatus;
-    expect(projectSummarySchema.safeParse({ ...vacio, byStatus: sinDone }).success).toBe(false);
+  it('rechaza un conteo al que le falta una categoria', () => {
+    const { DONE: _omitido, ...sinDone } = vacio.byCategory;
+    expect(projectSummarySchema.safeParse({ ...vacio, byCategory: sinDone }).success).toBe(false);
   });
 
   it('rechaza conteos negativos', () => {

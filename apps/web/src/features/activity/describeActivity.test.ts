@@ -16,8 +16,19 @@ describe('describeActivity en el historial de un elemento (MIR-22)', () => {
     ['creación', entrada('ITEM_CREATED'), 'creó el ítem'],
     [
       'cambio de estado',
-      entrada('ITEM_STATUS_CHANGED', 'status', 'TODO', 'IN_PROGRESS'),
+      entrada('ITEM_STATUS_CHANGED', 'status', 'Por hacer', 'En progreso'),
       'movió de Por hacer a En progreso',
+    ],
+    // MIR-49: el historial guarda el nombre de la columna; sin columna, BACKLOG.
+    [
+      'salida del backlog',
+      entrada('ITEM_STATUS_CHANGED', 'status', 'BACKLOG', 'Por hacer'),
+      'movió de Backlog a Por hacer',
+    ],
+    [
+      'columna creada por el equipo',
+      entrada('ITEM_STATUS_CHANGED', 'status', 'En revision', 'QA'),
+      'movió de En revision a QA',
     ],
     [
       'prioridad',
@@ -63,13 +74,23 @@ describe('describeActivity en el historial de un elemento (MIR-22)', () => {
       'quitó el responsable',
     ],
     ['comentario', entrada('COMMENT_ADDED', 'reference', null, 'MIR-12'), 'agregó un comentario'],
-    [
-      'campo desconocido',
-      entrada('ITEM_UPDATED', 'sprintId', 'sprint_1', 'sprint_2'),
-      'actualizó el ítem',
-    ],
+    ['campo desconocido', entrada('ITEM_UPDATED', 'unknown', 'a', 'b'), 'actualizó el ítem'],
   ])('%s', (_, actividad, esperado) => {
     expect(describeActivity(actividad, 'item')).toBe(esperado);
+  });
+});
+
+describe('MIR-45 nombres de sprints', () => {
+  it.each(['item', 'project'] as const)('describe asignar, cambiar y quitar en %s', (context) => {
+    expect(
+      describeActivity(entrada('ITEM_UPDATED', 'sprintId', null, 'Primero'), context),
+    ).toContain('al sprint «Primero»');
+    expect(
+      describeActivity(entrada('ITEM_UPDATED', 'sprintId', 'Primero', 'Segundo'), context),
+    ).toContain('de «Primero» a «Segundo»');
+    expect(
+      describeActivity(entrada('ITEM_UPDATED', 'sprintId', 'Sprint eliminado', null), context),
+    ).toContain('quitó el sprint');
   });
 });
 
@@ -78,7 +99,7 @@ describe('describeActivity en el panel del proyecto (MIR-23)', () => {
     ['creación', entrada('ITEM_CREATED'), 'creó un ítem'],
     [
       'cambio de estado',
-      entrada('ITEM_STATUS_CHANGED', 'status', 'TODO', 'IN_PROGRESS'),
+      entrada('ITEM_STATUS_CHANGED', 'status', 'Por hacer', 'En progreso'),
       'movió un ítem de Por hacer a En progreso',
     ],
     [
@@ -140,7 +161,7 @@ describe('describeActivity en el panel del proyecto (MIR-23)', () => {
 
 describe('describeActivity nunca filtra nombres de columnas ni valores crudos', () => {
   const casos = [
-    entrada('ITEM_STATUS_CHANGED', 'status', 'IN_PROGRESS', 'IN_REVIEW'),
+    entrada('ITEM_STATUS_CHANGED', 'status', 'BACKLOG', 'En revision'),
     entrada('ITEM_UPDATED', 'priority', 'HIGH', 'CRITICAL'),
     entrada('ITEM_UPDATED', 'dueDate', null, '2026-10-12T00:00:00.000Z'),
     entrada('ITEM_UPDATED', 'assigneeId', null, null),
@@ -149,7 +170,7 @@ describe('describeActivity nunca filtra nombres de columnas ni valores crudos', 
     entrada('MEMBER_ROLE_CHANGED', 'role', 'OWNER', 'MEMBER'),
   ];
   const prohibidos =
-    /IN_PROGRESS|IN_REVIEW|CRITICAL|OWNER|assigneeId|dueDate|sprintId|estimate|\d{4}-\d{2}-\d{2}T/;
+    /BACKLOG|IN_PROGRESS|IN_REVIEW|CRITICAL|OWNER|assigneeId|dueDate|sprintId|estimate|\d{4}-\d{2}-\d{2}T/;
 
   it.each(['item', 'project'] as ActivityContext[])('en contexto %s', (context) => {
     for (const caso of casos) {

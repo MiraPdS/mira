@@ -18,7 +18,9 @@ services:
     region: oregon
     # Produccion = codigo liberado. Los cambios llegan a main solo via release.
     branch: main
-    autoDeployTrigger: commit
+    # Despliega el job `deploy` de ci.yml con el deploy hook, solo con CI verde
+    # (MIR-54). Va entre comillas porque YAML 1.1 lee `off` como booleano.
+    autoDeployTrigger: 'off'
     # Sin rootDir: se instala el monorepo completo para resolver @mira/shared.
     #
     #  --include=dev  NODE_ENV=production tambien aplica al build, y sin esto
@@ -38,7 +40,8 @@ services:
     # sana. Que la base este alcanzable ya lo prueba `migrate deploy` en el
     # build. /api/health (con SELECT 1) queda para el pinger externo.
     healthCheckPath: /api/health/live
-    # Cambios solo del frontend no redeployan la API.
+    # Solo actua sobre auto-deploys: con el auto-deploy apagado no filtra nada
+    # y cada release redespliega la API. Se conserva para poder volver atras.
     buildFilter:
       paths:
         - apps/api/**

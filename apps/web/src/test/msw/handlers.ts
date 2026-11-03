@@ -2,6 +2,7 @@ import { http, HttpResponse } from 'msw';
 import type {
   ApiError,
   AuthResponse,
+  BoardColumnListResponse,
   CommentDto,
   ListProjectsResponse,
   ProjectDto,
@@ -9,6 +10,7 @@ import type {
   PublicUser,
   WorkItemActivityResponse,
 } from '@mira/shared';
+import { COLUMNAS_DE_PRUEBA } from '../columns';
 
 /**
  * Handlers por defecto de MSW.
@@ -59,6 +61,7 @@ export function apiError(
 }
 
 export const handlers = [
+  http.get(`${BASE_URL}/projects/:projectId/sprints`, () => HttpResponse.json({ data: [] })),
   http.post(`${BASE_URL}/auth/login`, () =>
     HttpResponse.json<AuthResponse>({ user: USUARIO_DE_PRUEBA }, { status: 200 }),
   ),
@@ -94,6 +97,10 @@ export const handlers = [
   // declara con server.use(...).
   http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/comments`, () =>
     HttpResponse.json<{ comments: CommentDto[] }>({ comments: [] }),
+  ),
+  // MIR-49: proyecto con sus columnas por defecto (filtro "Estado" del backlog).
+  http.get(`${BASE_URL}/projects/:projectId/columns`, () =>
+    HttpResponse.json<BoardColumnListResponse>({ columns: COLUMNAS_DE_PRUEBA }),
   ),
   // MIR-22: elemento sin historial, por la misma razon.
   http.get(`${BASE_URL}/projects/:projectId/work-items/:workItemId/activity`, () =>

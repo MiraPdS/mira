@@ -6,6 +6,7 @@ import { renderConProviders, screen, within } from '@/test/render';
 import { proyectoDePrueba, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { ProjectBoardPage } from './ProjectBoardPage';
+import { columnaDe, COLUMNAS_DE_PRUEBA, enColumna } from '@/test/columns';
 
 const PROJECT_ID = 'project_123';
 const PROJECT_URL = `http://localhost:3000/api/projects/${PROJECT_ID}`;
@@ -18,7 +19,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Tarjeta existente',
     description: null,
     type: 'TASK',
-    status: 'IN_PROGRESS',
+    ...enColumna('IN_PROGRESS'),
     priority: 'MEDIUM',
     estimate: null,
     dueDate: null,
@@ -53,7 +54,7 @@ describe('ProjectBoardPage (MIR-30)', () => {
     server.use(
       http.get(`${PROJECT_URL}/members`, () => HttpResponse.json({ members: [] })),
       http.get(`${PROJECT_URL}/board`, () =>
-        HttpResponse.json<BoardResponse>({ items: [itemDePrueba()] }),
+        HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [itemDePrueba()] }),
       ),
     );
   });
@@ -90,7 +91,9 @@ describe('ProjectBoardPage (MIR-30)', () => {
     const items = [itemDePrueba()];
     const requests: CreateWorkItemInput[] = [];
     server.use(
-      http.get(`${PROJECT_URL}/board`, () => HttpResponse.json<BoardResponse>({ items })),
+      http.get(`${PROJECT_URL}/board`, () =>
+        HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items }),
+      ),
       http.post(`${PROJECT_URL}/work-items`, async ({ request }) => {
         const input = (await request.json()) as CreateWorkItemInput;
         requests.push(input);
@@ -100,7 +103,8 @@ describe('ProjectBoardPage (MIR-30)', () => {
           title: input.title,
           type: input.type,
           priority: input.priority,
-          status: input.status,
+          columnId: input.columnId ?? null,
+          column: COLUMNAS_DE_PRUEBA.find((c) => c.id === input.columnId) ?? null,
         });
         items.push(item);
         return HttpResponse.json({ item }, { status: 201 });
@@ -116,6 +120,9 @@ describe('ProjectBoardPage (MIR-30)', () => {
     const porHacer = screen.getByRole('list', { name: 'Tarjetas de Por hacer' });
     expect(await within(porHacer).findByText('Creada desde el tablero')).toBeInTheDocument();
     expect(requests).toHaveLength(1);
-    expect(requests[0]).toMatchObject({ title: 'Creada desde el tablero', status: 'TODO' });
+    expect(requests[0]).toMatchObject({
+      title: 'Creada desde el tablero',
+      columnId: columnaDe('TODO').id,
+    });
   });
 });

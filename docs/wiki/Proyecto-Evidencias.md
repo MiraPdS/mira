@@ -14,7 +14,7 @@ URL viva se pueden revisar.
 | Trazabilidad historia → PR → pruebas | [Requisitos y trazabilidad](Proyecto-Requisitos-y-trazabilidad.md) | permanente |
 | Runs de CI (formato, lint, tipos, pruebas, build) | [GitHub Actions](https://github.com/MiraPdS/mira/actions/workflows/ci.yml) | logs: 90 días |
 | Reporte de cobertura HTML | artefacto `cobertura` de cada run | 90 días |
-| **Cobertura y resultados de pruebas por entrega** | página `Evidencias-Entrega-N`, congelada desde el run de CI del commit del release | **permanente** |
+| **Cobertura y resultados de pruebas por entrega** | página `Evidencias-Entrega-N`, congelada desde el run de CI y commit identificados en la página | **permanente** |
 | Ambiente desplegado | [mira-pds.vercel.app](https://mira-pds.vercel.app) · [`/api/health`](https://mira-pds.vercel.app/api/health) | mientras exista la demo |
 | Release y tag de cada entrega | [Releases](https://github.com/MiraPdS/mira/releases) | permanente |
 
@@ -57,8 +57,9 @@ la regla, y en la Entrega 1 ocurrió dos veces:
   directo a `main` el 2026-10-09; se integraron de vuelta a `develop` en
   [#35](https://github.com/MiraPdS/mira/pull/35).
 
-Pendiente para la Entrega 2: activar `enforce_admins` para que la regla
-aplique también a los administradores.
+En la Entrega 2 se activó `enforce_admins` (MIR-33): la regla aplica también
+a los administradores, y un `hotfix/*` también va por PR. Ver
+[`docs/ci-cd.md`](https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md#checks-obligatorios-de-main).
 
 ## Entrega 1
 
@@ -68,6 +69,18 @@ aplique también a los administradores.
 - **Release y tag:** [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1).
 - **Trazabilidad, PRs representativos, uso de IA y defectos:** en
   [Entrega 1](Entrega-1.md#evidencia).
+
+## Entrega 2
+
+- **Pipeline, avisos y umbral de cobertura:** enlaces a cada ejecución en
+  [Entrega 2](Entrega-2.md#evidencia).
+- **Pruebas y cobertura congeladas:**
+  [Evidencias de la Entrega 2](Evidencias-Entrega-2.md), generadas desde el
+  [run de CI 41553706231](https://github.com/MiraPdS/mira/actions/runs/41553706231)
+  del commit `fa5f0c7` en `develop`, como preparación de MIR-57.
+- **Release, tag y primer despliegue desde Actions (pendientes):** sus
+  evidencias se enlazarán en [Entrega 2](Entrega-2.md#evidencia) durante el
+  release real de `v2.0-entrega2`. El run de preparación no acredita esos hitos.
 
 ## Ambiente desplegado
 

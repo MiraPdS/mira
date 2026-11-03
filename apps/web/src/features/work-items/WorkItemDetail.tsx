@@ -4,7 +4,7 @@ import {
   COMMENT_MAX_LENGTH,
   createCommentSchema,
   PRIORITY_LABELS,
-  STATUS_LABELS,
+  CATEGORY_LABELS,
   TYPE_LABELS,
 } from '@mira/shared';
 import { Button } from '@/components/ui/button';
@@ -22,6 +22,7 @@ import {
 } from './useWorkItems';
 import { WorkItemEditForm } from './WorkItemEditForm';
 import { WorkItemHistory } from './WorkItemHistory';
+import { WorkItemSprintField } from './WorkItemSprintField';
 
 export interface WorkItemDetailProps {
   projectId: string;
@@ -223,7 +224,9 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Estado</dt>
-          <dd className="mt-1 text-sm text-slate-900">{STATUS_LABELS[item.status]}</dd>
+          <dd className="mt-1 text-sm text-slate-900">
+            {item.column?.name ?? CATEGORY_LABELS.BACKLOG}
+          </dd>
         </div>
         <div>
           <dt className="text-sm font-medium text-slate-500">Prioridad</dt>
@@ -256,6 +259,18 @@ function WorkItemDetailContent({ projectId, workItemId, onDeleted }: WorkItemDet
             {item.estimate === null
               ? 'Sin estimar'
               : `${item.estimate} ${item.estimate === 1 ? 'punto' : 'puntos'}`}
+          </dd>
+        </div>
+        <div>
+          <dt className="text-sm font-medium text-slate-500">Sprint</dt>
+          <dd className="mt-1 text-sm text-slate-900">
+            <WorkItemSprintField
+              key={item.id}
+              projectId={projectId}
+              workItemId={item.id}
+              sprintId={item.sprintId}
+              canEdit={canEdit}
+            />
           </dd>
         </div>
         <div>

@@ -1,9 +1,11 @@
 import { beforeAll, describe, expect, it } from 'vitest';
 import request from 'supertest';
 import type { Express } from 'express';
-import type { User } from '@prisma/client';
+import type { Project, User } from '@prisma/client';
 import {
   addMember,
+  columnIdOfStatus,
+  columnNameOfStatus,
   createProject,
   createUser,
   createWorkItem,
@@ -43,6 +45,14 @@ async function iniciarSesion(user: User): Promise<string> {
   const cookie = cookieDeSesion(login);
   if (!cookie) throw new Error('El login de prueba no entrego una cookie de sesion');
   return cookie;
+}
+
+/** MIR-49: se mueve por columna; el estado de prueba nombra la columna por defecto. */
+async function aColumna(
+  project: Project,
+  status: Parameters<typeof columnIdOfStatus>[1],
+): Promise<{ columnId: string | null }> {
+  return { columnId: await columnIdOfStatus(project, status) };
 }
 
 function rutaDeCreacion(projectId: string): string {
@@ -285,7 +295,8 @@ describe('POST /api/projects/:projectId/work-items', () => {
       projectId: project.id,
       title: 'Primer elemento',
       type: 'TASK',
-      status: 'BACKLOG',
+      columnId: null,
+      column: null,
       priority: 'MEDIUM',
       assignee: null,
       sprintId: null,
@@ -298,7 +309,8 @@ describe('POST /api/projects/:projectId/work-items', () => {
       createdById: member.id,
       title: 'Primer elemento',
       type: 'TASK',
-      status: 'BACKLOG',
+      // MIR-31: BACKLOG es no estar en ninguna columna.
+      columnId: null,
       priority: 'MEDIUM',
       assigneeId: null,
       sprintId: null,
@@ -567,7 +579,9 @@ describe('GET /api/projects/:projectId/work-items', () => {
         .get(`${rutaDeCreacion(project.id)}?type=BUG`)
         .set('Cookie', cookie),
       request(app)
-        .get(`${rutaDeCreacion(project.id)}?status=IN_PROGRESS`)
+        .get(
+          `${rutaDeCreacion(project.id)}?columnId=${await columnIdOfStatus(project, 'IN_PROGRESS')}`,
+        )
         .set('Cookie', cookie),
       request(app)
         .get(`${rutaDeCreacion(project.id)}?priority=HIGH`)
@@ -743,7 +757,7 @@ describe('GET /api/projects/:projectId/work-items', () => {
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
   });
 
-  it.each(['type=FEATURE', 'status=UNKNOWN', 'priority=URGENT'])(
+  it.each(['type=FEATURE', 'columnId=', 'priority=URGENT'])(
     'rechaza un filtro invalido: %s',
     async (query) => {
       const owner = await createUser({ email: 'owner@mira.test' });
@@ -892,7 +906,14 @@ describe('GET /api/projects/:projectId/work-items/:workItemId', () => {
       title: 'Preparar la primera entrega',
       description: 'Implementar el detalle del elemento.',
       type: 'STORY',
-      status: 'IN_PROGRESS',
+      // MIR-31: la columna por defecto que equivale a IN_PROGRESS.
+      columnId: expect.any(String),
+      column: {
+        id: expect.any(String),
+        name: 'En progreso',
+        position: 1,
+        category: 'IN_PROGRESS',
+      },
       priority: 'HIGH',
       estimate: 5,
       dueDate: dueDate.toISOString(),
@@ -1010,12 +1031,10 @@ describe('GET /api/projects/:projectId/board', () => {
     const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body.items.map((item: { status: string }) => item.status).sort()).toEqual([
-      'DONE',
-      'IN_PROGRESS',
-      'IN_REVIEW',
-      'TODO',
-    ]);
+    // MIR-49: cada item trae su columna; el backlog (sin columna) no aparece.
+    expect(
+      res.body.items.map((item: { column: { name: string } }) => item.column.name).sort(),
+    ).toEqual(['En progreso', 'En revision', 'Hecho', 'Por hacer']);
   });
 
   it('devuelve todos los items, mas que una pagina del backlog, en orden estable', async () => {
@@ -1084,7 +1103,9 @@ describe('GET /api/projects/:projectId/board', () => {
     const res = await request(app).get(rutaDelTablero(project.id)).set('Cookie', cookie);
 
     expect(res.status).toBe(200);
-    expect(res.body).toEqual({ items: [] });
+    // MIR-31: el tablero trae tambien las columnas, aunque esten vacias.
+    expect(res.body).toEqual({ items: [], columns: expect.any(Array) });
+    expect(res.body.columns).toHaveLength(4);
   });
 
   it('permite ver el tablero a un VIEWER', async () => {
@@ -1139,13 +1160,13 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       const res = await request(app)
         .patch(rutaDeEstado(project.id, workItem.id))
         .set('Cookie', cookie)
-        .send({ status: 'IN_PROGRESS' });
+        .send(await aColumna(project, 'IN_PROGRESS'));
 
       expect(res.status).toBe(200);
       expect(res.body.item).toMatchObject({
         id: workItem.id,
         reference: workItem.reference,
-        status: 'IN_PROGRESS',
+        column: { name: 'En progreso' },
       });
 
       // "Tras recargar": el tablero vuelve a leer desde PostgreSQL.
@@ -1153,7 +1174,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
         .get(`/api/projects/${project.id}/board`)
         .set('Cookie', cookie);
       expect(board.body.items).toEqual([
-        expect.objectContaining({ id: workItem.id, status: 'IN_PROGRESS' }),
+        expect.objectContaining({
+          id: workItem.id,
+          column: expect.objectContaining({ name: 'En progreso' }),
+        }),
       ]);
 
       const activity = await prisma.activityLog.findMany({ where: { workItemId: workItem.id } });
@@ -1163,8 +1187,8 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
           projectId: project.id,
           actorId: actor.id,
           field: 'status',
-          fromValue: 'TODO',
-          toValue: 'IN_PROGRESS',
+          fromValue: 'Por hacer',
+          toValue: 'En progreso',
         }),
       ]);
     },
@@ -1179,7 +1203,7 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       const res = await request(app)
         .patch(rutaDeEstado(project.id, workItem.id))
         .set('Cookie', cookie)
-        .send({ status });
+        .send(await aColumna(project, status));
       expect(res.status).toBe(200);
     }
 
@@ -1188,9 +1212,9 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       orderBy: { createdAt: 'asc' },
     });
     expect(activity.map(({ fromValue, toValue }) => [fromValue, toValue])).toEqual([
-      ['TODO', 'IN_PROGRESS'],
-      ['IN_PROGRESS', 'IN_REVIEW'],
-      ['IN_REVIEW', 'DONE'],
+      ['Por hacer', 'En progreso'],
+      ['En progreso', 'En revision'],
+      ['En revision', 'Hecho'],
     ]);
   });
 
@@ -1202,10 +1226,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     const res = await request(app)
       .patch(rutaDeEstado(project.id, workItem.id))
       .set('Cookie', cookie)
-      .send({ status: 'DONE' });
+      .send(await aColumna(project, 'DONE'));
 
     expect(res.status).toBe(200);
-    expect(res.body.item.status).toBe('DONE');
+    expect(res.body.item.column.name).toBe('Hecho');
     expect(await prisma.activityLog.count()).toBe(0);
   });
 
@@ -1219,12 +1243,14 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     const res = await request(app)
       .patch(rutaDeEstado(project.id, workItem.id))
       .set('Cookie', cookie)
-      .send({ status: 'DONE' });
+      .send(await aColumna(project, 'DONE'));
 
     expect(res.status).toBe(403);
     expect(res.body.error.code).toBe('FORBIDDEN');
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { name: 'Por hacer' },
     });
     expect(await prisma.activityLog.count()).toBe(0);
   });
@@ -1238,12 +1264,14 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     const res = await request(app)
       .patch(rutaDeEstado(project.id, workItem.id))
       .set('Cookie', cookie)
-      .send({ status: 'DONE' });
+      .send(await aColumna(project, 'DONE'));
 
     expect(res.status).toBe(404);
     expect(res.body.error.code).toBe('NOT_FOUND');
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { name: 'Por hacer' },
     });
   });
 
@@ -1256,11 +1284,13 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     const res = await request(app)
       .patch(rutaDeEstado(project.id, ajeno.id))
       .set('Cookie', cookie)
-      .send({ status: 'DONE' });
+      .send(await aColumna(project, 'DONE'));
 
     expect(res.status).toBe(404);
-    expect(await prisma.workItem.findUnique({ where: { id: ajeno.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: ajeno.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { name: 'Por hacer' },
     });
     expect(await prisma.activityLog.count()).toBe(0);
   });
@@ -1271,11 +1301,13 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
 
     const res = await request(app)
       .patch(rutaDeEstado(project.id, workItem.id))
-      .send({ status: 'DONE' });
+      .send(await aColumna(project, 'DONE'));
 
     expect(res.status).toBe(401);
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { name: 'Por hacer' },
     });
   });
 
@@ -1295,8 +1327,10 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
 
     expect(res.status).toBe(422);
     expect(res.body.error.code).toBe('VALIDATION_ERROR');
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { name: 'Por hacer' },
       title: workItem.title,
     });
     expect(await prisma.activityLog.count()).toBe(0);
@@ -1330,20 +1364,28 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       },
     });
 
+    const [enProgreso, hecho] = await Promise.all([
+      aColumna(project, 'IN_PROGRESS'),
+      aColumna(project, 'DONE'),
+    ]);
     await Promise.all([
-      service.changeStatus(project.id, owner.id, workItem.id, { status: 'IN_PROGRESS' }),
-      service.changeStatus(project.id, owner.id, workItem.id, { status: 'DONE' }),
+      service.changeStatus(project.id, owner.id, workItem.id, enProgreso),
+      service.changeStatus(project.id, owner.id, workItem.id, hecho),
     ]);
     expect(reads).toBeGreaterThanOrEqual(3);
     const activities = await prisma.activityLog.findMany({ where: { workItemId: workItem.id } });
     expect(activities).toHaveLength(2);
-    const first = activities.find((entry) => entry.fromValue === 'TODO')!;
+    const first = activities.find((entry) => entry.fromValue === columnNameOfStatus('TODO'))!;
     expect(first).toBeDefined();
     const second = activities.find((entry) => entry.id !== first.id)!;
     expect(second.fromValue).toBe(first.toValue);
-    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).status).toBe(
-      second.toValue,
-    );
+    // MIR-31: el estado ya no es una columna de work_items; se lee de la
+    // columna del tablero donde quedo el elemento.
+    const final = await prisma.workItem.findUniqueOrThrow({
+      where: { id: workItem.id },
+      include: { column: true },
+    });
+    expect(final.column?.name).toBe(second.toValue);
   });
 
   it('serializa dos movimientos concurrentes por HTTP sin estado anterior obsoleto', async () => {
@@ -1351,13 +1393,14 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
     const workItem = await createWorkItem({ project, createdBy: owner, status: 'TODO' });
     const cookie = await iniciarSesion(owner);
     const statuses = ['IN_PROGRESS', 'DONE'] as const;
+    const cuerpos = await Promise.all(statuses.map((status) => aColumna(project, status)));
 
     const responses = await Promise.all(
-      statuses.map((status) =>
+      cuerpos.map((cuerpo) =>
         request(app)
           .patch(rutaDeEstado(project.id, workItem.id))
           .set('Cookie', cookie)
-          .send({ status }),
+          .send(cuerpo),
       ),
     );
 
@@ -1366,14 +1409,20 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
       where: { workItemId: workItem.id, action: 'ITEM_STATUS_CHANGED' },
     });
     expect(activities).toHaveLength(2);
-    expect(activities.map((entry) => entry.toValue).sort()).toEqual([...statuses].sort());
-    const first = activities.find((entry) => entry.fromValue === 'TODO');
+    expect(activities.map((entry) => entry.toValue).sort()).toEqual(
+      statuses.map(columnNameOfStatus).sort(),
+    );
+    const first = activities.find((entry) => entry.fromValue === columnNameOfStatus('TODO'));
     expect(first).toBeDefined();
     const second = activities.find((entry) => entry.id !== first!.id)!;
     expect(second.fromValue).toBe(first!.toValue);
-    expect((await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).status).toBe(
-      second.toValue,
-    );
+    // MIR-31: el estado ya no es una columna de work_items; se lee de la
+    // columna del tablero donde quedo el elemento.
+    const final = await prisma.workItem.findUniqueOrThrow({
+      where: { id: workItem.id },
+      include: { column: true },
+    });
+    expect(final.column?.name).toBe(second.toValue);
   });
 
   it('revierte el cambio de estado si PostgreSQL falla al registrar el historial', async () => {
@@ -1393,12 +1442,19 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId/status', () => {
           FOR EACH ROW EXECUTE FUNCTION mir19_reject_activity()
         `;
         const service = createWorkItemService(createWorkItemRepository(tx));
-        await service.changeStatus(project.id, owner.id, workItem.id, { status: 'DONE' });
+        await service.changeStatus(
+          project.id,
+          owner.id,
+          workItem.id,
+          await aColumna(project, 'DONE'),
+        );
       }),
     ).rejects.toThrow('MIR19_ACTIVITY_BLOCKED');
 
-    expect(await prisma.workItem.findUnique({ where: { id: workItem.id } })).toMatchObject({
-      status: 'TODO',
+    expect(
+      await prisma.workItem.findUnique({ where: { id: workItem.id }, include: { column: true } }),
+    ).toMatchObject({
+      column: { name: 'Por hacer' },
     });
     expect(await prisma.activityLog.count()).toBe(0);
   });
@@ -1584,11 +1640,16 @@ describe('PATCH /api/projects/:projectId/work-items/:workItemId', () => {
       .send({ title: 'Solo cambia el titulo' });
 
     expect(res.status).toBe(200);
-    expect(await prisma.workItem.findUniqueOrThrow({ where: { id: workItem.id } })).toMatchObject({
+    expect(
+      await prisma.workItem.findUniqueOrThrow({
+        where: { id: workItem.id },
+        include: { column: true },
+      }),
+    ).toMatchObject({
       title: 'Solo cambia el titulo',
       description: 'Descripcion original',
       type: 'STORY',
-      status: 'IN_PROGRESS',
+      column: { name: 'En progreso' },
       priority: 'HIGH',
       estimate: 5,
       dueDate,

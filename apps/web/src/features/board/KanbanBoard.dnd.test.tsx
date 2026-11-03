@@ -1,17 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { http, HttpResponse } from 'msw';
-import {
-  BOARD_STATUSES,
-  STATUS_LABELS,
-  type BoardResponse,
-  type ProjectRole,
-  type WorkItemDto,
-  type WorkItemStatus,
-} from '@mira/shared';
+import { type BoardResponse, type ProjectRole, type WorkItemDto } from '@mira/shared';
 import { fireEvent, renderConProviders, screen, waitFor, within } from '@/test/render';
 import { apiError, USUARIO_DE_PRUEBA } from '@/test/msw/handlers';
 import { server } from '@/test/msw/server';
 import { KanbanBoard } from './KanbanBoard';
+import { columnaDe, COLUMNAS_DE_PRUEBA, enColumna, type EstadoDePrueba } from '@/test/columns';
 
 /**
  * MIR-20: arrastrar y soltar tarjetas entre columnas.
@@ -29,6 +23,16 @@ const BOARD_URL = `${BASE_URL}/projects/:projectId/board`;
 const STATUS_URL = `${BASE_URL}/projects/:projectId/work-items/:workItemId/status`;
 
 const ANCHO_COLUMNA = 300;
+
+/** Estados de prueba que tienen columna en el tablero. */
+type Estado = Exclude<EstadoDePrueba, 'BACKLOG'>;
+
+/** Orden en pantalla de la columna de un estado. */
+const indiceDe = (status: Estado) => COLUMNAS_DE_PRUEBA.indexOf(columnaDe(status));
+
+/** Orden en pantalla de una columna, segun el id de su titulo (`columna-<id>`). */
+const indiceDeSeccion = (el: Element) =>
+  COLUMNAS_DE_PRUEBA.findIndex((c) => el.getAttribute('aria-labelledby') === `columna-${c.id}`);
 
 function rect(left: number, top: number, width: number, height: number): DOMRect {
   return {
@@ -57,15 +61,14 @@ function layoutSimulado(this: Element): DOMRect {
   const columna = this.closest('section[aria-labelledby^="columna-"]');
   if (!columna) return rect(0, 0, 0, 0);
 
-  const status = columna.getAttribute('aria-labelledby')!.replace('columna-', '');
-  const left = BOARD_STATUSES.indexOf(status as (typeof BOARD_STATUSES)[number]) * ANCHO_COLUMNA;
+  const left = indiceDeSeccion(columna) * ANCHO_COLUMNA;
   if (this === columna) return rect(left, 0, ANCHO_COLUMNA - 12, 600);
   return rect(left + 12, 60, ANCHO_COLUMNA - 36, 80);
 }
 
 /** Centro de la columna de un estado, en coordenadas de la ventana. */
-function centroDe(status: (typeof BOARD_STATUSES)[number]) {
-  return { clientX: BOARD_STATUSES.indexOf(status) * ANCHO_COLUMNA + 140, clientY: 300 };
+function centroDe(status: Estado) {
+  return { clientX: indiceDe(status) * ANCHO_COLUMNA + 140, clientY: 300 };
 }
 
 beforeEach(() => {
@@ -92,7 +95,7 @@ function itemDePrueba(overrides: Partial<WorkItemDto> = {}): WorkItemDto {
     title: 'Login',
     description: null,
     type: 'TASK',
-    status: 'TODO',
+    ...enColumna('TODO'),
     priority: 'HIGH',
     estimate: null,
     dueDate: null,
@@ -115,12 +118,15 @@ function servidorConEstado(items: WorkItemDto[]) {
   const db = new Map(items.map((item) => [item.id, item]));
   const peticiones: { workItemId: string; body: unknown }[] = [];
   server.use(
-    http.get(BOARD_URL, () => HttpResponse.json<BoardResponse>({ items: [...db.values()] })),
+    http.get(BOARD_URL, () =>
+      HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [...db.values()] }),
+    ),
     http.patch(STATUS_URL, async ({ params, request }) => {
-      const body = (await request.json()) as { status: WorkItemStatus };
+      const body = (await request.json()) as { columnId: string | null };
       const workItemId = params.workItemId as string;
       peticiones.push({ workItemId, body });
-      const item = { ...db.get(workItemId)!, status: body.status };
+      const column = COLUMNAS_DE_PRUEBA.find((c) => c.id === body.columnId) ?? null;
+      const item = { ...db.get(workItemId)!, columnId: body.columnId, column };
       db.set(workItemId, item);
       return HttpResponse.json({ item });
     }),
@@ -128,14 +134,14 @@ function servidorConEstado(items: WorkItemDto[]) {
   return peticiones;
 }
 
-function tarjetasDe(status: (typeof BOARD_STATUSES)[number]) {
-  return screen.getByRole('list', { name: `Tarjetas de ${STATUS_LABELS[status]}` });
+function tarjetasDe(status: Estado) {
+  return screen.getByRole('list', { name: `Tarjetas de ${columnaDe(status).name}` });
 }
 
 type User = ReturnType<typeof renderConProviders>['user'];
 
 /** Arrastra con el raton desde la tarjeta hasta el centro de una columna. */
-async function arrastrar(user: User, titulo: string, destino: (typeof BOARD_STATUSES)[number]) {
+async function arrastrar(user: User, titulo: string, destino: Estado) {
   const tarjeta = await screen.findByRole('article', { name: titulo });
   const { left, top } = tarjeta.getBoundingClientRect();
   const inicio = { clientX: left + 20, clientY: top + 20 };
@@ -156,7 +162,7 @@ async function arrastrar(user: User, titulo: string, destino: (typeof BOARD_STAT
  * touch, para que cualquier sensor de dnd-kit pueda reaccionar. jsdom no
  * desplaza nada, asi que solo se observa si dnd-kit tomo o no la tarjeta.
  */
-function deslizar(elemento: Element, destino: (typeof BOARD_STATUSES)[number]) {
+function deslizar(elemento: Element, destino: Estado) {
   const { left, top } = elemento.getBoundingClientRect();
   const inicio = { clientX: left + 10, clientY: top + 10 };
   const recorrido = [{ ...inicio, clientX: inicio.clientX + 10 }, centroDe(destino)];
@@ -213,7 +219,10 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
     expect(await within(tarjetasDe('DONE')).findByText('Login')).toBeInTheDocument();
     expect(within(tarjetasDe('TODO')).queryByText('Login')).not.toBeInTheDocument();
     await waitFor(() => expect(peticiones).toHaveLength(1));
-    expect(peticiones[0]).toEqual({ workItemId: 'item_9', body: { status: 'DONE' } });
+    expect(peticiones[0]).toEqual({
+      workItemId: 'item_9',
+      body: { columnId: columnaDe('DONE').id },
+    });
 
     await queryClient.resetQueries({ queryKey: ['board', PROJECT_ID] });
     expect(
@@ -230,10 +239,12 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
     });
     const item = itemDePrueba();
     server.use(
-      http.get(BOARD_URL, () => HttpResponse.json<BoardResponse>({ items: [item] })),
+      http.get(BOARD_URL, () =>
+        HttpResponse.json<BoardResponse>({ columns: COLUMNAS_DE_PRUEBA, items: [item] }),
+      ),
       http.patch(STATUS_URL, async () => {
         await respuesta;
-        return HttpResponse.json({ item: { ...item, status: 'IN_PROGRESS' } });
+        return HttpResponse.json({ item: { ...item, ...enColumna('IN_PROGRESS') } });
       }),
     );
 
@@ -252,7 +263,10 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
     server.use(
       http.get(BOARD_URL, async () => {
         if (++lecturas > 1) await new Promise(() => {});
-        return HttpResponse.json<BoardResponse>({ items: [itemDePrueba()] });
+        return HttpResponse.json<BoardResponse>({
+          columns: COLUMNAS_DE_PRUEBA,
+          items: [itemDePrueba()],
+        });
       }),
       http.patch(STATUS_URL, () => apiError(500, 'INTERNAL_ERROR', 'Error interno del servidor')),
     );
@@ -309,7 +323,7 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
 
       expect(await within(tarjetasDe('IN_REVIEW')).findByText('Login')).toBeInTheDocument();
       await waitFor(() => expect(peticiones).toHaveLength(1));
-      expect(peticiones[0]?.body).toEqual({ status: 'IN_REVIEW' });
+      expect(peticiones[0]?.body).toEqual({ columnId: columnaDe('IN_REVIEW').id });
     });
 
     it('anuncia a los lectores de pantalla la columna sobre la que esta la tarjeta', async () => {
@@ -361,7 +375,7 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
 
       expect(await within(tarjetasDe('DONE')).findByText('Login')).toBeInTheDocument();
       await waitFor(() => expect(peticiones).toHaveLength(1));
-      expect(peticiones[0]?.body).toEqual({ status: 'DONE' });
+      expect(peticiones[0]?.body).toEqual({ columnId: columnaDe('DONE').id });
     });
 
     it('deslizar sobre el cuerpo de la tarjeta no la toma: queda libre para desplazar el tablero', async () => {
@@ -403,22 +417,18 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
      * asignacion a scrollLeft junto con si el encaje (snap) ya estaba activo en
      * ese momento.
      */
-    const inicioDe = (status: (typeof BOARD_STATUSES)[number]) =>
-      BOARD_STATUSES.indexOf(status) * ANCHO_COLUMNA;
+    const inicioDe = (status: Estado) => indiceDe(status) * ANCHO_COLUMNA;
 
     function registrarDesplazamiento(anchoVisible = ANCHO_COLUMNA) {
-      const statusDe = (el: HTMLElement) =>
-        BOARD_STATUSES.find((s) => el.getAttribute('aria-labelledby') === `columna-${s}`);
       vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(function (
         this: HTMLElement,
       ) {
-        const status = statusDe(this);
-        return status ? inicioDe(status) : 0;
+        return Math.max(0, indiceDeSeccion(this)) * ANCHO_COLUMNA;
       });
       vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockImplementation(function (
         this: HTMLElement,
       ) {
-        return statusDe(this) ? ANCHO_COLUMNA - 12 : 0;
+        return indiceDeSeccion(this) === -1 ? 0 : ANCHO_COLUMNA - 12;
       });
 
       const region = screen.getByRole('region', { name: 'Columnas del tablero' });
@@ -449,7 +459,7 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
     });
 
     it('al cancelar, vuelve a la columna de origen', async () => {
-      servidorConEstado([itemDePrueba({ status: 'IN_PROGRESS' })]);
+      servidorConEstado([itemDePrueba({ ...enColumna('IN_PROGRESS') })]);
 
       const { user } = renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
       const asa = await screen.findByRole('button', { name: 'Arrastrar MIR-3' });
@@ -478,7 +488,12 @@ describe('KanbanBoard: arrastrar y soltar (MIR-20)', () => {
 
     it('si el servidor rechaza el cambio, el tablero vuelve con la tarjeta a su columna', async () => {
       server.use(
-        http.get(BOARD_URL, () => HttpResponse.json<BoardResponse>({ items: [itemDePrueba()] })),
+        http.get(BOARD_URL, () =>
+          HttpResponse.json<BoardResponse>({
+            columns: COLUMNAS_DE_PRUEBA,
+            items: [itemDePrueba()],
+          }),
+        ),
         http.patch(STATUS_URL, () => apiError(500, 'INTERNAL_ERROR', 'Error interno del servidor')),
       );
 
