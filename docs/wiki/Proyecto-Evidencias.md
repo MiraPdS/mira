@@ -78,9 +78,18 @@ a los administradores, y un `hotfix/*` también va por PR. Ver
   [Evidencias de la Entrega 2](Evidencias-Entrega-2.md), generadas desde el
   [run de CI 41553706231](https://github.com/MiraPdS/mira/actions/runs/41553706231)
   del commit `fa5f0c7` en `develop`, como preparación de MIR-57.
-- **Release, tag y primer despliegue desde Actions (pendientes):** sus
-  evidencias se enlazarán en [Entrega 2](Entrega-2.md#evidencia) durante el
-  release real de `v2.0-entrega2`. El run de preparación no acredita esos hitos.
+- **Release:** [v2.0-entrega2 — Entrega 2](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2), publicado sin draft ni prerelease.
+- **PR y tag:** [#57](https://github.com/MiraPdS/mira/pull/57) y
+  [`v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2), sobre el
+  merge commit `9d2e518abf9f753415401bee6a1866f045ccc402`.
+- **Primer despliegue desde Actions:** [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260),
+  push de ese commit a `main`, con calidad, build, despliegue y aviso en success.
+  Las verificaciones manuales confirmaron un deploy por Deploy Hook en Render
+  (Live) y uno en Vercel Production (Ready), ambos de `9d2e518`, sin duplicados;
+  health 200 y aviso de Discord aceptado. Detalle en
+  [Cierre del release](Entrega-2.md#cierre-del-release-mir-57).
+  Esta evidencia posterior complementa el run de preparación y conserva intacto
+  el reporte congelado histórico.
 
 ## Ambiente desplegado
 

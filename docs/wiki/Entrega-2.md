@@ -1,7 +1,7 @@
 # Entrega 2
 
 **Integración y despliegue continuo, y dos requerimientos funcionales nuevos.**
-Tag previsto: `v2.0-entrega2` · CI/CD: **GitHub Actions** · Notificaciones:
+Tag publicado: [`v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2) · CI/CD: **GitHub Actions** · Notificaciones:
 **Discord** ([D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)).
 
 ## Objetivo de la entrega
@@ -138,7 +138,7 @@ en cada push y PR a `develop` y `main`:
 | --- | --- | --- |
 | GitHub → Actions | Cada push y PR dispara `ci.yml`; el estado de cada job queda en el commit y en el PR (lo que pedía MIR-52) | Historial de [ejecuciones de `ci.yml`](https://github.com/MiraPdS/mira/actions/workflows/ci.yml) |
 | Actions → Discord `#mira-ci` | 🔴 pipeline en rojo, 🟢 volvió a pasar, 🚀 despliegue terminado, 🔴 despliegue fallido, ⚠️ despliegue cancelado; cada aviso con rama, commit, autor y enlace | Fallo forzado ([run 41380199238](https://github.com/MiraPdS/mira/actions/runs/41380199238)) y su recuperación ([run 41380480549](https://github.com/MiraPdS/mira/actions/runs/41380480549)) con el webhook real |
-| Actions → Render y Vercel | Deploy hooks desde el job `Desplegar`, solo en `main` | ⏳ Se comprueba en el primer release (MIR-57) |
+| Actions → Render y Vercel | Deploy hooks desde el job `Desplegar`, solo en `main` | Verificado en [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260): un deploy del commit `9d2e518` por servicio, Render Live y Vercel Production Ready, sin doble despliegue |
 | GitHub → Discord (actividad) | Webhook del repositorio: pushes, PR y comentarios, en un canal aparte | Configurado en Settings → Webhooks |
 | Actions → GitHub Wiki | `wiki.yml` verifica `docs/wiki/` en cada PR y la publica al fusionar a `develop` | `Verificar Wiki` en cada PR |
 
@@ -331,6 +331,30 @@ rojos y cancelados.
 
 ![Lista de ejecuciones del workflow CI](images/e2-historial-ci.png)
 
+### Cierre del release (MIR-57)
+
+El [PR #57](https://github.com/MiraPdS/mira/pull/57) se fusionó a `main` con
+el merge commit
+[`9d2e518abf9f753415401bee6a1866f045ccc402`](https://github.com/MiraPdS/mira/commit/9d2e518abf9f753415401bee6a1866f045ccc402).
+El [tag `v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2)
+apunta exactamente a ese commit y el
+[GitHub Release «v2.0-entrega2 — Entrega 2»](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2)
+está publicado, sin draft ni prerelease.
+
+El [CI de `main`, run 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260),
+terminó completamente exitoso: `Lint, tipos y pruebas`, `Build`, `Desplegar` y
+`Avisar en Discord` en success. Las verificaciones manuales del release
+confirmaron exactamente un deploy nuevo por Deploy Hook del commit `9d2e518`
+en Render (Live) y uno en Vercel Production (Ready), sin doble despliegue
+automático. `/api/health` respondió 200 y el job de Discord confirmó que el
+aviso fue aceptado. La versión se comprobó en los paneles; un health 200 por
+sí solo sigue sin identificar el commit desplegado.
+
+El resultado confirmado fue de 1215 pruebas aprobadas, con 97,24 % de cobertura
+de líneas/sentencias, 97,06 % de funciones y 90,48 % de ramas. Este registro
+posterior al release complementa la [evidencia congelada](Evidencias-Entrega-2.md)
+del run `41553706231`; no la regenera ni cambia su commit o sus cifras.
+
 ### Enlaces
 
 - **Pruebas y cobertura congeladas antes del release:**
@@ -349,9 +373,11 @@ rojos y cancelados.
   con `Aviso enviado a mira-ci` en el log del job.
 - **Reporte JUnit como artefacto, también con pruebas fallidas:**
   [#51](https://github.com/MiraPdS/mira/pull/51).
-- ⏳ **Despliegue desde Actions y aviso 🚀:** run del primer push a `main` con
-  el release `v2.0-entrega2` (MIR-57).
-- ⏳ **Release y tag:** `v2.0-entrega2` (MIR-57).
+- **Despliegue desde Actions y aviso 🚀:**
+  [run 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260)
+  del merge del [PR #57](https://github.com/MiraPdS/mira/pull/57), con los cuatro jobs en success.
+- **Tag:** [`v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2), sobre `9d2e518`.
+- **GitHub Release:** [v2.0-entrega2 — Entrega 2](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2), publicado.
 - **Tablero y criterios:**
   [Jira MIR](https://bolgunn.atlassian.net/jira/software/projects/MIR/boards) y
   el [backlog](https://github.com/MiraPdS/mira/blob/develop/docs/backlog.md#entrega-2).
