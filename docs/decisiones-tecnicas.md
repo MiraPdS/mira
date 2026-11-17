@@ -317,5 +317,5 @@ este CI/CD, y `MIR-51` a `MIR-55` se reescriben para Actions y Discord.
 | Dónde corre Jenkins (nube o local con ngrok) | Resuelto: no hay Jenkins, el CI/CD es GitHub Actions (D14) |
 | Canal de notificaciones: Slack o Discord | Resuelto: Discord (D14) |
 | Los dos requerimientos nuevos de la Entrega 2 | Resuelto: Sprints (épica MIR-41) y columnas configurables (épica MIR-42) |
-| Herramienta E2E: Selenium o Playwright | Entrega 3 |
+| Herramienta E2E: Selenium o Playwright | Decidido: Playwright; se registra como D15 en `MIR-60` |
 | Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real (MIR-55) |
