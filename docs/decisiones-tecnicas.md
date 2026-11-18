@@ -11,7 +11,8 @@ Formato: qué se decidió, por qué, qué se descartó y qué consecuencia tiene
 ## D1 — Monorepo con npm workspaces
 
 **Decisión.** Un repositorio con `apps/web`, `apps/api` y `packages/shared`,
-enlazados con npm workspaces. En la Entrega 3 se suma `apps/e2e`.
+enlazados con npm workspaces. En la Entrega 3 se suma `e2e/`, con las
+pruebas de Playwright (D15).
 
 **Por qué.** Una historia de usuario casi siempre toca frontend y backend a la
 vez: con un solo repositorio, eso es una rama, un Pull Request y un item de
@@ -308,6 +309,64 @@ Los secretos (`RENDER_DEPLOY_HOOK_URL` y `VERCEL_DEPLOY_HOOK_URL` en `deploy`,
 [ci-cd.md](./ci-cd.md). `MIR-33` pasa de "Jenkins en la nube" a la base de
 este CI/CD, y `MIR-51` a `MIR-55` se reescriben para Actions y Discord.
 
+**Alcance en la Entrega 3.** La decisión se mantiene: los E2E corren en GitHub
+Actions y el resultado se avisa en Discord. El enunciado de la Entrega 3 sigue
+nombrando Jenkins y Slack (líneas 60, 76 y 77, y los puntos 3 y 6 de su
+Definition of Done), así que cada exigencia se cumple con su equivalente:
+
+| El enunciado pide | En Mira |
+| --- | --- |
+| Integrar los E2E "en el pipeline (Jenkins) de Entrega 2" | Un job E2E en `ci.yml`, el pipeline de la Entrega 2 (`MIR-62`) |
+| Jenkins ejecuta las pruebas "al detectar cambios en el repo" | `ci.yml` corre en cada push y PR a `develop` y `main` |
+| "El pipeline falla si falla una prueba E2E" | El job E2E queda rojo y pasa a ser check obligatorio de `main` |
+| "Notificaciones a Slack informan estado del job/pipeline" | `Avisar en Discord` (`MIR-53`) avisa en `#mira-ci`; el job E2E entra en su `needs` |
+
+**Confirmación del profesor para la Entrega 3: pendiente.** La autorización
+citada arriba se dio para la Entrega 2. Se le pidió confirmar que cubre también
+la Entrega 3; su respuesta se cita aquí (enlace o captura) antes de cerrar
+`MIR-60`.
+
+---
+
+## D15 — Playwright como herramienta E2E
+
+**Decisión.** Las pruebas E2E de la Entrega 3 se escriben con Playwright Test,
+en TypeScript, en la carpeta `e2e/`. Corren headless en Chromium, con un
+proyecto de escritorio y otro móvil de 375 px, contra la URL de `BASE_URL`.
+
+**Por qué.** El enunciado lo permite: _"Si no usaste previamente alguna de las
+siguientes herramientas, puedes usarla en lugar de Selenium"_, y Playwright es
+la primera de la lista. El equipo no lo había usado en Mira: hasta la Entrega 2
+solo hay Vitest, React Testing Library y MSW. Además:
+
+- **Mismo lenguaje y mismo repositorio.** Es TypeScript con npm, como el resto
+  del monorepo (D1): los tipos de `@mira/shared` sirven también en los E2E.
+- **Trae lo que la Entrega 3 exige.** Runner, fixtures, esperas automáticas,
+  modo headless, `webServer` para levantar API y web, reportes HTML y JUnit, y
+  trace, captura y video cuando una prueba falla. Con Selenium cada pieza es
+  una dependencia aparte.
+- **Sesiones por rol sin repetir el login.** `storageState` guarda la sesión de
+  ada (OWNER), alan (MEMBER) y grace (VIEWER) una vez; las pruebas de permisos
+  (D7) parten ya autenticadas.
+- **Móvil incluido.** La emulación de 375 px es un proyecto más de la
+  configuración, y cubre el diseño responsive de `MIR-24`.
+
+**Descartado.** Selenium WebDriver: exige un driver por navegador y un runner
+aparte, y sin esperas automáticas las pruebas tienden a ser inestables. Es lo
+que D9 ya anticipaba al pedir el menú "Mover a…". Puppeteer: es una librería
+para controlar Chrome, no un framework de pruebas, así que faltan runner,
+reportes y reintentos. Robot Framework: agrega Python y un lenguaje de palabras
+clave a un monorepo que es todo TypeScript.
+
+**Consecuencia.** El job E2E de `ci.yml` (`MIR-62`) instala Chromium en cada
+ejecución y necesita la API, la web y un PostgreSQL con migraciones y seed: el
+`globalSetup` hace `migrate reset` y seed una vez por corrida (`MIR-61`). Las
+pruebas seleccionan por rol y texto accesible, y usan `data-testid` solo donde
+no hay un nombre accesible estable (Anexo A del enunciado). El trace, la
+captura y el video de una prueba fallida se suben como artefactos. Los E2E son
+el cuarto nivel de la estrategia de pruebas, encima de unitario, integración y
+componente.
+
 ---
 
 ## Decisiones pendientes
@@ -317,5 +376,6 @@ este CI/CD, y `MIR-51` a `MIR-55` se reescriben para Actions y Discord.
 | Dónde corre Jenkins (nube o local con ngrok) | Resuelto: no hay Jenkins, el CI/CD es GitHub Actions (D14) |
 | Canal de notificaciones: Slack o Discord | Resuelto: Discord (D14) |
 | Los dos requerimientos nuevos de la Entrega 2 | Resuelto: Sprints (épica MIR-41) y columnas configurables (épica MIR-42) |
-| Herramienta E2E: Selenium o Playwright | Entrega 3 |
+| Herramienta E2E: Selenium o Playwright | Resuelto: Playwright (D15) |
+| Confirmación del profesor de que D14 cubre la Entrega 3 | Pendiente: se cita en D14 al llegar (`MIR-60`) |
 | Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real (MIR-55) |

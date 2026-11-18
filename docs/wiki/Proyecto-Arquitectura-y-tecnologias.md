@@ -92,6 +92,7 @@ Cada decisión tiene su justificación y sus alternativas descartadas en
 | [D12](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d12--despliegue-en-vercel-render-y-supabase) | Despliegue en Vercel, Render y Supabase |
 | [D13](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d13--mismo-origen-mediante-rewrite-de-vercel) | Mismo origen mediante rewrite de Vercel |
 | [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) | GitHub Actions como CI/CD oficial y Discord para las notificaciones |
+| [D15](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d15--playwright-como-herramienta-e2e) | Playwright como herramienta E2E, en lugar de Selenium |
 
 ## Herramientas de IA
 
