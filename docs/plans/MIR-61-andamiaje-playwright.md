@@ -73,7 +73,9 @@ CORS. `BASE_URL` es el único origen, y MIR-72 lo reutiliza contra la demo. Un
 - La API de E2E corre en **3100**, con `DATABASE_URL=…/mira_e2e`, y el
   `webServer` de la web le pasa `E2E_API_PORT=3100`. Así nunca reutiliza por
   error la API de dev conectada a `mira_dev`.
-- `reuseExistingServer: !process.env.CI`.
+- `reuseExistingServer: !process.env.CI` **solo para la API**. La web nunca
+  se reutiliza: un `npm run preview` manual en :4173 reenvía `/api` a la API
+  de desarrollo, y los tests escribirían en `mira_dev` (revisión del PR #61).
 - Playwright levanta los servidores y **espera a que respondan** antes de
   correr `globalSetup`. Por eso la API se espera por **puerto** y no por
   `/api/health`: el health consulta la base, y la primera vez `mira_e2e` no
@@ -102,8 +104,10 @@ CORS. `BASE_URL` es el único origen, y MIR-72 lo reutiliza contra la demo. Un
 - **Sin teardown:** D1 resetea la base en cada ejecución, y así el trace
   conserva la evidencia.
 - No agrega miembros: la spec que los necesite llama a
-  `POST /projects/:id/members`. Las specs de humo (MIR-72) no usan este
-  fixture.
+  `POST /projects/:id/members`.
+- Con `BASE_URL` externa **lanza un error**, así las specs de humo (MIR-72)
+  no pueden crear datos en la demo, aunque alguien lo intente (revisión del
+  PR #61).
 
 ### D6 — Proyecto `mobile` por etiquetas
 

@@ -113,7 +113,11 @@ export default defineConfig({
           cwd: raiz,
           url: BASE_URL,
           env: { E2E_API_PORT: String(API_PORT), VITE_API_URL: '' },
-          reuseExistingServer: !ES_CI,
+          // Nunca se reutiliza: un `npm run preview` manual en :4173 reenvia
+          // /api a la API de desarrollo (:3000), y los tests escribirian en
+          // mira_dev.  Si el puerto esta ocupado, Playwright falla y lo dice.
+          // Para correr contra servidores propios: BASE_URL.
+          reuseExistingServer: false,
           timeout: 180_000,
         },
       ],

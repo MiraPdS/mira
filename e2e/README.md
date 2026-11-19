@@ -29,7 +29,7 @@ Qué pasa al correr `npm run test:e2e`:
 
 | Variable | Por defecto | Para qué |
 | --- | --- | --- |
-| `BASE_URL` | `http://localhost:4173` | Si la defines, **no** se levantan servidores ni se resetea la base |
+| `BASE_URL` | `http://localhost:4173` | Si la defines, **no** se levantan servidores, no se resetea la base y `proyectoPropio` falla a propósito |
 | `E2E_API_PORT` | `3100` | Puerto de la API de E2E |
 | `E2E_DATABASE_URL` | `…localhost:5443/mira_e2e` | Base de E2E; el reset solo acepta nombres `*_e2e` |
 | `CI` | — | Usa `dist/` ya compilados, `workers: 2`, prohíbe `test.only` |
@@ -75,7 +75,14 @@ test.describe('MIR-7 · Permisos como VIEWER', () => {
 - **`proyectoPropio`:** crea por API un proyecto nuevo (clave `E` + 7
   caracteres aleatorios) cuyo OWNER es el usuario de la sesión. Devuelve
   `{ id, key, name, url }`, y `url` es su backlog. No agrega miembros: si los
-  necesitas, llama a `POST /api/projects/:id/members` en la spec.
+  necesitas, llama a `POST /api/projects/:id/members` en la spec. Con
+  `BASE_URL` definida lanza un error: nunca se crean datos en un ambiente
+  que no se resetea, como la demo.
+- **El puerto 4173 tiene que estar libre.** La web de E2E nunca reutiliza un
+  servidor que ya esté corriendo: un `npm run preview` manual le habla a la
+  API de desarrollo, y los tests escribirían en `mira_dev`. Ciérralo antes de
+  correr la suite. La API de E2E (:3100) sí se reutiliza, porque es solo de
+  E2E.
 - **El proyecto `MIR` del seed es de solo lectura.** Todo test que crea,
   edita o borra datos usa `proyectoPropio`.
 
