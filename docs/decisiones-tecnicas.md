@@ -321,10 +321,13 @@ Definition of Done), así que cada exigencia se cumple con su equivalente:
 | "El pipeline falla si falla una prueba E2E" | El job E2E queda rojo y pasa a ser check obligatorio de `main` |
 | "Notificaciones a Slack informan estado del job/pipeline" | `Avisar en Discord` (`MIR-53`) avisa en `#mira-ci`; el job E2E entra en su `needs` |
 
-**Confirmación del profesor para la Entrega 3: pendiente.** La autorización
-citada arriba se dio para la Entrega 2. Se le pidió confirmar que cubre también
-la Entrega 3; su respuesta se cita aquí (enlace o captura) antes de cerrar
-`MIR-60`.
+**Confirmación del profesor para la Entrega 3.** La autorización citada
+arriba se dio para la Entrega 2. El 18-11-2026 se le preguntó en el canal
+`#general` del Slack del curso si se podían seguir usando GitHub Actions y
+Discord en lugar de Jenkins y Slack, con los E2E en Playwright. El profesor
+Oscar Reyes respondió: _"si pueden, es la idea"_.
+
+![Consulta en Slack del 18-11-2026 y respuesta del profesor](./wiki/images/e3-autorizacion-profesor.png)
 
 ---
 
@@ -377,5 +380,5 @@ componente.
 | Canal de notificaciones: Slack o Discord | Resuelto: Discord (D14) |
 | Los dos requerimientos nuevos de la Entrega 2 | Resuelto: Sprints (épica MIR-41) y columnas configurables (épica MIR-42) |
 | Herramienta E2E: Selenium o Playwright | Resuelto: Playwright (D15) |
-| Confirmación del profesor de que D14 cubre la Entrega 3 | Pendiente: se cita en D14 al llegar (`MIR-60`) |
+| Confirmación del profesor de que D14 cubre la Entrega 3 | Resuelto: confirmada el 18-11-2026, cita en D14 |
 | Activar umbral de cobertura que rompa el build | Entrega 2, con línea base real (MIR-55) |
