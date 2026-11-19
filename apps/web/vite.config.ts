@@ -18,4 +18,13 @@ export default defineConfig({
     // cookie first-party, que Safari e incognito no bloquean (ver D13).
     strictPort: true,
   },
+  preview: {
+    // Mismo origen que en Vercel (D13): el build sin VITE_API_URL llama a
+    // /api relativo y este proxy lo lleva a la API. Los E2E (MIR-61) corren
+    // contra `vite preview` y pasan E2E_API_PORT=3100 para no tocar la API de
+    // desarrollo; un `npm run preview` manual sigue apuntando a :3000.
+    proxy: {
+      '/api': `http://localhost:${process.env.E2E_API_PORT ?? '3000'}`,
+    },
+  },
 });

@@ -127,8 +127,24 @@ Tres niveles, cada uno respondiendo una pregunta distinta:
 | **Unitario** | Vitest + `vitest-mock-extended` | Reglas de negocio y matriz de permisos | ninguna |
 | **Integración** | Vitest + Supertest + Postgres real | Rutas, códigos de estado, cookies, SQL y restricciones | Docker |
 | **Componente** | Vitest + React Testing Library + MSW | Formularios, estados de carga y error, accesibilidad | ninguna |
+| **E2E** | Playwright (chromium, headless) | Flujos completos de usuario en el navegador real | Docker |
 
 El detalle está en [`docs/estrategia-pruebas.md`](./docs/estrategia-pruebas.md).
+
+### Pruebas E2E
+
+```bash
+npm run db:up                                   # usa la base mira_e2e del Postgres 5443
+npx -w @mira/e2e playwright install chromium    # solo la primera vez
+npm run test:e2e                                # build + API :3100 + web :4173 + suite
+npm run test:e2e:ui                             # modo interactivo de Playwright
+npm run report -w @mira/e2e                     # abre el último reporte HTML
+```
+
+`npm run test:e2e` resetea y siembra **solo** `mira_e2e`; tus datos de
+`mira_dev` no se tocan. Con `BASE_URL` definida corre contra ese ambiente sin
+levantar servidores ni resetear nada. Cómo escribir specs:
+[`e2e/README.md`](./e2e/README.md).
 
 ## Comandos disponibles
 
@@ -138,7 +154,8 @@ El detalle está en [`docs/estrategia-pruebas.md`](./docs/estrategia-pruebas.md)
 | `npm run build` | Compila ambas aplicaciones para producción |
 | `npm run lint` / `lint:fix` | ESLint sobre todo el monorepo |
 | `npm run format` / `format:check` | Prettier |
-| `npm run typecheck` | `tsc --noEmit` en los tres workspaces |
+| `npm run typecheck` | `tsc --noEmit` en todos los workspaces |
+| `npm run test:e2e` / `test:e2e:ui` | Pruebas E2E con Playwright |
 | `npm run db:up` / `db:down` | Contenedores de PostgreSQL |
 | `npm run db:migrate` | Crea y aplica una migración (desarrollo) |
 | `npm run db:reset` | Recrea la base de desarrollo desde cero |
