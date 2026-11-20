@@ -16,6 +16,7 @@ Santa María, segundo semestre 2026.
 | --- | --- |
 | Wiki del proyecto | https://github.com/MiraPdS/mira/wiki |
 | Cápsula de video — Entrega 1 | [Cápsulas de video](https://github.com/MiraPdS/mira/issues/37) |
+| Cápsula de video — Entrega 3 | [Cápsula Entrega 3](https://github.com/MiraPdS/mira/issues/79) |
 | Tablero Jira | https://bolgunn.atlassian.net/jira/software/projects/MIR/boards |
 | Release `v1.0-entrega1` | _(pendiente)_ |
 | Aplicación desplegada | https://mira-pds.vercel.app |
