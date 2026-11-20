@@ -15,7 +15,7 @@ se obtienen.
 
 | Workflow | Disparadores | Jobs | Qué bloquea |
 | --- | --- | --- | --- |
-| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `Desplegar`: solo en push a `main` con los dos anteriores en verde ([ver Despliegue](#despliegue)). `Avisar en Discord`: corre siempre, al final ([ver Notificaciones](#notificaciones)) | Los dos primeros son checks obligatorios de `main`; `Desplegar` no lo es, porque corre después de fusionar, y `Avisar en Discord` tampoco: no bloquea nada |
+| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `E2E`: solo si `Build` pasó; compila de nuevo sin `VITE_API_URL` y corre Playwright contra la API y la web locales, con un Postgres 16 efímero (`mira_e2e`, puerto 5443) ([ver Pruebas E2E](#pruebas-e2e)). `Desplegar`: solo en push a `main` con los tres anteriores en verde ([ver Despliegue](#despliegue)). `Avisar en Discord`: corre siempre, al final ([ver Notificaciones](#notificaciones)) | Los tres primeros son checks obligatorios de `main`; `Desplegar` no lo es, porque corre después de fusionar, y `Avisar en Discord` tampoco: no bloquea nada |
 | [`wiki.yml`](../.github/workflows/wiki.yml) | PR a `develop` y `main`; push a `develop` que toque `docs/wiki/`; a mano (`workflow_dispatch`) | `Verificar Wiki`: reglas de forma, y en el PR de release a `main` que no queden pendientes. `Publicar Wiki` (o `Vista previa de la Wiki` en un PR): copia `docs/wiki/` a la Wiki de GitHub | No es obligatorio en `main`; un rojo se ve en el PR |
 
 Ambos declaran `permissions: contents: read` a nivel de workflow. Un job que
@@ -31,15 +31,67 @@ La protección de `main` exige:
 
 - 1 aprobación, y una aprobación se descarta si llegan commits nuevos.
 - Conversaciones resueltas.
-- Los checks **`Lint, tipos y pruebas`** y **`Build`** en verde.
+- Los checks **`Lint, tipos y pruebas`**, **`Build`** y **`E2E`** en verde.
 - Que las reglas apliquen también a los administradores (`enforce_admins`):
   nadie empuja directo a `main`, ni siquiera un hotfix (`hotfix/*` → `main`
   también va por PR).
+
+`E2E` se vuelve obligatorio el mismo día en que MIR-62 se fusiona en `develop`
+(ver [Agregar un check obligatorio](#agregar-un-check-obligatorio)).
+
+> **Hotfix antes del release de la Entrega 3.** Hasta que el release lleve el
+> job `E2E` a `main`, un PR `hotfix/*` → `main` corre el `ci.yml` de `main`,
+> que todavía no tiene ese job, y queda esperando un check que nunca llega. Si
+> hace falta un hotfix en ese periodo, se quita `E2E` de la regla de `main`
+> mientras dure y se vuelve a agregar apenas se fusiona.
 
 > **No renombres los jobs de `ci.yml`.** La protección identifica cada check
 > por el `name:` del job. Si cambia, `main` queda esperando un check que nunca
 > llega y ningún PR se puede fusionar. Si de verdad hay que renombrarlo, se
 > actualiza la regla de `main` en el mismo momento en que se fusiona el cambio.
+
+### Agregar un check obligatorio
+
+Un check nuevo se agrega a la regla **el mismo día en que su job se fusiona**
+en `develop`, y nunca antes: si se agrega antes, `main` queda esperando un
+check que nunca llega.
+
+1. Fusionar el PR que trae el job.
+2. Esperar el run del push a `develop` con el job en verde. GitHub solo ofrece
+   en la UI los checks que corrieron en los últimos 7 días.
+3. Settings → Branches → regla de `main` → _Require status checks to pass_:
+   buscar el nombre exacto del job y elegir la fuente **GitHub Actions**.
+4. Verificar (ver [Verificación](#verificación)).
+
+---
+
+## Pruebas E2E
+
+El job `E2E` de [`ci.yml`](../.github/workflows/ci.yml) corre la suite de
+Playwright de [`e2e/`](../e2e/README.md) en cada PR y push a `main` y
+`develop`, después de `Build`. Las decisiones están en
+[`MIR-62-job-e2e-actions.md`](./plans/MIR-62-job-e2e-actions.md).
+
+| Paso | Qué hace |
+| --- | --- |
+| `services: postgres` | Postgres 16 efímero en 5443 con la base `mira_e2e`. `E2E_DATABASE_URL` apunta ahí |
+| `Compilar web y api` | `npm run build` **sin** `VITE_API_URL`: el bundle llama a `/api` relativo y `vite preview` lo reenvía a la API de E2E. No reutiliza `Build`, que compila hacia `:3000` y no sube artefactos |
+| `Instalar chromium` | `playwright install --with-deps --only-shell chromium`, sin caché |
+| `Pruebas E2E` | `npm run test:e2e`. Con `CI=true`, Playwright arranca `node dist/server.js` (:3100) y `vite preview` (:4173), el `globalSetup` hace `migrate reset` + seed sobre `mira_e2e`, y corren `chromium` y `mobile` con 2 workers y sin reintentos |
+
+| Artefacto | Contenido | Cuándo |
+| --- | --- | --- |
+| `reporte-e2e` | Reporte HTML de Playwright | Siempre |
+| `reporte-junit-e2e` | `junit-e2e.xml` | Siempre |
+| `evidencia-fallos-e2e` | Traces, screenshots y videos de los tests que fallaron | Solo si el job falla |
+
+Los tres se guardan 90 días. Para ver un trace, descarga
+`evidencia-fallos-e2e` y ábrelo con
+`npx -w @mira/e2e playwright show-trace <ruta>/trace.zip`, o arrástralo a
+[trace.playwright.dev](https://trace.playwright.dev).
+
+El job tiene un tope de 15 minutos. Un E2E rojo bloquea el PR (check
+obligatorio de `main`), no despliega y avisa en `#mira-ci`.
 
 ---
 
@@ -100,12 +152,13 @@ otro.
 
 El job `Avisar en Discord` de [`ci.yml`](../.github/workflows/ci.yml) corre al
 final de cada ejecución, en PR, `develop` y `main`, con `needs` sobre los otros
-tres jobs e `if: always()`. Cada mensaje trae la rama, el commit, el autor y un
+cuatro jobs e `if: always()`. Cada mensaje trae la rama, el commit, el autor y un
 enlace a la ejecución.
 
 | Resultado de la ejecución | Mensaje |
 | --- | --- |
 | `Lint, tipos y pruebas` o `Build` en rojo | 🔴 Pipeline en rojo, con el job que falló |
+| `E2E` en rojo | 🔴 Pipeline en rojo: falló `E2E`, con la indicación de buscar traces y videos en el artefacto `evidencia-fallos-e2e` |
 | Verde, y la ejecución anterior comparable había fallado | 🟢 El pipeline volvió a pasar |
 | `Desplegar` en verde | 🚀 Despliegue terminado (con 🟢 si además se recuperó) |
 | `Desplegar` en rojo | 🔴 Despliegue fallido |
@@ -172,19 +225,21 @@ gh api repos/MiraPdS/mira/environments/deploy/deployment-branch-policies --jq '.
 gh secret list --env deploy
 gh secret list
 gh api repos/MiraPdS/mira/branches/main/protection --jq '.enforce_admins.enabled'
+gh api repos/MiraPdS/mira/branches/main/protection --jq '.required_status_checks.contexts'
 ```
 
 Lo esperado: el environment `deploy` con política de ramas propia y sin
 reglas de revisores; `main` como única rama; los dos deploy hooks en `deploy`;
-`NOTIFY_WEBHOOK_URL` a nivel de repositorio; y `true`.
+`NOTIFY_WEBHOOK_URL` a nivel de repositorio; `true`; y
+`["Lint, tipos y pruebas", "Build", "E2E"]` (en cualquier orden).
 
 ---
 
 ## Despliegue
 
 El job `Desplegar` de [`ci.yml`](../.github/workflows/ci.yml) corre en cada push
-a `main`, con `environment: deploy` y solo si `Lint, tipos y pruebas` y `Build`
-pasaron. Una ejecución roja no despliega, y en un PR o en `develop` el job queda
+a `main`, con `environment: deploy` y solo si `Lint, tipos y pruebas`, `Build`
+y `E2E` pasaron. Una ejecución roja no despliega, y en un PR o en `develop` el job queda
 _Skipped_.
 
 | Paso | Qué hace | Falla en rojo si |
