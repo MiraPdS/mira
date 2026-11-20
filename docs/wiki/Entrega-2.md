@@ -131,6 +131,9 @@ en cada push y PR a `develop` y `main`:
 - **Qué no garantiza un `Desplegar` verde:** que los servicios hayan terminado
   de desplegar la versión nueva; `/api/health` no informa el commit. Detalle en
   [Qué verifica el job](https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md#qué-verifica-el-job).
+  **Resuelto en la Entrega 3** ([MIR-71](https://github.com/MiraPdS/mira/pull/71)):
+  `/api/health` informa `commit` y `Desplegar` espera a que coincida con el
+  commit del release.
 
 ## Integraciones
 
@@ -188,7 +191,8 @@ npm run dev             # API en :3000 · Web en :5173
 **Mejoras que quedan pendientes:**
 
 - Exponer el commit en `/api/health` y esperar a que coincida, para que un
-  `Desplegar` verde pruebe la versión nueva.
+  `Desplegar` verde pruebe la versión nueva. **Resuelto en la Entrega 3**
+  ([MIR-71](https://github.com/MiraPdS/mira/pull/71)).
 - Actualizar las acciones a versiones con Node 24: GitHub ya advierte que
   `actions/checkout@v4` y `actions/setup-node@v4` corren con Node 20.
 - Pruebas E2E en la Entrega 3 (Selenium o Playwright, por decidir).

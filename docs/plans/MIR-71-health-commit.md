@@ -11,14 +11,17 @@ protección de ramas. La verificación real ocurre en el release MIR-76.
 Fuente: [`docs/backlog.md` §MIR-71](../backlog.md),
 [`docs/ci-cd.md` §Qué verifica el job](../ci-cd.md#qué-verifica-el-job) y
 [`MIR-54-deploy-actions.md`](./MIR-54-deploy-actions.md) (decisión "Un 200 no
-prueba la versión nueva"). Pendiente desde la Entrega 2.
+prueba la versión nueva"). Pendiente desde la Entrega 2. El criterio 3 está
+en Jira ([`jira-import.csv`](../jira-import.csv)), pero no en `backlog.md`: lo
+señaló la revisión del PR #71.
 
-## Criterios de aceptación (backlog)
+## Criterios de aceptación (Jira)
 
 | # | Criterio | Verificación en el PR | Verificación posterior (release MIR-76) |
 | --- | --- | --- | --- |
 | 1 | `/api/health` responde el commit que está corriendo, además del estado | Pruebas de integración nuevas (D5) en `Lint, tipos y pruebas` | `https://mira-pds.vercel.app/api/health` responde `commit` igual al merge commit del tag |
 | 2 | "Comprobar que la API responde" espera a que ese commit coincida con `github.sha` y falla si se agota el tiempo | Lectura de `ci.yml`. El `run:` se ejecuta tal cual contra un servidor local, con los casos de D5. `Desplegar` queda _Skipped_ en el PR y en `develop` | `Desplegar` verde con `La API corre <sha>`, y el log muestra intentos previos con `commit null` o el commit anterior |
+| 3 | Pendiente de la Entrega 2 cerrado en la Wiki | `docs/wiki/Entrega-2.md` marca las dos menciones como resueltas en la Entrega 3, con enlace al PR | La Wiki publicada muestra la anotación después de fusionar |
 
 ## Lo que ya existe
 
@@ -149,8 +152,11 @@ que ningún CDN sirva una versión vieja.
 - **`docs/despliegue.md`:** en "Dos health checks", que los dos responden
   `commit` (`null` fuera de Render). En la checklist, que `commit` coincida con
   el commit de `main`.
-- **No se tocan:** `wiki/Entrega-2.md` ni los planes anteriores, porque son
-  historia, y `backlog.md`. La wiki de la Entrega 3 se actualiza en MIR-76.
+- **`wiki/Entrega-2.md` (criterio 3, tras la revisión del PR):** las dos
+  menciones al hueco se **anotan** como resueltas en la Entrega 3, con enlace a
+  MIR-71. No se borran, para no reescribir la historia de esa entrega.
+- **No se tocan:** los planes anteriores, que son historia, ni `backlog.md`.
+  La wiki de la Entrega 3 se actualiza en MIR-76.
 
 ### D7 — Verificación real en el release MIR-76
 
