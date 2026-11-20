@@ -354,9 +354,6 @@ commit en `/api/health` (MIR-71) y el meta `mira-commit` en la web (MIR-72).
   Release. Su push a `main` corre por primera vez `Desplegar` seguido de
   `Humo E2E` contra la demo.
 - **Cápsula de video (MIR-77)**, grabada sobre el release.
-- **Congelar la evidencia E2E:** `scripts/wiki-evidencias.mjs` hoy solo lee el
-  artefacto `cobertura`. Los reportes E2E viven 90 días como artefactos; queda
-  como mejora congelarlos en una página `Evidencias-Entrega-3`.
 - **Conteo de tests fallidos en el aviso de Discord:** hoy dice qué job falló
   y dónde están los traces, no cuántos tests. Se dejó fuera porque igual hay
   que abrir la ejecución.

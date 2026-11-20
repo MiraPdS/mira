@@ -23,7 +23,8 @@ URL viva se pueden revisar.
 Los artefactos de GitHub Actions expiran. Por eso la cobertura y los resultados
 de cada entrega se **congelan** en el repositorio con
 `npm run wiki:evidencias -- entrega-N`: el script toma el run de CI verde del
-commit actual, descarga su artefacto y escribe las tablas. Así la evidencia
+commit actual, descarga sus artefactos (`cobertura` y, desde la Entrega 3, el
+JUnit de los E2E) y escribe las tablas. Así la evidencia
 dice "esto lo produjo CI, sobre este commit", y no "funcionaba en mi máquina".
 
 ## Protección de `main`
