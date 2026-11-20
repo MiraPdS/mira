@@ -119,3 +119,32 @@ test.describe('MIR-7 · Permisos como VIEWER', () => {
 Para ver el trace de un fallo, ábrelo desde el reporte HTML o con
 `npx -w @mira/e2e playwright show-trace test-results/<test>/trace.zip` (la
 ruta es relativa a `e2e/`).
+
+## En CI
+
+El job **`E2E`** de `.github/workflows/ci.yml` corre esta suite en cada PR y
+push a `main` y `develop`, después de `Build`, y es check obligatorio de
+`main`. Si un test falla, el PR no se puede fusionar y `#mira-ci` avisa. Los
+detalles están en [`docs/ci-cd.md`](../docs/ci-cd.md#pruebas-e2e).
+
+En la ejecución, sección _Artifacts_:
+
+| Artefacto | Qué trae |
+| --- | --- |
+| `reporte-e2e` | El reporte HTML: descomprímelo y abre `index.html`, o usa `npx -w @mira/e2e playwright show-report <carpeta>` |
+| `reporte-junit-e2e` | `junit-e2e.xml` |
+| `evidencia-fallos-e2e` | Solo si algo falló: una carpeta por test con `trace.zip`, screenshot y video |
+
+Para abrir un trace de CI:
+`npx -w @mira/e2e playwright show-trace <carpeta-descargada>/<test>/trace.zip`,
+o arrastra el `trace.zip` a [trace.playwright.dev](https://trace.playwright.dev).
+
+Un E2E que pasa en local y falla en CI suele deberse a la diferencia de
+entorno: en CI la web se compila sin `VITE_API_URL`, corren 2 workers y no se
+reutiliza ningún servidor. Para reproducirlo (bash; cierra antes lo que use
+:3100 y :4173):
+
+```bash
+VITE_API_URL= npm run build     # vacía pisa un VITE_API_URL de algún .env
+CI=true npm run test:e2e
+```
