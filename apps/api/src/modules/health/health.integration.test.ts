@@ -1,4 +1,4 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import express from 'express';
 import request from 'supertest';
 import type { Express } from 'express';
@@ -48,7 +48,8 @@ describe('GET /api/health', () => {
     const res = await request(app).get('/api/health');
 
     expect(res.status).toBe(503);
-    expect(res.body).toMatchObject({ status: 'error', db: 'error' });
+    expect(res.body).toMatchObject({ status: 'error', db: 'error', commit: null });
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 
   it('responde 503 cuando la base no contesta a tiempo', async () => {
@@ -86,6 +87,50 @@ describe('GET /api/health', () => {
 
     expect(colgada.status).toBe(503);
     expect(recuperada.status).toBe(200);
+  });
+});
+
+/**
+ * Commit desplegado (MIR-71): el job `Desplegar` espera a que `commit`
+ * coincida con GITHUB_SHA. Fuera de Render no hay RENDER_GIT_COMMIT.
+ */
+describe('commit desplegado', () => {
+  const SHA = '9d2e518abf9f753415401bee6a1866f045ccc402';
+
+  // Estas pruebas miran el commit y las cabeceras, no la base. Se simula el
+  // SELECT 1: despues de que otra prueba espia y restaura prisma.$queryRaw,
+  // el cliente de Prisma ya no lo expone como funcion.
+  beforeEach(() => {
+    vi.spyOn(prisma, '$queryRaw').mockResolvedValue([{ '?column?': 1 }] as never);
+  });
+
+  function appConCommit(): Express {
+    const mini = express();
+    mini.use('/api/health', createHealthRouter({ commit: SHA }));
+    return mini;
+  }
+
+  it.each(['/api/health', '/api/health/live'])('%s responde el commit inyectado', async (ruta) => {
+    const res = await request(appConCommit()).get(ruta);
+
+    expect(res.status).toBe(200);
+    expect(res.body.commit).toBe(SHA);
+  });
+
+  it.each(['/api/health', '/api/health/live'])(
+    '%s responde commit null sin RENDER_GIT_COMMIT',
+    async (ruta) => {
+      const res = await request(app).get(ruta);
+
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('commit', null);
+    },
+  );
+
+  it.each(['/api/health', '/api/health/live'])('%s no se puede cachear', async (ruta) => {
+    const res = await request(app).get(ruta);
+
+    expect(res.headers['cache-control']).toBe('no-store');
   });
 });
 

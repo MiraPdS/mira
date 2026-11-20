@@ -37,7 +37,7 @@ export function createApp(): Express {
 
   if (!isTest) app.use(morgan('dev'));
 
-  app.use('/api/health', createHealthRouter());
+  app.use('/api/health', createHealthRouter({ commit: env.RENDER_GIT_COMMIT ?? null }));
 
   app.use('/api/auth', createAuthRouter());
 

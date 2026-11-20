@@ -20,14 +20,32 @@ export const DB_CHECK_ABANDON_MS = 30_000;
  *                        evita que Supabase pause el proyecto tras 7 dias sin
  *                        actividad y avisa si la base cae.
  *
+ * Los dos informan `commit`, el sha completo que corre (RENDER_GIT_COMMIT, o
+ * null fuera de Render): el job `Desplegar` espera a que coincida con
+ * GITHUB_SHA (MIR-71). Van con `Cache-Control: no-store` para que ningun CDN
+ * sirva una version vieja.
+ *
  * No usan la forma de error estandar ({ error: { code } }): no los consume el
  * frontend sino monitores, que solo miran el codigo de estado.
  */
+export interface HealthRouterOptions {
+  dbTimeoutMs?: number;
+  dbAbandonMs?: number;
+  /** Sha que se informa; null cuando no se conoce (fuera de Render). */
+  commit?: string | null;
+}
+
 export function createHealthRouter({
   dbTimeoutMs = DB_CHECK_TIMEOUT_MS,
   dbAbandonMs = DB_CHECK_ABANDON_MS,
-} = {}): Router {
+  commit = null,
+}: HealthRouterOptions = {}): Router {
   const router = Router();
+
+  router.use((_req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    next();
+  });
 
   // El timeout corta la respuesta HTTP, no la consulta: un SELECT 1 colgado
   // sigue ocupando la unica conexion del pool (connection_limit=1). Mientras
@@ -38,7 +56,7 @@ export function createHealthRouter({
   let consultaEnCurso: { promesa: Promise<unknown>; inicio: number } | null = null;
 
   router.get('/live', (_req, res) => {
-    res.json({ status: 'ok', timestamp: new Date().toISOString() });
+    res.json({ status: 'ok', commit, timestamp: new Date().toISOString() });
   });
 
   router.get('/', async (_req, res) => {
@@ -65,10 +83,10 @@ export function createHealthRouter({
           );
         }),
       ]);
-      res.json({ status: 'ok', db: 'ok', timestamp });
+      res.json({ status: 'ok', db: 'ok', commit, timestamp });
     } catch (error) {
       console.error('[health] la base no responde', error);
-      res.status(503).json({ status: 'error', db: 'error', timestamp });
+      res.status(503).json({ status: 'error', db: 'error', commit, timestamp });
     } finally {
       clearTimeout(timer);
     }
