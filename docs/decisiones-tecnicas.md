@@ -319,7 +319,13 @@ Definition of Done), así que cada exigencia se cumple con su equivalente:
 | Integrar los E2E "en el pipeline (Jenkins) de Entrega 2" | Un job E2E en `ci.yml`, el pipeline de la Entrega 2 (`MIR-62`) |
 | Jenkins ejecuta las pruebas "al detectar cambios en el repo" | `ci.yml` corre en cada push y PR a `develop` y `main` |
 | "El pipeline falla si falla una prueba E2E" | El job E2E queda rojo y pasa a ser check obligatorio de `main` |
-| "Notificaciones a Slack informan estado del job/pipeline" | `Avisar en Discord` (`MIR-53`) avisa en `#mira-ci`; el job E2E entra en su `needs` |
+| "Notificaciones a Slack informan estado del job/pipeline" | `Avisar en Discord` (`MIR-53`) en `#mira-ci`. Hoy solo lee calidad, build y despliegue: `MIR-62` suma el job E2E a su `needs` y un caso en el script que avisa 🔴 cuando falla `E2E` |
+
+Sobre éxito y falla (línea 77): `#mira-ci` avisa cada falla (🔴), cada
+recuperación (🟢) y cada despliegue (🚀), y un despliegue solo ocurre con todos
+los checks en verde, E2E incluido. Un verde después de otro verde no avisa, para
+no meter ruido (`MIR-53`, ver [ci-cd.md](./ci-cd.md#cuándo-avisa-mira-ci)); el
+resultado de cada ejecución, verde o rojo, queda en el check del commit y del PR.
 
 **Confirmación del profesor para la Entrega 3.** La autorización citada
 arriba se dio para la Entrega 2. El 18-11-2026 se le preguntó en el canal
@@ -343,7 +349,8 @@ la primera de la lista. El equipo no lo había usado en Mira: hasta la Entrega 2
 solo hay Vitest, React Testing Library y MSW. Además:
 
 - **Mismo lenguaje y mismo repositorio.** Es TypeScript con npm, como el resto
-  del monorepo (D1): los tipos de `@mira/shared` sirven también en los E2E.
+  del monorepo (D1): los tipos de `@mira/shared` pueden servir también en los
+  E2E.
 - **Trae lo que la Entrega 3 exige.** Runner, fixtures, esperas automáticas,
   modo headless, `webServer` para levantar API y web, reportes HTML y JUnit, y
   trace, captura y video cuando una prueba falla. Con Selenium cada pieza es
@@ -358,14 +365,16 @@ solo hay Vitest, React Testing Library y MSW. Además:
 aparte, y sin esperas automáticas las pruebas tienden a ser inestables. Es lo
 que D9 ya anticipaba al pedir el menú "Mover a…". Puppeteer: es una librería
 para controlar Chrome, no un framework de pruebas, así que faltan runner,
-reportes y reintentos. Robot Framework: agrega Python y un lenguaje de palabras
+fixtures, reportes y trace. Robot Framework: agrega Python y un lenguaje de palabras
 clave a un monorepo que es todo TypeScript.
 
 **Consecuencia.** El job E2E de `ci.yml` (`MIR-62`) instala Chromium en cada
 ejecución y necesita la API, la web y un PostgreSQL con migraciones y seed: el
 `globalSetup` hace `migrate reset` y seed una vez por corrida (`MIR-61`). Las
-pruebas seleccionan por rol y texto accesible, y usan `data-testid` solo donde
-no hay un nombre accesible estable (Anexo A del enunciado). El trace, la
+pruebas usan selectores estables, como pide el Anexo A del enunciado: primero
+por rol y texto accesible, como ya hace el equipo con React Testing Library
+(ver la estrategia de pruebas), y `data-testid` donde no hay un nombre
+accesible estable. El trace, la
 captura y el video de una prueba fallida se suben como artefactos. Los E2E son
 el cuarto nivel de la estrategia de pruebas, encima de unitario, integración y
 componente.

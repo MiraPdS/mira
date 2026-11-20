@@ -94,6 +94,12 @@ Cada decisión tiene su justificación y sus alternativas descartadas en
 | [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) | GitHub Actions como CI/CD oficial y Discord para las notificaciones |
 | [D15](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d15--playwright-como-herramienta-e2e) | Playwright como herramienta E2E, en lugar de Selenium |
 
+D14 y D15 cuentan con la autorización del profesor para la Entrega 3: en el
+Slack del curso confirmó que se pueden seguir usando GitHub Actions y Discord
+en lugar de Jenkins y Slack, con los E2E en Playwright.
+
+![Consulta en Slack del 18-11-2026 y respuesta del profesor](images/e3-autorizacion-profesor.png)
+
 ## Herramientas de IA
 
 El equipo usa asistentes de IA como apoyo al desarrollo, con el mismo flujo que

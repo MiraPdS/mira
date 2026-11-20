@@ -13,6 +13,9 @@ coverage/
 .vitest/
 test-results/
 playwright-report/
+# e2e (MIR-61): sesiones guardadas y JUnit de Playwright
+e2e/.auth/
+e2e/reportes/
 
 # entorno  (NUNCA commitear secretos: ver .env.example)
 .env
