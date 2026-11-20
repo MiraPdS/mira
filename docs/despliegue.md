@@ -117,7 +117,8 @@ conservando el servicio y vuelve a crearlo desde `main`.
 
 ## Verificación
 
-- [ ] `https://<proyecto>.vercel.app/api/health` → `200`, `"db":"ok"`.
+- [ ] `https://<proyecto>.vercel.app/api/health` → `200`, `"db":"ok"` y
+      `"commit"` igual al último commit de `main`.
 - [ ] Login con `ada@mira.dev` / `demo1234` en Chrome, Chrome incógnito y Safari.
 - [ ] En DevTools, el `Set-Cookie` viene de `vercel.app` con `HttpOnly; Secure`.
 - [ ] F5 sobre `/projects/<id>` no da 404; cerrar sesión borra la cookie.
@@ -131,7 +132,10 @@ conservando el servicio y vuelve a crearlo desde `main`.
 
 - **Dos health checks.** Render usa `/api/health/live` (sin base: un parpadeo
   de Supabase no reinicia la API). UptimeRobot usa `/api/health`, que hace
-  `SELECT 1` con un tope de 2 s y responde 503 si la base no contesta.
+  `SELECT 1` con un tope de 2 s y responde 503 si la base no contesta. Los dos
+  informan `commit`, el sha que corre (`RENDER_GIT_COMMIT`, `null` fuera de
+  Render), y el job `Desplegar` espera a que coincida con el del release
+  ([ver ci-cd.md](./ci-cd.md#qué-verifica-el-job)).
 - **Arranque en frío.** Si el pinger se detiene, Render duerme la API tras 15
   minutos sin tráfico y la primera petición tarda 30-60 s (puede llegar a dar
   504 en el rewrite). Antes de una demo, abre `/api/health` un minuto antes.
