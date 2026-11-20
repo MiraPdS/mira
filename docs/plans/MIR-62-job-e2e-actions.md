@@ -79,7 +79,7 @@ agrega sin cambiar lo demás.
 e2e:
   name: E2E            # nombre exacto del check obligatorio de main
   needs: build
-  timeout-minutes: 15
+  timeout-minutes: 20  # respaldo; el paso "Pruebas E2E" tiene 10
 deploy:
   needs: [calidad, build, e2e]
 notify:
@@ -88,8 +88,12 @@ notify:
 
 - `needs: build` como pide el backlog, y no `needs: calidad` en paralelo: así
   no se gasta un runner con Postgres y navegador si el código no compila.
-- 15 min: la suite tarda ~19 s en local y con las ocho specs debería quedar en
-  2–4 min. Un `webServer` colgado da rojo rápido.
+- Topes: 10 min en el paso `Pruebas E2E` y 20 en el job. La suite tarda
+  ~19 s en local (1 min el job completo en el PR #64) y con las ocho specs
+  debería quedar en 2–4 min. El tope va **en el paso** (revisión del PR #64):
+  un paso que se pasa de tiempo queda `failure` y el aviso dice "falló E2E",
+  mientras que un job que supera su propio `timeout-minutes` puede quedar
+  `cancelled`, y de un cancelado el aviso no dice nada.
 - **`E2E` no se renombra nunca** (ver la advertencia de `ci-cd.md`).
 
 ### D5 — Artefactos (los nombres de D9 de MIR-61)

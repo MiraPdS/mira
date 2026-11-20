@@ -90,7 +90,10 @@ Los tres se guardan 90 días. Para ver un trace, descarga
 `npx -w @mira/e2e playwright show-trace <ruta>/trace.zip`, o arrástralo a
 [trace.playwright.dev](https://trace.playwright.dev).
 
-El job tiene un tope de 15 minutos. Un E2E rojo bloquea el PR (check
+El paso `Pruebas E2E` tiene un tope de 10 minutos y el job, uno de 20 como
+respaldo. El tope va en el paso porque un paso que se pasa de tiempo queda en
+rojo (`failure`) y el aviso lo dice; un job que supera su propio tope puede
+quedar `cancelled`, y de un cancelado el aviso no dice nada. Un E2E rojo bloquea el PR (check
 obligatorio de `main`), no despliega y avisa en `#mira-ci`.
 
 ---
