@@ -65,9 +65,9 @@ jobs:
       CORS_ORIGIN: http://localhost:5173
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -106,7 +106,7 @@ jobs:
         # Se sube siempre, incluso si las pruebas fallaron: el reporte del
         # fallo suele ser mas util que el del exito.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: cobertura
           path: coverage/
@@ -118,7 +118,7 @@ jobs:
         # Igual que la cobertura: se sube siempre. Si las pruebas fallaron, aqui
         # queda cual fallo y por que, para cada ejecucion.
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reporte-junit
           path: test-results/junit.xml
@@ -129,8 +129,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: calidad
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -179,9 +179,9 @@ jobs:
       BCRYPT_ROUNDS: '4'
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -217,7 +217,7 @@ jobs:
       # screenshots y videos) solo existe si un test fallo.
       - name: Publicar reporte HTML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reporte-e2e
           path: e2e/playwright-report/
@@ -225,7 +225,7 @@ jobs:
 
       - name: Publicar reporte JUnit
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reporte-junit-e2e
           path: e2e/reportes/junit-e2e.xml
@@ -234,7 +234,7 @@ jobs:
       - name: Publicar evidencia de fallos
         # Si lo que fallo fue el build o el arranque, no hay traces: no avisa.
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: evidencia-fallos-e2e
           path: e2e/test-results/
@@ -401,9 +401,9 @@ jobs:
             sleep "$INTERVALO_S"
           done
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -424,7 +424,7 @@ jobs:
 
       - name: Publicar reporte HTML
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: reporte-humo
           path: e2e/playwright-report/
@@ -434,7 +434,7 @@ jobs:
       - name: Publicar evidencia de fallos
         # Si fallo la espera del frontend, no hay traces: no avisa.
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: evidencia-fallos-humo
           path: e2e/test-results/
