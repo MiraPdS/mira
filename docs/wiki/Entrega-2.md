@@ -195,6 +195,8 @@ npm run dev             # API en :3000 · Web en :5173
   ([MIR-71](https://github.com/MiraPdS/mira/pull/71)).
 - Actualizar las acciones a versiones con Node 24: GitHub ya advierte que
   `actions/checkout@v4` y `actions/setup-node@v4` corren con Node 20.
+  **Resuelto en la Entrega 3**
+  ([MIR-73](https://github.com/MiraPdS/mira/pull/76)).
 - Pruebas E2E en la Entrega 3 (Selenium o Playwright, por decidir).
 
 ## Pruebas y su relación con CI
