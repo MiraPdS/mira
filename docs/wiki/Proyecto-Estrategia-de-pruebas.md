@@ -114,4 +114,29 @@ que falla antes del arreglo.**
 Decisiones que ya preparan la Entrega 3: sesión por cookie `httpOnly`, menú
 "Mover a…" además del arrastre, y seed idempotente con datos fijos.
 
+### Por qué los E2E no arrastran tarjetas
+
+Los E2E del tablero (MIR-67, `e2e/specs/tablero.spec.ts`) mueven las tarjetas
+con el menú "Mover a…" y dejan fuera, a propósito, el arrastre con dnd-kit
+(MIR-20):
+
+- **No es determinista.** dnd-kit activa el arrastre con sensores propios
+  (ratón con 5 px de distancia mínima, tacto solo desde el asa y teclado) y
+  decide la columna por colisión y auto-scroll. Simularlo en Playwright
+  depende de coordenadas, del ancho de la ventana y de la velocidad del
+  puntero: es la receta de un test intermitente.
+- **No cubre nada más.** Soltar una tarjeta y elegir "Mover a…" usan la misma
+  mutación (`useMoveWorkItem`) y el mismo endpoint
+  (`PATCH /work-items/:id/status`), así que el E2E ya verifica el efecto que
+  importa: la tarjeta cambia de columna, persiste al recargar y queda en el
+  historial (MIR-22).
+- **El arrastre ya tiene pruebas.** `KanbanBoard.dnd.test.tsx` cubre en el
+  nivel de componente soltar en otra columna, cancelar, el teclado, los
+  anuncios para lectores de pantalla y la reversión si la API falla.
+
+Para ubicar columnas y tarjetas, el tablero expone `data-testid` estables:
+`columna-tablero` (con `data-columna-id`) y `tarjeta-elemento` (con
+`data-elemento-id`). Las specs prefieren igual el nombre accesible: la lista
+"Tarjetas de …" de cada columna y la tarjeta como `article` con su título.
+
 <!-- Generado desde docs/wiki/ en MiraPdS/mira. No editar aquí: se sobrescribe en el próximo sync. -->

@@ -162,6 +162,39 @@ mismo día del merge a `develop`, para que el check tenga efecto toda la entrega
 - El enlace al PR y a los dos runs se anota en este plan y en
   `docs/wiki/Entrega-3.md`. MIR-75 los lleva a la página de evidencias.
 
+## Resultado
+
+- **Job (criterios 1–4):** [PR #64](https://github.com/MiraPdS/mira/pull/64),
+  fusionado en `develop` el 2026-11-19 (merge `4afbd97`). `E2E` pasó en sus
+  dos commits: 6 tests con 2 workers y ~1 min el job completo. La revisión
+  pidió que el tope de tiempo fuera por paso (D4).
+- **Rojo controlado (criterio 6):** [PR #66](https://github.com/MiraPdS/mira/pull/66),
+  cerrado sin fusionar y con la rama borrada.
+  - Rojo: [run 44657161160](https://github.com/MiraPdS/mira/actions/runs/44657161160),
+    commit `27affb3`. Falló 1 de 6 tests (`toBeVisible() … element(s) not
+    found`), `Desplegar` quedó _Skipped_, se subió `evidencia-fallos-e2e` y
+    llegó el aviso 🔴 "falló `E2E`".
+  - Verde tras restaurar: [run 44658912087](https://github.com/MiraPdS/mira/actions/runs/44658912087),
+    commit `fccdea0`, con el aviso 🟢 "El pipeline volvió a pasar".
+- **Criterio 5:** pendiente de agregar `E2E` a la regla de `main` (paso 10).
+
+Capturas en `docs/wiki/images/`. Las incorpora a la página de evidencias
+quien haga MIR-75:
+
+| Archivo | Qué muestra |
+| --- | --- |
+| `e3-mir62-1-pr-check-e2e-rojo.png` | Checks del PR #66 con `E2E` en rojo y `Desplegar` en _Skipped_ |
+| `e3-mir62-2-run-grafo.png` | Grafo del run rojo: Lint → Build → E2E ❌ → Desplegar ⊘ → Avisar |
+| `e3-mir62-3-run-artefactos.png` | Artefactos del run rojo, con `evidencia-fallos-e2e` |
+| `e3-mir62-4-trace-paso-fallido.jpg` | Trace en el `expect` que falló: la página muestra "Backlog" |
+| `e3-mir62-5-trace-error.jpg` | Pestaña Errors del trace |
+| `e3-mir62-6-discord-rojo.png` | Aviso 🔴 en `#mira-ci` |
+| `e3-mir62-7-run-verde.png` | Run verde después de restaurar la aserción |
+| `e3-mir62-8-discord-verde.png` | Aviso 🟢 en `#mira-ci` |
+
+Para mostrar el trace en Chrome, el artefacto se sirvió con
+`playwright show-trace --host 127.0.0.1 --port 9323 trace.zip`.
+
 ## Pasos
 
 1. `git switch develop && git pull` y crear `ci/MIR-62-job-e2e-actions`.

@@ -221,6 +221,26 @@ describe('KanbanBoard', () => {
     expect(within(columna).getByText('Sin elementos')).toBeInTheDocument();
   });
 
+  it('expone data-testid estables en columnas y tarjetas para los E2E (MIR-67)', async () => {
+    responderCon([
+      itemDePrueba({ id: 'item_9', title: 'Con testid', ...enColumna('IN_PROGRESS') }),
+    ]);
+
+    renderConProviders(<KanbanBoard projectId={PROJECT_ID} />);
+    const tarjeta = await screen.findByRole('article', { name: 'Con testid' });
+
+    const columnas = screen.getAllByTestId('columna-tablero');
+    expect(columnas.map((c) => c.getAttribute('data-columna-id'))).toEqual(
+      COLUMNAS_DE_PRUEBA.map((c) => c.id),
+    );
+    expect(screen.getAllByTestId('tarjeta-elemento')).toEqual([tarjeta]);
+    expect(tarjeta).toHaveAttribute('data-elemento-id', 'item_9');
+    const enProgreso = columnas.find(
+      (c) => c.getAttribute('data-columna-id') === columnaDe('IN_PROGRESS').id,
+    )!;
+    expect(within(enProgreso).getByTestId('tarjeta-elemento')).toBe(tarjeta);
+  });
+
   it('muestra las cuatro columnas aunque el proyecto no tenga items en el tablero', async () => {
     responderCon([]);
 
