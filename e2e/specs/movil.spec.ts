@@ -10,10 +10,19 @@ import { expect, test } from '../fixtures';
  */
 const SOLO_MOVIL = { tag: ['@movil', '@solo-movil'] };
 
-/** Junta las excepciones de la página: "sin errores" incluye las de JavaScript. */
+/**
+ * Junta lo que cuenta como "error" mientras corre el test: excepciones de
+ * JavaScript y respuestas 4xx/5xx de la API, aunque la vista no las muestre
+ * como alerta (un refetch en segundo plano, por ejemplo).
+ */
 function registrarErrores(page: Page): string[] {
   const errores: string[] = [];
-  page.on('pageerror', (error) => errores.push(error.message));
+  page.on('pageerror', (error) => errores.push(`JS: ${error.message}`));
+  page.on('response', (respuesta) => {
+    if (respuesta.url().includes('/api/') && respuesta.status() >= 400) {
+      errores.push(`API ${respuesta.status()}: ${respuesta.request().method()} ${respuesta.url()}`);
+    }
+  });
   return errores;
 }
 
@@ -35,6 +44,16 @@ async function vistaCargada(page: Page, titulo: Locator): Promise<void> {
   await expect(page.getByRole('alert')).toHaveCount(0);
 }
 
+/** De "Mis proyectos" al resumen de MIR, esperando que el resumen cargue. */
+async function abrirResumenDeMir(page: Page): Promise<void> {
+  await page.goto('/proyectos');
+  await vistaCargada(page, page.getByRole('heading', { name: 'Mis proyectos', level: 1 }));
+  await page.getByRole('link', { name: 'Plataforma Mira', exact: true }).click();
+  // Sin esta espera, "Ver tablero" podría encontrar los enlaces "Ver tablero de …"
+  // de las tarjetas de /proyectos antes de que la ruta cambie.
+  await vistaCargada(page, page.getByRole('heading', { name: 'Resumen del proyecto', level: 1 }));
+}
+
 test.describe('MIR-70 · Navegación en móvil', () => {
   test(
     'se recorren proyectos, backlog, tablero y sprints sin errores ni scroll horizontal',
@@ -42,15 +61,7 @@ test.describe('MIR-70 · Navegación en móvil', () => {
     async ({ page }) => {
       const errores = registrarErrores(page);
 
-      await page.goto('/proyectos');
-      await vistaCargada(page, page.getByRole('heading', { name: 'Mis proyectos', level: 1 }));
-      await sinScrollHorizontal(page);
-
-      await page.getByRole('link', { name: 'Plataforma Mira', exact: true }).click();
-      await vistaCargada(
-        page,
-        page.getByRole('heading', { name: 'Resumen del proyecto', level: 1 }),
-      );
+      await abrirResumenDeMir(page);
       await sinScrollHorizontal(page);
 
       await page.getByRole('link', { name: /ver backlog/i }).click();
@@ -58,11 +69,19 @@ test.describe('MIR-70 · Navegación en móvil', () => {
       await sinScrollHorizontal(page);
 
       await page.getByRole('link', { name: /volver al proyecto/i }).click();
+      await vistaCargada(
+        page,
+        page.getByRole('heading', { name: 'Resumen del proyecto', level: 1 }),
+      );
       await page.getByRole('link', { name: /ver tablero/i }).click();
       await vistaCargada(page, page.getByRole('region', { name: 'Columnas del tablero' }));
       await sinScrollHorizontal(page);
 
       await page.goBack();
+      await vistaCargada(
+        page,
+        page.getByRole('heading', { name: 'Resumen del proyecto', level: 1 }),
+      );
       await page.getByRole('link', { name: /ver sprints/i }).click();
       await vistaCargada(page, page.getByRole('heading', { name: 'Sprints', level: 1 }));
       await sinScrollHorizontal(page);
@@ -75,8 +94,9 @@ test.describe('MIR-70 · Navegación en móvil', () => {
     'el tablero se desplaza a lo ancho dentro de su región, con columnas legibles',
     SOLO_MOVIL,
     async ({ page }) => {
-      await page.goto('/proyectos');
-      await page.getByRole('link', { name: 'Plataforma Mira', exact: true }).click();
+      const errores = registrarErrores(page);
+
+      await abrirResumenDeMir(page);
       await page.getByRole('link', { name: /ver tablero/i }).click();
 
       const tablero = page.getByRole('region', { name: 'Columnas del tablero' });
@@ -97,6 +117,9 @@ test.describe('MIR-70 · Navegación en móvil', () => {
       // Al entrar se ve la primera columna entera y asoma la siguiente (MIR-24).
       await expect(primera).toBeInViewport({ ratio: 0.95 });
       await expect(segunda).toBeInViewport();
+      // Depende del seed: MIR tiene las 4 columnas de DEFAULT_BOARD_COLUMNS y cada
+      // una mide w-[min(18rem,calc(100%-2.5rem))]. Con menos columnas o más
+      // angostas, "Hecho" podría verse sin desplazar y este chequeo fallaría.
       await expect(ultima).not.toBeInViewport();
 
       // Columnas legibles: ni aplastadas ni más anchas que la pantalla.
@@ -108,6 +131,8 @@ test.describe('MIR-70 · Navegación en móvil', () => {
       await ultima.scrollIntoViewIfNeeded();
       await expect(ultima.getByRole('heading', { name: 'Hecho' })).toBeInViewport();
       await sinScrollHorizontal(page);
+
+      expect(errores).toEqual([]);
     },
   );
 });
