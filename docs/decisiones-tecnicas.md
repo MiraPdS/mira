@@ -323,9 +323,10 @@ Definition of Done), así que cada exigencia se cumple con su equivalente:
 
 Sobre éxito y falla (línea 77): `#mira-ci` avisa cada falla (🔴), cada
 recuperación (🟢) y cada despliegue (🚀), y un despliegue solo ocurre con todos
-los checks en verde, E2E incluido. Un verde después de otro verde no avisa, para
-no meter ruido (`MIR-53`, ver [ci-cd.md](./ci-cd.md#cuándo-avisa-mira-ci)); el
-resultado de cada ejecución, verde o rojo, queda en el check del commit y del PR.
+los checks en verde (con `MIR-62`, E2E incluido). Un verde después de otro verde
+no avisa, para no meter ruido (`MIR-53`, ver
+[ci-cd.md](./ci-cd.md#cuándo-avisa-mira-ci)); el resultado de cada ejecución,
+verde o rojo, queda en el check del commit y del PR.
 
 **Confirmación del profesor para la Entrega 3.** La autorización citada
 arriba se dio para la Entrega 2. El 18-11-2026 se le preguntó en el canal
@@ -365,8 +366,8 @@ solo hay Vitest, React Testing Library y MSW. Además:
 aparte, y sin esperas automáticas las pruebas tienden a ser inestables. Es lo
 que D9 ya anticipaba al pedir el menú "Mover a…". Puppeteer: es una librería
 para controlar Chrome, no un framework de pruebas, así que faltan runner,
-fixtures, reportes y trace. Robot Framework: agrega Python y un lenguaje de palabras
-clave a un monorepo que es todo TypeScript.
+fixtures, reportes y trace. Robot Framework: agrega Python y un lenguaje de
+palabras clave a un monorepo que es todo TypeScript.
 
 **Consecuencia.** El job E2E de `ci.yml` (`MIR-62`) instala Chromium en cada
 ejecución y necesita la API, la web y un PostgreSQL con migraciones y seed: el
@@ -374,10 +375,9 @@ ejecución y necesita la API, la web y un PostgreSQL con migraciones y seed: el
 pruebas usan selectores estables, como pide el Anexo A del enunciado: primero
 por rol y texto accesible, como ya hace el equipo con React Testing Library
 (ver la estrategia de pruebas), y `data-testid` donde no hay un nombre
-accesible estable. El trace, la
-captura y el video de una prueba fallida se suben como artefactos. Los E2E son
-el cuarto nivel de la estrategia de pruebas, encima de unitario, integración y
-componente.
+accesible estable. El trace, la captura y el video de una prueba fallida se
+suben como artefactos. Los E2E son el cuarto nivel de la estrategia de pruebas,
+encima de unitario, integración y componente.
 
 ---
 
