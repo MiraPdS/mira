@@ -22,7 +22,8 @@ const encabezadosDelTablero = (page: Page) =>
   page.getByTestId('columna-tablero').getByRole('heading', { level: 3 });
 
 /** Los encabezados incluyen el contador ("Por hacer" + "Cantidad: 0"). */
-const empiezaCon = (nombre: string) => new RegExp(`^${nombre}\\s*Cantidad: \\d+$`);
+const empiezaCon = (nombre: string) =>
+  new RegExp(`^${nombre.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*Cantidad: \\d+$`);
 
 const tarjetasDe = (page: Page, columna: string) =>
   page.getByRole('list', { name: `Tarjetas de ${columna}` });
@@ -132,7 +133,9 @@ test.describe('MIR-50 · Eliminar columna con elementos', () => {
     await expect(dialogo).toContainText('tiene 1 elemento');
     await dialogo.getByLabel('Mover sus elementos a').selectOption({ label: 'En progreso' });
 
-    const eliminada = page.waitForResponse((r) => r.request().method() === 'DELETE');
+    const eliminada = page.waitForResponse(
+      (r) => r.request().method() === 'DELETE' && r.url().includes('/columns/'),
+    );
     await dialogo.getByRole('button', { name: 'Eliminar', exact: true }).click();
     expect((await eliminada).status()).toBe(204);
     await expect(dialogo).toBeHidden();
