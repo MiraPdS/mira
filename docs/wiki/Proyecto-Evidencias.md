@@ -107,6 +107,10 @@ gh api repos/MiraPdS/mira/branches/main --jq .protection.required_status_checks.
 
 ## Entrega 3
 
+- **Pruebas, cobertura y E2E congelados:**
+  [Evidencias de la Entrega 3](Evidencias-Entrega-3.md), generadas desde el
+  [run de CI 44683341339](https://github.com/MiraPdS/mira/actions/runs/44683341339)
+  del commit `4c612d4` (PR de MIR-76), como preparación del release.
 - **Suite E2E completa en verde en `develop`:**
   [run 44676923221](https://github.com/MiraPdS/mira/actions/runs/44676923221)
   del commit `9a16fcf`: `38 passed (19.9s)` en el paso `Pruebas E2E`, con los
