@@ -30,8 +30,10 @@ const entornoApi = {
 const comandoApi = ES_CI ? 'node dist/server.js' : 'npx tsx src/server.ts';
 
 // Build sin VITE_API_URL: el bundle llama a /api relativo y el proxy de
-// `vite preview` lo lleva a la API de E2E (D2).  En CI el `dist` ya viene del
-// job de build.
+// `vite preview` lo lleva a la API de E2E (D2).  En CI (MIR-62) el job E2E
+// compila API y web ANTES de correr Playwright: los jobs de Actions no
+// comparten archivos, y el job Build compila la web con
+// VITE_API_URL=http://localhost:3000/api, que se salta este proxy.
 const comandoWeb = [
   ...(ES_CI ? [] : ['npm run build -w @mira/web']),
   'npm run preview -w @mira/web -- --port 4173 --strictPort',

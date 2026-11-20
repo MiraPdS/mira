@@ -67,12 +67,18 @@ CORS. `BASE_URL` es el único origen, y MIR-72 lo reutiliza contra la demo. Un
 | Entorno | API (puerto 3100) | Web (4173) |
 | --- | --- | --- |
 | Local | `tsx src/server.ts` | `vite build && vite preview --port 4173 --strictPort` |
-| CI (`CI=true`) | `node dist/server.js` (artefacto de `build`) | `vite preview` sobre el `dist` |
+| CI (`CI=true`) | `node dist/server.js` | `vite preview` sobre el `dist` |
 | `BASE_URL` definido desde afuera | no se levanta nada | no se levanta nada |
 
 - La API de E2E corre en **3100**, con `DATABASE_URL=…/mira_e2e`, y el
   `webServer` de la web le pasa `E2E_API_PORT=3100`. Así nunca reutiliza por
   error la API de dev conectada a `mira_dev`.
+- **Para MIR-62** (revisión del PR #61): con `CI=true` el config no compila
+  nada, y los jobs de Actions no comparten archivos. El job `E2E` tiene que
+  correr `npm run build` él mismo, **sin `VITE_API_URL`**, antes de
+  Playwright. No sirve reutilizar el job `Build` tal como está: no sube
+  artefactos y compila la web con `VITE_API_URL=http://localhost:3000/api`,
+  así que el bundle se salta el proxy de D2.
 - `reuseExistingServer: !process.env.CI` **solo para la API**. La web nunca
   se reutiliza: un `npm run preview` manual en :4173 reenvía `/api` a la API
   de desarrollo, y los tests escribirían en `mira_dev` (revisión del PR #61).
