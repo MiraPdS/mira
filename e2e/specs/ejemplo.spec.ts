@@ -31,9 +31,7 @@ test.describe('MIR-61 · Andamiaje', () => {
     await page.goto(proyectoPropio.url);
 
     await expect(page).toHaveURL(proyectoPropio.url);
-    await expect(
-      page.getByRole('heading', { name: 'Backlog (roto a propósito)', level: 1 }),
-    ).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Backlog', level: 1 })).toBeVisible();
     await expect(page.getByRole('link', { name: /volver al proyecto/i })).toHaveAttribute(
       'href',
       `/proyectos/${proyectoPropio.id}`,
