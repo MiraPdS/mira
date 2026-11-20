@@ -142,7 +142,7 @@ que falla antes del arreglo.**
 | --- | --- |
 | **1** | Unitario, integración y componente; cobertura reportada; CI en cada PR |
 | **2** | GitHub Actions como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55); Discord |
-| **3** | Cuarto nivel, E2E con Playwright: 35 tests en 13 flujos, headless en cada PR (`E2E`, check obligatorio de `main`) y humo contra la demo después de cada despliegue; reporte HTML, JUnit, traces, capturas y videos como artefactos |
+| **3** | Cuarto nivel, E2E con Playwright: 35 tests en 10 specs que cubren 13 flujos de usuario ([lista](Entrega-3.md#3-set-de-pruebas)), headless en cada PR y push (`E2E`, check obligatorio de `main`) y humo contra la demo después de cada despliegue; reporte HTML, JUnit, traces, capturas y videos como artefactos |
 
 Decisiones de las primeras entregas que facilitaron los E2E: sesión por cookie
 `httpOnly` (se guarda con `storageState`), menú "Mover a…" además del arrastre,

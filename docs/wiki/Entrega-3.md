@@ -17,8 +17,9 @@ cuarto nivel y prueban que las piezas funcionan juntas.
 Los E2E son parte del pipeline, no una suite aparte:
 
 - corren **headless en cada PR y push** a `develop` y `main`, en el job `E2E`;
-- un E2E rojo **bloquea el PR** (`E2E` es check obligatorio de `main`) e
-  impide el despliegue;
+- un E2E rojo **bloquea la fusión a `main`** (`E2E` es check obligatorio) e
+  impide el despliegue. `develop` no tiene checks obligatorios: ahí el rojo
+  queda visible en el PR y la regla del equipo es no fusionarlo;
 - después de cada despliegue, un **humo de solo lectura** prueba la demo
   publicada;
 - el resultado llega a `#mira-ci` en Discord, con traces, capturas y videos
@@ -80,8 +81,27 @@ de `develop`: `38 passed (19.9s)` en el log, y 1 min 29 s el job
 | [`humo.spec.ts`][humo] | MIR-72 | Humo de la demo (`@humo`) | Iniciar sesión con la cuenta de demo; abrir el tablero de `MIR` y ver sus columnas | 2 |
 | [`ejemplo.spec.ts`][ejemplo] | MIR-61 | Que el andamiaje funcione | Pantalla de login; sesión guardada de ada; el fixture `proyectoPropio` | 3 |
 
-Son **13 flujos de usuario**, por encima de los 10 comprometidos. La
-trazabilidad de cada historia a su spec está en
+Sin contar `ejemplo.spec.ts` (andamiaje) ni el humo (repite contra la demo
+flujos que ya se prueban en local), las 9 specs de usuario cubren **13
+flujos**, por encima de los 10 comprometidos:
+
+| # | Flujo | Spec |
+| --- | --- | --- |
+| 1 | Registrarse | `autenticacion` |
+| 2 | Iniciar sesión, mantenerla al recargar y cerrarla | `autenticacion` |
+| 3 | Crear un proyecto y verlo en la lista | `proyectos-permisos` |
+| 4 | Permisos por rol: VIEWER contra OWNER | `proyectos-permisos` |
+| 5 | Crear, consultar, editar y eliminar un elemento | `elementos` |
+| 6 | Buscar y filtrar el backlog | `backlog` |
+| 7 | Comentar un elemento | `backlog` |
+| 8 | Mover una tarjeta en el tablero | `tablero` |
+| 9 | Ver el movimiento en el historial | `tablero` |
+| 10 | Planificar, iniciar y cerrar un sprint | `sprints` |
+| 11 | Agregar y reordenar columnas | `columnas` |
+| 12 | Eliminar una columna con elementos | `columnas` |
+| 13 | Navegar la aplicación en móvil | `movil` |
+
+La trazabilidad de cada historia a su spec está en
 [Requisitos y trazabilidad](Proyecto-Requisitos-y-trazabilidad.md#pruebas-e2e-entrega-3).
 
 **Reglas comunes** ([`e2e/README.md`](https://github.com/MiraPdS/mira/blob/develop/e2e/README.md#convenciones)):
@@ -104,7 +124,9 @@ Detalle en
 
 ## 4. Cómo ejecutar en local
 
-Requisitos: Node 20.11 o superior, Docker y el puerto 4173 libre.
+Requisitos: Node 20.11 o superior, Docker, y libres los puertos 4173 (web) y
+3100 (API de E2E); `db:up` usa además el 5443. Si algo ya escucha en el 3100,
+Playwright lo reutiliza como API y los errores confunden.
 
 ```bash
 npm install
@@ -161,7 +183,7 @@ flowchart LR
 | **`BASE_URL`** | Sin definir: vale `http://localhost:4173` y Playwright levanta los servidores | Definida y remota: no levanta servidores ni toca bases; solo `@humo`, `expect` de 15 s y 1 worker |
 | **Antes de probar** | Compila web y API sin `VITE_API_URL` e instala solo Chromium headless | Espera hasta 10 min a que el `<meta name="mira-commit">` de la demo sea el commit del run |
 | **Tope** | 10 min el paso, 20 el job | 5 min el paso |
-| **Si falla** | Job rojo, PR bloqueado, `Desplegar` no corre, aviso 🔴 "falló `E2E`" | Run de `main` rojo y aviso 🔴 "Humo E2E falló contra la demo" (ya desplegado: se corrige con fix o rollback) |
+| **Si falla** | Job rojo; un PR a `main` no se puede fusionar (en `develop` no hay checks obligatorios: el rojo queda visible y la regla es no fusionar); `Desplegar` no corre; aviso 🔴 "falló `E2E`" | Run de `main` rojo y aviso 🔴 "Humo E2E falló contra la demo" (ya desplegado: se corrige con fix o rollback) |
 | **Artefactos** | `reporte-e2e` y `reporte-junit-e2e` siempre; `evidencia-fallos-e2e` (traces, capturas, videos) si falla | `reporte-humo` siempre; `evidencia-fallos-humo` si falla |
 | **¿Obligatorio?** | Sí, check obligatorio de `main` junto a `Lint, tipos y pruebas` y `Build` | No: nunca corre en un PR |
 
@@ -310,8 +332,9 @@ Anotados mientras ocurrían, desde la primera ola.
   paso: un paso que se pasa de tiempo queda `failure` y avisa "falló E2E"
   (revisión del [#64](https://github.com/MiraPdS/mira/pull/64)).
 - **El humo podía probar el frontend anterior.** `Desplegar` puede terminar
-  antes de que Vercel publique la web nueva. El job espera a que el meta `mira-commit` de la
-  demo sea el commit del run ([#72](https://github.com/MiraPdS/mira/pull/72)).
+  antes de que Vercel publique la web nueva. El job espera a que el meta
+  `mira-commit` de la demo sea el commit del run
+  ([#72](https://github.com/MiraPdS/mira/pull/72)).
 - **Las credenciales de la demo son públicas:** cualquiera puede cambiar sus
   datos. El humo solo lee lo que el seed asegura en cada deploy y nunca crea
   datos: `proyectoPropio` falla a propósito con un `BASE_URL` definido.
@@ -343,9 +366,12 @@ commit en `/api/health` (MIR-71) y el meta `mira-commit` en la web (MIR-72).
 ## Uso de IA
 
 Igual que en la Entrega 2, cada PR declara en su sección "Uso de IA" qué
-herramienta se usó y para qué (planificar, escribir specs y documentar). En
-todos los casos el código pasó por la revisión de otro integrante, por tres corridas locales en
-verde y por el job `E2E` antes de entrar a `develop`.
+herramienta se usó y para qué (planificar, escribir specs y documentar).
+Todos los PRs pasaron por la revisión de otro integrante. Cada spec pasó tres
+corridas locales seguidas antes de pedir revisión, y desde el
+[#64](https://github.com/MiraPdS/mira/pull/64) cada PR pasó además por el job
+`E2E`. Los PRs anteriores (#61 y #63) se validaron solo en local, y los de
+documentación no corren specs.
 
 [autenticacion]: https://github.com/MiraPdS/mira/blob/develop/e2e/specs/autenticacion.spec.ts
 [proyectos]: https://github.com/MiraPdS/mira/blob/develop/e2e/specs/proyectos-permisos.spec.ts
