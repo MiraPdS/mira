@@ -14,6 +14,16 @@ export const SERVIDOR_EXTERNO = !!process.env.BASE_URL;
 
 export const BASE_URL = process.env.BASE_URL ?? 'http://localhost:4173';
 
+const HOSTS_LOCALES = new Set(['localhost', '127.0.0.1', '[::1]']);
+
+/**
+ * BASE_URL apunta a un host que no es esta maquina (la demo publica, MIR-72).
+ * La config entonces solo corre los tests `@humo`, de solo lectura, y sin el
+ * proyecto `mobile`: ninguna spec que escribe datos llega a un ambiente que
+ * nadie resetea, venga de donde venga el comando (D1 de MIR-72).
+ */
+export const AMBIENTE_REMOTO = SERVIDOR_EXTERNO && !HOSTS_LOCALES.has(new URL(BASE_URL).hostname);
+
 /** Puerto de la API de E2E: distinto del 3000 de desarrollo (D3). */
 export const API_PORT = Number(process.env.E2E_API_PORT ?? 3100);
 

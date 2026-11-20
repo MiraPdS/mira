@@ -1,6 +1,13 @@
 import path from 'node:path';
 import { defineConfig } from '@playwright/test';
-import { API_PORT, BASE_URL, DATABASE_URL_E2E, ES_CI, SERVIDOR_EXTERNO } from './entorno';
+import {
+  AMBIENTE_REMOTO,
+  API_PORT,
+  BASE_URL,
+  DATABASE_URL_E2E,
+  ES_CI,
+  SERVIDOR_EXTERNO,
+} from './entorno';
 import { usuarios } from './fixtures/usuarios';
 
 /**
@@ -10,6 +17,10 @@ import { usuarios } from './fixtures/usuarios';
  *   npm run test:e2e          levanta API (:3100) + web (:4173) y corre todo
  *   BASE_URL=https://… npm run test:e2e   corre contra un ambiente ya
  *                             levantado: no arranca servidores ni resetea BD
+ *
+ * Si ese BASE_URL es remoto (la demo, MIR-72), solo corren los tests @humo,
+ * de solo lectura, con esperas mas largas y un worker.  Decisiones en
+ * docs/plans/MIR-72-humo-e2e.md (D1, D5).
  */
 
 const raiz = path.resolve(import.meta.dirname, '..');
@@ -25,6 +36,25 @@ const entornoApi = {
   CORS_ORIGIN: BASE_URL,
   // Valor solo para pruebas; en CI puede venir de afuera.
   JWT_SECRET: process.env.JWT_SECRET ?? 'e2e-secreto-local-solo-para-pruebas-0123456789',
+};
+
+// Contra la demo cada peticion pasa por Vercel, Render y Supabase: 5 s de
+// expect dan falsos rojos.  Los reintentos siguen en 0 (D5 de MIR-72).
+const EXPECT_REMOTO_MS = 15_000;
+const NAVEGACION_REMOTA_MS = 30_000;
+
+const proyectoMobile = {
+  name: 'mobile',
+  testMatch: /specs\/.*\.spec\.ts$/,
+  grep: /@movil/,
+  dependencies: ['setup'],
+  use: {
+    browserName: 'chromium' as const,
+    viewport: { width: 375, height: 812 },
+    isMobile: true,
+    hasTouch: true,
+    storageState: usuarios.ada.storage,
+  },
 };
 
 const comandoApi = ES_CI ? 'node dist/server.js' : 'npx tsx src/server.ts';
@@ -47,7 +77,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: ES_CI,
   retries: 0, // un test intermitente es un Bug en MIR-74, no un reintento
-  workers: ES_CI ? 2 : undefined,
+  workers: AMBIENTE_REMOTO ? 1 : ES_CI ? 2 : undefined,
+  ...(AMBIENTE_REMOTO ? { expect: { timeout: EXPECT_REMOTO_MS } } : {}),
 
   reporter: [
     ['list'],
@@ -61,6 +92,7 @@ export default defineConfig({
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
+    ...(AMBIENTE_REMOTO ? { navigationTimeout: NAVEGACION_REMOTA_MS } : {}),
   },
 
   projects: [
@@ -71,6 +103,8 @@ export default defineConfig({
     {
       name: 'chromium',
       testMatch: /specs\/.*\.spec\.ts$/,
+      // Contra un host remoto solo corre lo de solo lectura (D1 de MIR-72).
+      ...(AMBIENTE_REMOTO ? { grep: /@humo/ } : {}),
       grepInvert: /@solo-movil/,
       dependencies: ['setup'],
       use: {
@@ -79,19 +113,8 @@ export default defineConfig({
         storageState: usuarios.ada.storage,
       },
     },
-    {
-      name: 'mobile',
-      testMatch: /specs\/.*\.spec\.ts$/,
-      grep: /@movil/,
-      dependencies: ['setup'],
-      use: {
-        browserName: 'chromium',
-        viewport: { width: 375, height: 812 },
-        isMobile: true,
-        hasTouch: true,
-        storageState: usuarios.ada.storage,
-      },
-    },
+    // Sin mobile contra un host remoto: los @humo son de escritorio (D1 de MIR-72).
+    ...(AMBIENTE_REMOTO ? [] : [proyectoMobile]),
   ],
 
   webServer: SERVIDOR_EXTERNO

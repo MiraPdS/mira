@@ -29,7 +29,7 @@ Qué pasa al correr `npm run test:e2e`:
 
 | Variable | Por defecto | Para qué |
 | --- | --- | --- |
-| `BASE_URL` | `http://localhost:4173` | Si la defines, **no** se levantan servidores, no se resetea la base y `proyectoPropio` falla a propósito |
+| `BASE_URL` | `http://localhost:4173` | Si la defines, **no** se levantan servidores, no se resetea la base y `proyectoPropio` falla a propósito. Si además el host no es local (la demo), solo corren los tests `@humo`, sin `mobile`, con `expect` de 15 s y un worker (MIR-72) |
 | `E2E_API_PORT` | `3100` | Puerto de la API de E2E |
 | `E2E_DATABASE_URL` | `…localhost:5443/mira_e2e` | Base de E2E; el reset solo acepta nombres `*_e2e` |
 | `CI` | — | Usa `dist/` ya compilados, `workers: 2`, prohíbe `test.only` |
@@ -85,6 +85,11 @@ test.describe('MIR-7 · Permisos como VIEWER', () => {
   E2E.
 - **El proyecto `MIR` del seed es de solo lectura.** Todo test que crea,
   edita o borra datos usa `proyectoPropio`.
+- **`@humo` es solo para tests de solo lectura** sobre lo que el seed asegura
+  en cada deploy (usuarios y el proyecto `MIR`). El job `Humo E2E` los corre
+  contra la demo publicada, que no se resetea:
+  `BASE_URL=https://mira-pds.vercel.app npm run test:e2e`. Ver
+  [`MIR-72-humo-e2e.md`](../docs/plans/MIR-72-humo-e2e.md).
 
 ## Convenciones
 

@@ -339,13 +339,115 @@ jobs:
             sleep "$INTERVALO_S"
           done
 
+  # Humo de la demo publicada (MIR-72): dos tests @humo de solo lectura contra
+  # la URL publica, despues de que `Desplegar` confirma que la API corre el
+  # commit del run. No es check obligatorio (nunca corre en un PR), pero un
+  # rojo pone rojo el run de main y avisa en #mira-ci. Decisiones en
+  # docs/plans/MIR-72-humo-e2e.md.
+  humo:
+    name: Humo E2E
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    # Respaldo, como en E2E: los topes reales van en los pasos, para que un
+    # tope deje el job en `failure` y el aviso lo diga.
+    timeout-minutes: 20
+    env:
+      BASE_URL: https://mira-pds.vercel.app
+      INTERVALO_S: '15'
+      TOPE_S: '600'
+    steps:
+      # Vercel se disparo junto con Render, pero `Desplegar` solo verifica la
+      # API. Sin esta espera, el humo podria probar el frontend anterior.
+      # apps/web/vite.config.ts publica el commit del build en
+      # <meta name="mira-commit">: verde solo si es el del run.
+      - name: Esperar el frontend del commit
+        run: |
+          esperado_corto=${GITHUB_SHA:0:7}
+          limite=$((SECONDS + TOPE_S))
+          intento=1
+          while true; do
+            # La query evita cualquier cache intermedio de index.html. El codigo
+            # HTTP va en la ultima linea; sin conexion curl escribe 000. No se
+            # imprime el cuerpo.
+            respuesta=$(curl --silent --max-time 20 --write-out '\n%{http_code}' \
+              "$BASE_URL/?v=$GITHUB_SHA" || true)
+            estado=${respuesta##*$'\n'}
+            estado=${estado:-000}
+            cuerpo=${respuesta%$'\n'*}
+            commit=$(printf '%s' "$cuerpo" |
+              sed -n 's/.*<meta name="mira-commit" content="\([0-9a-f]*\)".*/\1/p' | head -n 1)
+            if [ "$estado" = "200" ] && [ "$commit" = "$GITHUB_SHA" ]; then
+              echo "::notice::Vercel publica el frontend de $GITHUB_SHA (intento $intento)"
+              exit 0
+            fi
+            if [ "$estado" = "200" ]; then
+              if [ -n "$commit" ]; then mostrado=${commit:0:7}; else mostrado='sin informar'; fi
+              echo "Intento $intento: HTTP 200, frontend $mostrado (se espera $esperado_corto)"
+            else
+              echo "Intento $intento: HTTP $estado"
+            fi
+            if [ "$SECONDS" -ge "$limite" ]; then
+              if [ "$estado" != "200" ]; then
+                echo "::error::La demo no respondio 200 en $((TOPE_S / 60)) min"
+              elif [ -z "$commit" ]; then
+                echo "::error::El frontend no informa su commit (VERCEL_GIT_COMMIT_SHA expuesta en Vercel?)"
+              else
+                echo "::error::Vercel sigue publicando $commit tras $((TOPE_S / 60)) min: no publico $GITHUB_SHA. Revisa su panel"
+              fi
+              exit 1
+            fi
+            intento=$((intento + 1))
+            sleep "$INTERVALO_S"
+          done
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      # Sin Postgres, sin Prisma y sin build: con BASE_URL remota Playwright no
+      # levanta servidores ni toca ninguna base (e2e/entorno.ts).
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar chromium
+        run: npx -w @mira/e2e playwright install --with-deps --only-shell chromium
+
+      - name: Humo contra la demo
+        # La config ya fuerza @humo con un BASE_URL remoto; el --grep es para
+        # que se lea aqui. Sin reintentos: un humo intermitente es un Bug.
+        timeout-minutes: 5
+        run: npm run test:e2e -- --grep @humo
+
+      - name: Publicar reporte HTML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reporte-humo
+          path: e2e/playwright-report/
+          if-no-files-found: ignore
+          retention-days: 90
+
+      - name: Publicar evidencia de fallos
+        # Si fallo la espera del frontend, no hay traces: no avisa.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: evidencia-fallos-humo
+          path: e2e/test-results/
+          if-no-files-found: ignore
+          retention-days: 90
+
   # Corre siempre, tambien con un job en rojo. No hereda el environment `deploy`:
   # el secreto es de repositorio porque avisa tambien en PR y en develop. Los
   # casos estan en "Notificaciones", en docs/ci-cd.md.
   notify:
     name: Avisar en Discord
     runs-on: ubuntu-latest
-    needs: [calidad, build, e2e, deploy]
+    needs: [calidad, build, e2e, deploy, humo]
     if: always()
     timeout-minutes: 5
     steps:
@@ -359,6 +461,7 @@ jobs:
           BUILD: ${{ needs.build.result }}
           E2E: ${{ needs.e2e.result }}
           DEPLOY: ${{ needs.deploy.result }}
+          HUMO: ${{ needs.humo.result }}
           # En un PR, ref_name es "<n>/merge" y github.sha el merge de prueba:
           # el aviso muestra la rama y el commit que escribio la persona.
           RAMA: ${{ github.head_ref || github.ref_name }}
@@ -400,12 +503,23 @@ jobs:
             aviso="🔴 **Pipeline en rojo:** falló \`E2E\`"$'\n'"Traces y videos en el artefacto \`evidencia-fallos-e2e\` de la ejecución."
           elif [ "$CALIDAD" = "success" ] && [ "$BUILD" = "success" ] && [ "$E2E" = "success" ]; then
             case "$DEPLOY" in
-              success) aviso="🚀 **Despliegue terminado:** la API responde. Confirma la versión en el panel de Render." ;;
+              success)
+                # Con el despliegue verde, el humo (MIR-72) decide el mensaje.
+                case "$HUMO" in
+                  success) aviso="🚀 **Despliegue terminado:** la demo responde y el humo pasó." ;;
+                  failure)
+                    aviso="🔴 **Humo E2E falló contra la demo**"$'\n'"Traces y videos en el artefacto \`evidencia-fallos-humo\` de la ejecución."
+                    ;;
+                  *) aviso="⚠️ **Humo E2E cancelado:** el despliegue terminó, pero la demo no se probó." ;;
+                esac
+                ;;
               failure) aviso="🔴 **Despliegue fallido**" ;;
               cancelled) aviso="⚠️ **Despliegue cancelado:** puede haber quedado a medias." ;;
             esac
 
-            if [ "$DEPLOY" = "success" ] || [ "$DEPLOY" = "skipped" ]; then
+            # Un humo rojo o cancelado no es una recuperacion. En PR y develop,
+            # DEPLOY y HUMO quedan skipped.
+            if { [ "$DEPLOY" = "success" ] && [ "$HUMO" = "success" ]; } || [ "$DEPLOY" = "skipped" ]; then
               # Sin esta lectura el aviso de recuperacion no se puede decidir:
               # queda advertencia, y lo demas del aviso sigue su curso.
               if anterior=$(conclusion_anterior); then
@@ -423,7 +537,7 @@ jobs:
           # Sin aviso: todo verde sin cambios, o un run cancelado por uno mas
           # nuevo de la misma rama.
           if [ -z "$aviso" ]; then
-            echo "Nada que avisar (calidad=$CALIDAD, build=$BUILD, e2e=$E2E, deploy=$DEPLOY)"
+            echo "Nada que avisar (calidad=$CALIDAD, build=$BUILD, e2e=$E2E, deploy=$DEPLOY, humo=$HUMO)"
             exit 0
           fi
 

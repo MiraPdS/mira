@@ -15,7 +15,7 @@ se obtienen.
 
 | Workflow | Disparadores | Jobs | Qué bloquea |
 | --- | --- | --- | --- |
-| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `E2E`: solo si `Build` pasó; compila de nuevo sin `VITE_API_URL` y corre Playwright contra la API y la web locales, con un Postgres 16 efímero (`mira_e2e`, puerto 5443) ([ver Pruebas E2E](#pruebas-e2e)). `Desplegar`: solo en push a `main` con los tres anteriores en verde ([ver Despliegue](#despliegue)). `Avisar en Discord`: corre siempre, al final ([ver Notificaciones](#notificaciones)) | Los tres primeros son checks obligatorios de `main`; `Desplegar` no lo es, porque corre después de fusionar, y `Avisar en Discord` tampoco: no bloquea nada |
+| [`ci.yml`](../.github/workflows/ci.yml) | push y PR a `main` y `develop` | `Lint, tipos y pruebas`: formato, lint, tipos, migraciones y las tres suites con cobertura contra un Postgres 16 efímero (puerto 5443); sube los artefactos `cobertura` y `reporte-junit` (resultado de cada prueba en formato JUnit), también si las pruebas fallan. `Build`: compila web y API, solo si el anterior pasó. `E2E`: solo si `Build` pasó; compila de nuevo sin `VITE_API_URL` y corre Playwright contra la API y la web locales, con un Postgres 16 efímero (`mira_e2e`, puerto 5443) ([ver Pruebas E2E](#pruebas-e2e)). `Desplegar`: solo en push a `main` con los tres anteriores en verde ([ver Despliegue](#despliegue)). `Humo E2E`: solo si `Desplegar` pasó; espera a que Vercel publique el frontend del commit y corre los tests `@humo` contra la demo ([ver Humo E2E](#humo-e2e)). `Avisar en Discord`: corre siempre, al final ([ver Notificaciones](#notificaciones)) | Los tres primeros son checks obligatorios de `main`; `Desplegar` y `Humo E2E` no lo son, porque corren después de fusionar, y `Avisar en Discord` tampoco: no bloquea nada |
 | [`wiki.yml`](../.github/workflows/wiki.yml) | PR a `develop` y `main`; push a `develop` que toque `docs/wiki/`; a mano (`workflow_dispatch`) | `Verificar Wiki`: reglas de forma, y en el PR de release a `main` que no queden pendientes. `Publicar Wiki` (o `Vista previa de la Wiki` en un PR): copia `docs/wiki/` a la Wiki de GitHub | No es obligatorio en `main`; un rojo se ve en el PR |
 
 Ambos declaran `permissions: contents: read` a nivel de workflow. Un job que
@@ -135,6 +135,35 @@ Vercel. Se mezclarían los historiales de despliegue.
 Los otros environments del repositorio (`Production` y `Preview` de Vercel, y
 el de Render) los crean y usan las integraciones. No se tocan.
 
+## Humo E2E
+
+El job `Humo E2E` de [`ci.yml`](../.github/workflows/ci.yml) comprueba en un
+navegador que la demo publicada funciona después de cada despliegue. Corre en
+cada push a `main`, después de `Desplegar` y solo si ese job pasó. Las
+decisiones están en [`MIR-72-humo-e2e.md`](./plans/MIR-72-humo-e2e.md).
+
+| Paso | Qué hace | Falla en rojo si |
+| --- | --- | --- |
+| `Esperar el frontend del commit` | Consulta `https://mira-pds.vercel.app/` cada 15 s y lee `<meta name="mira-commit">`, que `apps/web/vite.config.ts` llena con `VERCEL_GIT_COMMIT_SHA` | En 10 min el meta no es el commit del run. El error dice si la demo no respondía 200, si el meta venía vacío o si Vercel seguía en otro commit |
+| `Humo contra la demo` | `npm run test:e2e -- --grep @humo` con `BASE_URL` de la demo. Sin Postgres ni build: Playwright no levanta servidores y no toca ninguna base | Falla uno de los dos tests, o el paso pasa de 5 min |
+
+Los dos tests (`e2e/specs/humo.spec.ts`) son de solo lectura: inician sesión
+como `ada@mira.dev` y abren el tablero de `MIR`. Solo afirman lo que el seed
+asegura en cada deploy, porque las credenciales de la demo son públicas y
+cualquiera puede cambiar sus datos. Con un `BASE_URL` remoto,
+`playwright.config.ts` corre solo `@humo`, sin el proyecto `mobile`, con
+`expect` de 15 s y un worker, aunque el comando no lo pida.
+
+| Artefacto | Contenido | Cuándo |
+| --- | --- | --- |
+| `reporte-humo` | Reporte HTML de Playwright | Siempre que haya reporte |
+| `evidencia-fallos-humo` | Traces, screenshots y videos de los tests que fallaron | Solo si el job falla |
+
+**No es check obligatorio,** porque nunca corre en un PR. Un rojo pone rojo el
+run de `main` y avisa en `#mira-ci`; el despliegue ya ocurrió, así que se
+corrige con un fix o con el rollback de cada panel. Un humo intermitente es un
+Bug (MIR-74), no se reintenta.
+
 ---
 
 ## Notificaciones
@@ -155,7 +184,7 @@ otro.
 
 El job `Avisar en Discord` de [`ci.yml`](../.github/workflows/ci.yml) corre al
 final de cada ejecución, en PR, `develop` y `main`, con `needs` sobre los otros
-cuatro jobs e `if: always()`. Cada mensaje trae la rama, el commit, el autor y un
+cinco jobs e `if: always()`. Cada mensaje trae la rama, el commit, el autor y un
 enlace a la ejecución.
 
 | Resultado de la ejecución | Mensaje |
@@ -163,7 +192,9 @@ enlace a la ejecución.
 | `Lint, tipos y pruebas` o `Build` en rojo | 🔴 Pipeline en rojo, con el job que falló |
 | `E2E` en rojo | 🔴 Pipeline en rojo: falló `E2E`, con la indicación de buscar traces y videos en el artefacto `evidencia-fallos-e2e` |
 | Verde, y la ejecución anterior comparable había fallado | 🟢 El pipeline volvió a pasar |
-| `Desplegar` en verde | 🚀 Despliegue terminado (con 🟢 si además se recuperó) |
+| `Desplegar` y `Humo E2E` en verde | 🚀 Despliegue terminado: la demo responde y el humo pasó (con 🟢 si además se recuperó) |
+| `Desplegar` en verde y `Humo E2E` en rojo | 🔴 Humo E2E falló contra la demo, con la indicación de buscar traces y videos en `evidencia-fallos-humo` |
+| `Desplegar` en verde y `Humo E2E` cancelado | ⚠️ Humo E2E cancelado: la demo no se probó |
 | `Desplegar` en rojo | 🔴 Despliegue fallido |
 | `Desplegar` cancelado | ⚠️ Despliegue cancelado |
 | Verde sin fallo previo | Nada: `#mira-ci` solo habla cuando algo cambió |
@@ -177,8 +208,9 @@ enlace a la ejecución.
   cancelados.
 - **Si GitHub no entrega la ejecución anterior,** no se puede saber si hubo
   recuperación: la ejecución deja una advertencia. Un 🔴 o un 🚀 salen igual.
-- **🚀 no prueba la versión nueva,** por lo mismo que un `Desplegar` verde: ver
-  [Qué verifica el job](#qué-verifica-el-job).
+- **🚀 llega solo con el humo en verde:** la API corre el commit del run, Vercel
+  publica el frontend de ese commit y los tests `@humo` pasaron contra la demo.
+  Ver [Qué verifica el job](#qué-verifica-el-job) y [Humo E2E](#humo-e2e).
 - **Un fallo por ejecución.** Si una rama sigue en rojo, cada ejecución vuelve a
   avisar.
 - **Sin aviso de un workflow inválido.** Si `ci.yml` no se puede interpretar,
@@ -275,9 +307,11 @@ vieja.
 
 El `commit` es el de **Render**: el health pasa por el rewrite de Vercel, pero
 no dice qué frontend está publicado. La guarda de la punta asegura que el hook
-de Vercel construye el commit del run. Que ese build haya terminado bien se ve
-**en el panel de Vercel**, no en este job, porque la respuesta 2xx del hook
-solo significa que el pedido fue aceptado.
+de Vercel construye el commit del run. Que ese build haya terminado bien no lo
+verifica este job, porque la respuesta 2xx del hook solo significa que el
+pedido fue aceptado: lo verifica el job siguiente, [`Humo E2E`](#humo-e2e),
+que espera el commit del frontend en `<meta name="mira-commit">` antes de
+probar la demo (MIR-72).
 
 ### Consecuencias
 
