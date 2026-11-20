@@ -1,6 +1,7 @@
 # Proyecto - Estrategia de pruebas
 
-**Herramienta declarada del equipo:** Vitest + React Testing Library.
+**Herramientas declaradas del equipo:** Vitest + React Testing Library
+(unitario, integración y componente) y Playwright (E2E, desde la Entrega 3).
 
 Por qué: el proyecto es TypeScript de punta a punta y Vitest corre el mismo
 código en los tres workspaces, compartiendo configuración con Vite. React
@@ -17,10 +18,11 @@ El detalle completo, con ejemplos reales del proyecto, está en
 | **Unitario** | Reglas de negocio: `service` de cada módulo, permisos, esquemas | Repositorio mockeado (`vitest-mock-extended`) | nada | `*.test.ts` |
 | **Integración** | Rutas HTTP completas: middlewares, validación, SQL real, cookies | ninguno | PostgreSQL en Docker (5443) | `*.integration.test.ts` |
 | **Componente** | Páginas React con sus proveedores reales | MSW intercepta la red | nada | `*.test.tsx` |
-| **E2E** _(Entrega 3)_ | Flujos completos en navegador headless contra la URL desplegada | ninguno | ambiente desplegado | — |
+| **E2E** _(Entrega 3)_ | Flujos completos de usuario en Chromium headless: web → API → PostgreSQL | ninguno | API, web y PostgreSQL (`mira_e2e`); los levanta Playwright | `e2e/specs/*.spec.ts` |
 
 Muchas pruebas rápidas abajo, pocas y caras arriba. En Vitest son cuatro
-proyectos: `shared`, `api-unit`, `api-integration` y `web`.
+proyectos: `shared`, `api-unit`, `api-integration` y `web`; los E2E son un
+workspace aparte, `@mira/e2e`, con su propio runner.
 
 ### Unitario
 
@@ -48,6 +50,34 @@ Las páginas se renderizan con `QueryClientProvider` y router reales. MSW
 responde a nivel de red, con `onUnhandledRequest: 'error'`: un endpoint no
 declarado hace fallar la prueba en vez de colgarla.
 
+### E2E
+
+Playwright
+([D15](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d15--playwright-como-herramienta-e2e))
+abre un navegador real y recorre la aplicación como un usuario: no hay dobles.
+Prueban lo que los otros niveles no ven juntos: que la web, la API, la cookie
+de sesión y la base funcionen de punta a punta, en escritorio (1280×800) y en
+móvil (375×812).
+
+- **Pocos y por flujo:** uno o pocos tests por historia, sobre el camino
+  principal y sus errores más visibles. Las reglas y los casos borde siguen en
+  los niveles de abajo.
+- **Datos:** el `globalSetup` resetea y siembra `mira_e2e` una vez por corrida.
+  El proyecto `MIR` del seed es de solo lectura; lo que escribe usa el fixture
+  `proyectoPropio`, un proyecto nuevo por test.
+- **Sesión por rol:** el proyecto `setup` inicia sesión una vez con ada
+  (OWNER), alan (MEMBER) y grace (VIEWER) y guarda las cookies
+  (`storageState`).
+- **Estables por diseño:** selectores por rol y etiqueta, solo esperas con
+  `expect`, `retries: 0`, y cada chequeo negativo con su contraprueba. Un test
+  intermitente se registra como Bug, no se reintenta.
+- **Humo:** los tests `@humo`, de solo lectura, corren además contra la demo
+  publicada después de cada despliegue.
+
+El set completo, qué valida cada spec y los problemas encontrados están en
+[Entrega 3](Entrega-3.md#3-set-de-pruebas); las convenciones, en
+[`e2e/README.md`](https://github.com/MiraPdS/mira/blob/develop/e2e/README.md).
+
 ## Cómo se ejecutan
 
 ```bash
@@ -55,11 +85,14 @@ npm test                  # las cuatro suites, un reporte de cobertura combinado
 npm run test:unit         # sin Docker: shared + api-unit + web
 npm run test:integration  # requiere npm run db:up
 npm run test:coverage     # genera coverage/ (HTML, lcov, json-summary)
+npm run test:e2e          # E2E: levanta API y web, requiere npm run db:up
 ```
 
 En CI ([`ci.yml`](https://github.com/MiraPdS/mira/blob/develop/.github/workflows/ci.yml))
 cada PR corre formato, lint, tipos, las cuatro suites contra un PostgreSQL
-efímero y el build. Es check obligatorio para fusionar a `main`.
+efímero, el build y, desde la Entrega 3, el job `E2E`. Los tres son checks
+obligatorios para fusionar a `main`. Después de cada despliegue a `main`, el
+job `Humo E2E` corre los `@humo` contra la demo.
 
 ## Cobertura
 
@@ -109,10 +142,11 @@ que falla antes del arreglo.**
 | --- | --- |
 | **1** | Unitario, integración y componente; cobertura reportada; CI en cada PR |
 | **2** | GitHub Actions como CI/CD oficial; pruebas de los dos requerimientos nuevos; umbral de cobertura bloqueante (MIR-55); Discord |
-| **3** | Al menos 10 E2E headless en el pipeline, con capturas y reportes como artefactos |
+| **3** | Cuarto nivel, E2E con Playwright: 35 tests en 13 flujos, headless en cada PR (`E2E`, check obligatorio de `main`) y humo contra la demo después de cada despliegue; reporte HTML, JUnit, traces, capturas y videos como artefactos |
 
-Decisiones que ya preparan la Entrega 3: sesión por cookie `httpOnly`, menú
-"Mover a…" además del arrastre, y seed idempotente con datos fijos.
+Decisiones de las primeras entregas que facilitaron los E2E: sesión por cookie
+`httpOnly` (se guarda con `storageState`), menú "Mover a…" además del arrastre,
+y seed idempotente con datos fijos.
 
 ### Por qué los E2E no arrastran tarjetas
 

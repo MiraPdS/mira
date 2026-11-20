@@ -13,7 +13,8 @@ verifican.
   fila aquí (casilla en la
   [plantilla de PR](https://github.com/MiraPdS/mira/blob/develop/.github/pull_request_template.md)).
 
-Niveles de prueba: **U** unitario · **I** integración · **C** componente. Ver
+Niveles de prueba: **U** unitario · **I** integración · **C** componente ·
+**E** end-to-end (Entrega 3, ver [Pruebas E2E](#pruebas-e2e-entrega-3)). Ver
 [Estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md).
 
 **Estado al cierre de la Entrega 1** (tag
@@ -110,6 +111,66 @@ está en [Entrega 2](Entrega-2.md#cierre-del-release-mir-57).
 | MIR-52 | Webhook de GitHub y estado en el commit | ➡️ cerrado sin trabajo | — | Actions publica el estado de cada job en el commit y en el PR; ver [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) |
 | MIR-53 | Notificaciones a Discord | ✅ v2.0-entrega2 | [#53] | Actions: [fallo con aviso](https://github.com/MiraPdS/mira/actions/runs/41380199238) y [recuperación con aviso](https://github.com/MiraPdS/mira/actions/runs/41380480549); aviso de despliegue aceptado en [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260) (MIR-57) |
 | MIR-54 | Despliegue desde GitHub Actions | ✅ v2.0-entrega2 | [#52] | job `Desplegar` de [`ci.yml`], _Skipped_ fuera de `main`; [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260) exitoso; un deploy por Deploy Hook del commit `9d2e518` en Render Live y Vercel Production Ready, sin duplicados (MIR-57) |
+
+## Pruebas E2E (Entrega 3)
+
+### Historia → spec E2E
+
+Qué historias de las entregas anteriores quedan cubiertas por un E2E, además
+de sus pruebas U, I y C de las tablas de arriba. Todas corren en el job `E2E`
+de cada PR; las marcadas `@humo` corren también contra la demo después de cada
+despliegue.
+
+| Historia | Spec E2E | Qué se verifica en el navegador |
+| --- | --- | --- |
+| MIR-1, MIR-2 Registro | [autenticacion](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/autenticacion.spec.ts) | Registro nuevo entra con sesión; correo repetido muestra el error y no entra |
+| MIR-3 Inicio de sesión | [autenticacion](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/autenticacion.spec.ts), [humo](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/humo.spec.ts) `@humo` | Contraseña incorrecta da el mensaje genérico; login entra a Mis proyectos; login en la demo |
+| MIR-4 Cerrar sesión y sesión persistente | [autenticacion](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/autenticacion.spec.ts) | Recargar mantiene la sesión; cerrar sesión vuelve a pedir login |
+| MIR-5 Crear proyecto | [proyectos-permisos](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/proyectos-permisos.spec.ts) | Clave válida crea el proyecto; clave inválida y repetida muestran su error y no crean nada |
+| MIR-6 Listar mis proyectos | [proyectos-permisos](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/proyectos-permisos.spec.ts) | El proyecto nuevo aparece como Propietario; grace ve `MIR` como Observador |
+| MIR-7 Ver y editar un proyecto, permisos por rol (D7) | [proyectos-permisos](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/proyectos-permisos.spec.ts) | VIEWER no ve "Crear elemento" ni edición de proyecto o columnas; OWNER sí (contraprueba) |
+| MIR-11, 12, 14, 15, 16 CRUD de elementos | [elementos](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/elementos.spec.ts) | Crear, ver en el backlog, consultar, editar y eliminar; crear sin título no crea nada |
+| MIR-13 Buscar y filtrar el backlog | [backlog](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/backlog.spec.ts) | Texto, estado, prioridad y responsable, combinados; "Limpiar filtros" |
+| MIR-18 Visualizar el tablero | [humo](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/humo.spec.ts) `@humo`, [tablero](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/tablero.spec.ts) | El tablero de `MIR` muestra sus columnas |
+| MIR-19 Cambiar el estado desde el menú | [tablero](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/tablero.spec.ts) `@movil` | "Mover a…" cambia la columna y persiste al recargar, en escritorio y en móvil |
+| MIR-21 Comentar un elemento | [backlog](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/backlog.spec.ts) | El comentario aparece con autor y fecha sin recargar y persiste |
+| MIR-22 Historial | [tablero](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/tablero.spec.ts) | El movimiento hecho en el tablero aparece en el historial del elemento |
+| MIR-23, MIR-24 Panel y diseño responsive | [movil](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/movil.spec.ts) | A 375 px: proyectos → resumen → backlog → tablero → sprints, sin scroll horizontal ni errores de la API; el tablero se desplaza dentro de su región |
+| MIR-43 a MIR-47 Sprints | [sprints](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/sprints.spec.ts) | Crear, asignar un elemento, iniciar, tablero del sprint activo y cerrar con trabajo pendiente |
+| MIR-48, MIR-50 Columnas configurables | [columnas](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/columnas.spec.ts) | Agregar y reordenar se refleja en el tablero y persiste; sin nombre se rechaza; eliminar con elementos pide destino y los mueve |
+
+MIR-8 (eliminar proyecto), MIR-9 y MIR-10 (miembros), MIR-17 (responsable),
+MIR-20 (arrastre) y MIR-30 no tienen E2E propio: siguen cubiertas por sus
+pruebas U, I y C. El arrastre queda fuera a propósito, ver
+[Estrategia de pruebas](Proyecto-Estrategia-de-pruebas.md#por-qué-los-e2e-no-arrastran-tarjetas).
+
+### Items de la épica MIR-59
+
+Estado al cierre de la Entrega 3: ✅ fusionado en `develop` para el release
+`v3.0-entrega3` (MIR-76).
+
+| Item | Tarea | Estado | PR | Verificación |
+| --- | --- | --- | --- | --- |
+| MIR-60 | Alcance de D14 en la Entrega 3 y D15 Playwright | ✅ | [#62](https://github.com/MiraPdS/mira/pull/62) | [D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial) y [D15](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d15--playwright-como-herramienta-e2e), con la confirmación del profesor |
+| MIR-61 | Andamiaje de Playwright | ✅ | [#61](https://github.com/MiraPdS/mira/pull/61) | E [ejemplo](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/ejemplo.spec.ts) (3 tests) |
+| MIR-62 | Job E2E en GitHub Actions como check obligatorio | ✅ | [#64](https://github.com/MiraPdS/mira/pull/64), [#69](https://github.com/MiraPdS/mira/pull/69) | Rojo controlado en [#66](https://github.com/MiraPdS/mira/pull/66): [run rojo](https://github.com/MiraPdS/mira/actions/runs/44657161160) y [run verde](https://github.com/MiraPdS/mira/actions/runs/44658912087) |
+| MIR-63 | E2E de autenticación y sesión | ✅ | [#63](https://github.com/MiraPdS/mira/pull/63) | E [autenticacion](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/autenticacion.spec.ts) (5 tests) |
+| MIR-64 | E2E del CRUD de elementos | ✅ | [#67](https://github.com/MiraPdS/mira/pull/67) | E [elementos](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/elementos.spec.ts) (2 tests) |
+| MIR-65 | E2E de proyectos y permisos | ✅ | [#65](https://github.com/MiraPdS/mira/pull/65) | E [proyectos-permisos](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/proyectos-permisos.spec.ts) (10 tests) |
+| MIR-66 | E2E de búsqueda, filtros y comentarios | ✅ | [#74](https://github.com/MiraPdS/mira/pull/74) | E [backlog](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/backlog.spec.ts) (4 tests) |
+| MIR-67 | E2E del tablero y el historial | ✅ | [#73](https://github.com/MiraPdS/mira/pull/73) | E [tablero](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/tablero.spec.ts) (2 tests + 1 en móvil) |
+| MIR-68 | E2E del ciclo de un sprint | ✅ | [#70](https://github.com/MiraPdS/mira/pull/70) | E [sprints](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/sprints.spec.ts) (1 test) |
+| MIR-69 | E2E de columnas configurables | ✅ | [#75](https://github.com/MiraPdS/mira/pull/75) | E [columnas](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/columnas.spec.ts) (3 tests) |
+| MIR-70 | E2E de navegación en móvil | ✅ | [#68](https://github.com/MiraPdS/mira/pull/68) | E [movil](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/movil.spec.ts) (2 tests, solo móvil) |
+| MIR-71 | Commit desplegado en `/api/health` | ✅ | [#71](https://github.com/MiraPdS/mira/pull/71) | `/api/health` informa `commit`; `Desplegar` espera a que coincida |
+| MIR-72 | Humo E2E contra la demo desplegada | ✅ | [#72](https://github.com/MiraPdS/mira/pull/72) | E [humo](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/humo.spec.ts) `@humo` (2 tests); job `Humo E2E` en cada push a `main` |
+| MIR-73 | Actions con Node 24 | ✅ | [#76](https://github.com/MiraPdS/mira/pull/76) | `checkout`, `setup-node` y `upload-artifact` en v7 en [`ci.yml`] |
+| MIR-74 | Defectos encontrados por los E2E | ➡️ sin defectos | — | Los E2E no destaparon defectos de la aplicación; no se abrió ningún Bug |
+| MIR-75 | Wiki de la Entrega 3 | ✅ | este PR | [Entrega 3](Entrega-3.md) con los ocho puntos del Anexo B; `verificar` de [`wiki.yml`] |
+
+Suite completa en verde en `develop`:
+[run 44676923221](https://github.com/MiraPdS/mira/actions/runs/44676923221),
+`38 passed`.
 
 <!-- Enlaces de referencia: PRs -->
 

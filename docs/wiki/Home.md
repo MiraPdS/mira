@@ -18,7 +18,7 @@ Esta página es solo un índice. El detalle vive en cada página.
 
 - [Entrega 1](Entrega-1.md) — release [`v1.0-entrega1`](https://github.com/MiraPdS/mira/releases/tag/v1.0-entrega1)
 - [Entrega 2](Entrega-2.md) — release [`v2.0-entrega2`](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2)
-- [Entrega 3](Entrega-3.md) _(pendiente)_
+- [Entrega 3](Entrega-3.md) — pruebas E2E con Playwright en el pipeline; release `v3.0-entrega3` (MIR-76)
 
 ## Documentación del proyecto
 
