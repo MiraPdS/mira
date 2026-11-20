@@ -70,6 +70,10 @@ const COLUMNAS_QUE_CABEN_EN_XL = 4;
  *
  * MIR-49: la columna es una del proyecto, con el nombre que le puso el
  * equipo. Un nombre largo se parte en varias lineas en vez de recortarse.
+ *
+ * MIR-67: `data-testid="columna-tablero"` y `data-columna-id` son estables
+ * para los E2E. El nombre accesible de la region incluye el contador, asi que
+ * por nombre conviene buscar su lista ("Tarjetas de <columna>").
  */
 function BoardColumn({ column, columns, items, onMove }: BoardColumnProps) {
   const label = column.name;
@@ -84,6 +88,8 @@ function BoardColumn({ column, columns, items, onMove }: BoardColumnProps) {
     <section
       ref={setNodeRef}
       aria-labelledby={headingId}
+      data-testid="columna-tablero"
+      data-columna-id={column.id}
       className={cn(
         'flex w-[min(18rem,calc(100%-2.5rem))] shrink-0 snap-start flex-col rounded-lg bg-slate-100 p-3 transition-colors',
         isOver && 'bg-sky-100 ring-2 ring-sky-300',
