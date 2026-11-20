@@ -117,8 +117,12 @@ anterior.
   con un error que distingue tres casos: no respondió 200, el meta está vacío
   ("¿VERCEL_GIT_COMMIT_SHA expuesta en Vercel?") o el meta trae otro commit
   ("Vercel no publicó `<sha>`: revisa su panel").
-- **Requisito en Vercel (lo revisa Benjamín):** *Automatically expose System
-  Environment Variables* activo, que viene activo por defecto.
+- **Vercel no necesita configuración:** el panel ya no muestra la opción
+  *Automatically expose System Environment Variables*, y la variable igual
+  llega al build. Verificado el 2026-11-20 en el preview del PR #72: el
+  `index.html` trae `<meta name="mira-commit" content="4508d4d…">`, el commit
+  de la punta de la rama. Si algún día sale vacío, el job lo dice con su
+  propio error.
 
 ### D4 — Rojo honesto y avisos en `notify`
 
@@ -224,8 +228,8 @@ enlace al run se anota en este plan.
 9. Commits convencionales en español con la clave MIR-72 (máximo 100
    caracteres por línea), y PR a `develop`.
 10. Revisión cruzada (IsaiasACF) y fusión en `develop`.
-11. **Benjamín, antes del release:** confirmar en Vercel que las System
-    Environment Variables están expuestas (D3).
+11. ~~Confirmar en Vercel que `VERCEL_GIT_COMMIT_SHA` llega al build (D3).~~
+    Hecho en el preview del PR #72.
 12. **Benjamín, en el release MIR-76:** la evidencia de D7, con el enlace al
     run.
 
