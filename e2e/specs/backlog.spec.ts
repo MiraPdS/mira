@@ -201,8 +201,8 @@ test.describe('MIR-21 · Comentar elemento', () => {
     await expect(entrada).toHaveCount(1);
     await expect(entrada).toContainText(texto);
     await expect(entrada).toContainText(usuarios.ada.nombre);
-    await expect(entrada.locator('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}T/);
-    await expect(entrada.locator('time')).not.toBeEmpty();
+    await expect(entrada.getByRole('time')).toHaveAttribute('datetime', /^\d{4}-\d{2}-\d{2}T/);
+    await expect(entrada.getByRole('time')).not.toBeEmpty();
     // El formulario se vacia tras publicar.
     await expect(comentarios.getByLabel('Escribir comentario')).toHaveValue('');
 
