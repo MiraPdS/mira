@@ -249,14 +249,13 @@ jobs:
     # mismo: solo acepta main y guarda los dos deploy hooks.
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     environment: deploy
-    # Mas que la suma de los pasos: el rojo lo da el tope del health, con su
-    # mensaje, no este limite.
+    # Mas que la suma de los pasos: el rojo lo da el tope del health (20 min),
+    # con su mensaje, no este limite.
     timeout-minutes: 25
     env:
       HEALTH_URL: https://mira-pds.vercel.app/api/health
-      ESPERA_INICIAL_S: '180'
       INTERVALO_S: '15'
-      TOPE_S: '900'
+      TOPE_S: '1200'
     steps:
       # Como en main los runs ya no se cancelan, uno puede llegar aqui con un
       # commit mas nuevo en main, aun sin CI. El hook de Vercel construye la
@@ -294,27 +293,46 @@ jobs:
             --request POST "$DEPLOY_HOOK_URL"
           echo "Vercel acepto el despliegue de la punta de main"
 
-      - name: Comprobar que la API responde
+      - name: Comprobar que la API corre el commit desplegado
         # Los hooks responden antes de que el despliegue termine, de ahi los
-        # reintentos. Un 200 NO prueba que salio la version nueva: la anterior
-        # contesta 200 hasta que Render la reemplaza, y si el build falla sigue
-        # contestando. La espera inicial da tiempo al despliegue, pero no
-        # garantiza que haya terminado: el primer 200 puede venir de la version
-        # anterior. Ver "Que verifica el job" en docs/ci-cd.md.
+        # reintentos. /api/health informa `commit` (RENDER_GIT_COMMIT, MIR-71):
+        # la version anterior contesta 200 con su propio commit hasta que
+        # Render la reemplaza, y si el build falla sigue contestando, asi que
+        # solo un 200 con commit == GITHUB_SHA da verde. Sin espera inicial: un
+        # 200 viejo ya no engana. El commit es el de Render: que Vercel termino
+        # su build se ve en su panel. Ver "Que verifica el job" en docs/ci-cd.md.
         run: |
-          sleep "$ESPERA_INICIAL_S"
+          esperado_corto=${GITHUB_SHA:0:7}
           limite=$((SECONDS + TOPE_S))
           intento=1
           while true; do
-            estado=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-              --max-time 20 "$HEALTH_URL" || true)
-            if [ "$estado" = "200" ]; then
-              echo "::notice::La API responde 200 (intento $intento). Esto no prueba la version desplegada: confirmala en el panel de Render."
+            # El codigo HTTP va en la ultima linea, despues del cuerpo. Sin
+            # conexion curl escribe 000; un cuerpo que no es JSON deja commit
+            # vacio. No se imprime el cuerpo.
+            respuesta=$(curl --silent --max-time 20 --write-out '\n%{http_code}' \
+              "$HEALTH_URL" || true)
+            estado=${respuesta##*$'\n'}
+            estado=${estado:-000}
+            cuerpo=${respuesta%$'\n'*}
+            commit=$(printf '%s' "$cuerpo" | jq -r '.commit // empty' 2>/dev/null || true)
+            if [ "$estado" = "200" ] && [ "$commit" = "$GITHUB_SHA" ]; then
+              echo "::notice::La API corre $GITHUB_SHA (intento $intento)"
               exit 0
             fi
-            echo "Intento $intento: HTTP $estado"
+            if [ "$estado" = "200" ]; then
+              if [ -n "$commit" ]; then mostrado=${commit:0:7}; else mostrado='sin informar'; fi
+              echo "Intento $intento: HTTP 200, commit $mostrado (se espera $esperado_corto)"
+            else
+              echo "Intento $intento: HTTP $estado"
+            fi
             if [ "$SECONDS" -ge "$limite" ]; then
-              echo "::error::La API no respondio 200 en $TOPE_S s"
+              if [ "$estado" != "200" ]; then
+                echo "::error::La API no respondio 200 en $((TOPE_S / 60)) min"
+              elif [ -z "$commit" ]; then
+                echo "::error::La API responde pero no informa su commit (falta RENDER_GIT_COMMIT?)"
+              else
+                echo "::error::La API sigue en $commit tras $((TOPE_S / 60)) min: el despliegue de Render no termino o fallo. Revisa el panel de Render"
+              fi
               exit 1
             fi
             intento=$((intento + 1))

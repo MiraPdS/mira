@@ -250,7 +250,7 @@ _Skipped_.
 | `Confirmar que el commit sigue siendo la punta de main` | Compara el commit del run con la punta de `main`. El hook de Vercel construye la punta: sin este paso publicaría un commit sin CI | `main` avanzó. No se dispara ningún hook: despliega el run del commit más nuevo |
 | `Disparar despliegue de la API en Render` | Llama a `RENDER_DEPLOY_HOOK_URL` con `ref=<commit>`: pide desplegar el commit que pasó el CI | El hook no responde 2xx. En ese caso Vercel no se dispara |
 | `Disparar despliegue del frontend en Vercel` | Llama a `VERCEL_DEPLOY_HOOK_URL`. El hook no acepta commit: construye la punta de `main` | El hook no responde 2xx |
-| `Comprobar que la API responde` | Espera 3 min y consulta `https://mira-pds.vercel.app/api/health` cada 15 s, con 20 s de tope por intento | No hay un 200 en 15 min |
+| `Comprobar que la API corre el commit desplegado` | Desde que se disparan los hooks, consulta `https://mira-pds.vercel.app/api/health` cada 15 s, con 20 s de tope por intento, y compara su `commit` con el commit del run | En 20 min no llega un 200 con `commit` igual al commit del run. El error dice si la API seguía en otro commit, si no informaba su commit o si no respondía 200 |
 
 El log nunca muestra las URL: entran por `env`, no se imprime la respuesta de
 los hooks y los pasos no usan `set -x`.
@@ -262,18 +262,22 @@ Lee esto antes de confiar en un job verde:
 | Verde significa | Verde **no** significa |
 | --- | --- |
 | El CI pasó y los dos servicios aceptaron el despliegue | Que los despliegues hayan terminado bien |
-| La demo, el rewrite y la base contestan 200 después de la espera | Que esté corriendo la versión nueva |
+| La API corre exactamente el commit del run, y la demo, el rewrite y la base contestan 200 | Que Vercel haya terminado de construir el frontend nuevo |
 
-`/api/health` no informa el commit y el despliegue de Render es sin corte:
-la versión anterior contesta 200 hasta que la nueva la reemplaza, y si el build
-falla sigue contestando. La espera de 3 min da tiempo al despliegue, pero no
-garantiza que haya terminado: el job acaba con el primer 200, y ese 200 puede
-venir de la versión anterior. Un despliegue fallido en Render o en Vercel se ve **en
-su panel**, no en este job. La respuesta 2xx de un hook solo significa que el
-pedido fue aceptado.
+`/api/health` y `/api/health/live` informan `commit`: el sha completo que
+corre, leído de `RENDER_GIT_COMMIT` (MIR-71). Fuera de Render (local, CI y E2E)
+vale `null`. El despliegue de Render es sin corte: la versión anterior contesta
+200 con su propio commit hasta que la nueva la reemplaza, y si el build falla
+sigue contestando. Por eso el job no se conforma con un 200: espera a que
+`commit` sea el del run, y si en 20 min no lo es, queda rojo. Las respuestas del
+health llevan `Cache-Control: no-store`, para que ningún CDN sirva una versión
+vieja.
 
-Cerrar ese hueco requiere exponer `RENDER_GIT_COMMIT` en `/api/health` y esperar
-a que coincida con el commit del job, y no está hecho.
+El `commit` es el de **Render**: el health pasa por el rewrite de Vercel, pero
+no dice qué frontend está publicado. La guarda de la punta asegura que el hook
+de Vercel construye el commit del run. Que ese build haya terminado bien se ve
+**en el panel de Vercel**, no en este job, porque la respuesta 2xx del hook
+solo significa que el pedido fue aceptado.
 
 ### Consecuencias
 
@@ -285,9 +289,11 @@ a que coincida con el commit del job, y no está hecho.
   en `develop`. Si llegan varios pushes a `main`, GitHub deja en espera solo el
   más reciente, y un run que arranca con `main` adelantada queda rojo sin
   disparar hooks.
-- **Serie en GitHub no significa serie en Render.** El job termina con el
-  primer 200, y el despliegue anterior puede seguir en curso cuando llega el
-  hook siguiente. Lo resuelve la política de deploys superpuestos de Render.
+- **Un run de `main` termina cuando su versión ya corre en Render.** El
+  siguiente run en serie no dispara su hook mientras el anterior sigue
+  desplegando. Si un run queda rojo por tope, su despliegue puede seguir en
+  curso: para ese caso, Render tiene su propia política de deploys
+  superpuestos.
 - **Un run viejo de `main` no despliega,** aunque se re-ejecute: queda rojo en
   el paso de la punta. Para volver atrás, usa el rollback de cada panel.
 - **Después de un Instant Rollback en Vercel, usa _Undo Rollback_.** Mientras
@@ -295,7 +301,8 @@ a que coincida con el commit del job, y no está hecho.
   nuevos: el release siguiente no se publica y el job igual queda verde.
 - **El frontend puede adelantarse a la API.** Vercel se dispara apenas Render
   acepta el hook, sin esperar a que termine. Si el build de Render falla, el
-  frontend nuevo queda contra la API anterior con el job verde.
+  job queda rojo, pero el frontend nuevo ya está publicado contra la API
+  anterior. Corrige y vuelve a desplegar la API, o usa el rollback de Vercel.
 
 ---
 
@@ -309,7 +316,8 @@ uno en Vercel Production (Ready), sin doble despliegue, health 200 y aviso de
 Discord aceptado. [Tag publicado](https://github.com/MiraPdS/mira/tree/v2.0-entrega2)
 y [GitHub Release](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2).
 El procedimiento que sigue documenta ese corte inicial; no se debe repetir por
-cada release. Las limitaciones de la comprobación de health siguen vigentes.
+cada release. En ese corte el health aún no informaba el commit: lo agregó
+MIR-71 ([ver Qué verifica el job](#qué-verifica-el-job)).
 
 Antes del primer release con este job, Render y Vercel desplegaban solos cada
 push a `main`. Apagar el auto-deploy antes de que el job llegara a `main`
