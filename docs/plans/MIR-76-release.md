@@ -7,7 +7,8 @@ Entrega 1 ([MIR-28](MIR-28-release.md)) y `v2.0-entrega2`.
 
 Entrega 3 completa en `develop` (`0b21372`): MIR-61 a MIR-75, incluidos MIR-71
 (commit en el health), MIR-72 (humo E2E) y MIR-73 (actions con Node 24).
-**MIR-77 (video) queda fuera del tag**, como MIR-29 en la Entrega 1.
+**MIR-77 (video) se incluye en el tag:** la cápsula se publica antes del
+release mediante el [PR #80](https://github.com/MiraPdS/mira/pull/80).
 
 ## Criterios
 
@@ -26,9 +27,10 @@ Entrega 3 completa en `develop` (`0b21372`): MIR-61 a MIR-75, incluidos MIR-71
 extiende para bajar también `reporte-junit-e2e` (JUnit de Playwright) y agregar
 una sección "Pruebas E2E" con una tabla por proyecto de Playwright (`setup`,
 `chromium`, `mobile`): archivos, pasan, fallan y omitidas, más la duración de
-la corrida (los proyectos corren en paralelo, así que no se suma por fila). Si el run
-no trae ese artefacto (entregas 1 y 2), la sección se omite, así la página de
-entregas anteriores se puede regenerar igual.
+la corrida (los proyectos corren en paralelo, así que no se suma por fila).
+Desde la Entrega 3 el JUnit E2E es obligatorio: si no se puede descargar,
+el comando falla sin sobrescribir la evidencia existente. En las entregas
+históricas 1 y 2 sigue siendo opcional, para poder regenerar sus páginas.
 
 Se corrige además el texto de cobertura: para `numero >= 2` dice que el run
 aplicó los umbrales bloqueantes de MIR-55, que siguen en `vitest.config.ts`
@@ -36,14 +38,17 @@ aplicó los umbrales bloqueantes de MIR-55, que siguen en `vitest.config.ts`
 
 Esto cierra el pendiente "Congelar la evidencia E2E" de `Entrega-3.md` §8.
 
-### D2 — Orden: evidencia → PR a `develop` → PR de release
+### D2 — Orden: cápsula → evidencia → PR de release
 
 1. Rama `docs/MIR-76-release` desde `origin/develop`, sin upstream hacia
    `develop`. Commit X: script (D1), Wiki y este plan.
 2. Push y PR a `develop` → el CI del PR sobre X queda en verde.
 3. `npm run wiki:evidencias -- entrega-3` sobre X → commit Y (solo docs).
    Enlazarla desde `Entrega-3.md` §6 y `Proyecto-Evidencias.md`.
-4. Revisión cruzada (IsaiasACF), merge con merge commit → se publica la Wiki.
+4. Revisión cruzada de ambos PRs. Fusionar primero #80 a `develop` y después
+   #78, con merge commit. La rama de #78 incorpora #80 y resuelve la Wiki
+   conservando los enlaces al video y a la evidencia congelada, sin los dos
+   pendientes ya resueltos. Así se publica la Wiki y el video entra en el tag.
 5. PR de release `develop → main` con los tres checks en verde. Merge **con
    merge commit**.
 6. Verificar el run de `main` (D4).
@@ -103,10 +108,11 @@ borrador se muestra antes de publicar.
   `Humo E2E`.
 - **Despliegue:** `Desplegar` y `/api/health` con el commit del tag.
 - **Limitaciones conocidas:** plan free de Render (arranque en frío);
-  credenciales de demo públicas; MIR-77 fuera del tag; el arrastre de tarjetas
-  no se prueba en E2E; el aviso de Discord no cuenta los tests fallidos; sin
-  caché de navegadores en CI.
-- **Enlaces** a la Wiki y **Uso de IA**.
+  credenciales de demo públicas; el arrastre de tarjetas no se prueba en E2E;
+  el aviso de Discord no cuenta los tests fallidos; sin caché de navegadores
+  en CI.
+- **Enlaces** a la Wiki y a la [cápsula de video](https://youtu.be/eX3-Vx8km5Q),
+  y **Uso de IA**.
 
 ### D6 — Jira
 

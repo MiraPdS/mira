@@ -203,6 +203,11 @@ y [`docs/ci-cd.md`](https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md#p
 
 ## 6. Evidencias
 
+La cápsula de video de MIR-77 está disponible en
+[YouTube — Pruebas E2E y CI/CD](https://youtu.be/eX3-Vx8km5Q).
+La referencia de publicación está en
+[Cápsula Entrega 3 (issue #79)](https://github.com/MiraPdS/mira/issues/79).
+
 ### El rojo controlado (MIR-62)
 
 Para probar que un E2E roto bloquea el pipeline se abrió el
@@ -357,7 +362,6 @@ commit en `/api/health` (MIR-71) y el meta `mira-commit` en la web (MIR-72).
 - **Release `v3.0-entrega3` (MIR-76):** PR `develop → main`, tag y GitHub
   Release. Su push a `main` corre por primera vez `Desplegar` seguido de
   `Humo E2E` contra la demo.
-- **Cápsula de video (MIR-77)**, grabada sobre el release.
 - **Conteo de tests fallidos en el aviso de Discord:** hoy dice qué job falló
   y dónde están los traces, no cuántos tests. Se dejó fuera porque igual hay
   que abrir la ejecución.
