@@ -204,7 +204,9 @@ y [`docs/ci-cd.md`](https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md#p
 ## 6. Evidencias
 
 La cápsula de video de MIR-77 está disponible en
-[Cápsula Entrega 3](https://github.com/MiraPdS/mira/issues/79).
+[YouTube — Pruebas E2E y CI/CD](https://youtu.be/eX3-Vx8km5Q).
+La referencia de publicación está en
+[Cápsula Entrega 3 (issue #79)](https://github.com/MiraPdS/mira/issues/79).
 
 ### El rojo controlado (MIR-62)
 
