@@ -55,8 +55,13 @@ Esto cierra el pendiente "Congelar la evidencia E2E" de `Entrega-3.md` §8.
 7. Tag anotado `v3.0-entrega3` sobre el merge commit y GitHub Release (D5).
 8. PR de cierre a `develop` (D3).
 
-La evidencia describe X; el tag difiere solo en documentación (Y y los merges),
-y el Release lo dice.
+La evidencia congelada describe X. La corrección posterior del generador de
+evidencias, su regresión y los cambios de documentación no modifican la app
+ni sus E2E. Antes del merge se exige CI verde sobre la cabeza actual del PR;
+el Release distingue el run fuente de la evidencia del commit etiquetado.
+
+Regresión local: `node --test scripts/test/wiki-evidencias.test.mjs`.
+También corre en el check `Verificar Wiki` de cada PR.
 
 ### D3 — Los enlaces posteriores al release van en un PR de cierre
 

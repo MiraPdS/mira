@@ -4,8 +4,8 @@
 //
 // Busca el run de CI del commit actual, exige que este verde, descarga su
 // artefacto `cobertura` y escribe docs/wiki/Evidencias-Entrega-1.md con la
-// cobertura por paquete y las pruebas por proyecto. Si el run trae
-// `reporte-junit-e2e` (desde la Entrega 3, MIR-76), agrega las pruebas E2E.
+// cobertura por paquete y las pruebas por proyecto. Desde la Entrega 3 exige
+// `reporte-junit-e2e` (MIR-76); en las entregas 1 y 2 sigue siendo opcional.
 // La evidencia sale de CI y
 // no de la maquina de quien lo corre: dice "esto produjo CI sobre este commit".
 //
@@ -106,7 +106,7 @@ function main() {
       );
     }
 
-    const e2e = descargarE2E(run, join(temporal, 'e2e'));
+    const e2e = descargarE2E(run, join(temporal, 'e2e'), numero);
 
     const pagina = renderizar({ numero, sha, run, cobertura, resultados, e2e });
     const destino = join(FUENTE, `Evidencias-Entrega-${numero}.md`);
@@ -119,10 +119,10 @@ function main() {
 }
 
 /**
- * JUnit de Playwright del run, o null si el run no lo trae (entregas 1 y 2,
- * anteriores al job E2E). Sin E2E la pagina se genera igual, sin esa seccion.
+ * JUnit de Playwright del run. Solo las entregas 1 y 2, anteriores al job E2E,
+ * permiten generar la pagina sin ese artefacto.
  */
-function descargarE2E(run, directorio) {
+function descargarE2E(run, directorio, numero) {
   try {
     ejecutar('gh', [
       'run',
@@ -135,7 +135,13 @@ function descargarE2E(run, directorio) {
       '--dir',
       directorio,
     ]);
-  } catch {
+  } catch (error) {
+    if (Number(numero) >= 3) {
+      throw new Error(
+        `No se pudo descargar ${ARTEFACTO_E2E}, obligatorio desde la Entrega 3. No se sobrescribe la evidencia.`,
+        { cause: error },
+      );
+    }
     console.warn(`! El run no trae ${ARTEFACTO_E2E}: la pagina sale sin pruebas E2E.`);
     return null;
   }

@@ -22,6 +22,8 @@ on:
     paths:
       - 'docs/wiki/**'
       - 'scripts/wiki.mjs'
+      - 'scripts/wiki-evidencias.mjs'
+      - 'scripts/test/**'
       - '.github/workflows/wiki.yml'
   # Sin filtro de rutas: el PR de release a main debe pasar el gate de
   # pendientes aunque no toque docs/wiki/. Es barato, no instala dependencias.
@@ -53,6 +55,9 @@ jobs:
 
       - name: Reglas de forma
         run: node scripts/wiki.mjs verificar
+
+      - name: Regresiones del generador de evidencias
+        run: node --test scripts/test/wiki-evidencias.test.mjs
 
       - name: Sin pendientes (PR de release)
         # En la Entrega 2, ajustar PENDIENTES_PERMITIDOS_EN_RELEASE en
