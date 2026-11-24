@@ -113,6 +113,12 @@ function main() {
     writeFileSync(destino, pagina);
     console.info(`✓ ${destino} (run ${run.url})`);
     console.info(`  Enlazala desde Entrega-${numero}.md y Proyecto-Evidencias.md, y commitea.`);
+  } catch (error) {
+    // Los errores lanzados aqui (p. ej. falta el JUnit E2E) salen en una linea,
+    // como los de `fallar`. No se usa `fallar`: su process.exit saltaria el
+    // finally y dejaria la carpeta temporal.
+    console.error(`✗ ${error.message}`);
+    process.exitCode = 1;
   } finally {
     rmSync(temporal, { recursive: true, force: true });
   }
@@ -335,7 +341,7 @@ No se editan a mano: se regeneran con \`npm run wiki:evidencias -- entrega-${num
 | --- | --- |
 | Commit | [\`${sha.slice(0, 7)}\`](https://github.com/${REPO}/commit/${sha}) |
 | Run de CI | [${run.databaseId}](${run.url}) (${run.event}, \`${run.headBranch}\`) |
-| Fecha de la corrida${numero === '2' ? ' (UTC)' : ''} | ${fecha} |
+| Fecha de la corrida${Number(numero) >= 2 ? ' (UTC)' : ''} | ${fecha} |
 | Resultado | ${verde ? '✅ todas las pruebas pasan' : '❌ hay pruebas fallando'} |
 
 ## Pruebas por proyecto

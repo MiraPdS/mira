@@ -7,7 +7,7 @@ No se editan a mano: se regeneran con `npm run wiki:evidencias -- entrega-3`.
 | --- | --- |
 | Commit | [`4c612d4`](https://github.com/MiraPdS/mira/commit/4c612d4e93627bdf53eb9d6cfe241c5521808d4b) |
 | Run de CI | [44683341339](https://github.com/MiraPdS/mira/actions/runs/44683341339) (pull_request, `docs/MIR-76-release`) |
-| Fecha de la corrida | 2026-11-20 |
+| Fecha de la corrida (UTC) | 2026-11-20 |
 | Resultado | ✅ todas las pruebas pasan |
 
 ## Pruebas por proyecto

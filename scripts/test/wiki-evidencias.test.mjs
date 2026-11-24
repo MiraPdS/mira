@@ -120,7 +120,9 @@ for (const numero of [3, 4]) {
   test(`Entrega ${numero}: una descarga E2E fallida no sobrescribe la evidencia`, (t) => {
     const resultado = ejecutarCLI(t, numero, 'fallo');
     assert.notEqual(resultado.status, 0);
-    assert.match(resultado.stderr, /reporte-junit-e2e/);
+    assert.match(resultado.stderr, /^✗ .*reporte-junit-e2e/m);
+    // Una linea, como los demas fallos: sin stack trace de Node.
+    assert.doesNotMatch(resultado.stderr, /^\s+at /m);
     assert.equal(resultado.pagina, evidenciaAnterior);
   });
 }
@@ -140,4 +142,6 @@ test('Entrega 3: incluye el JUnit descargado en la evidencia', (t) => {
   assert.match(resultado.pagina, /## Pruebas E2E/);
   assert.match(resultado.pagina, /\| `chromium` \| 1 \| 1 \| 0 \| 0 \|/);
   assert.match(resultado.pagina, /todas las pruebas pasan/);
+  // toISOString() da la fecha en UTC: desde la Entrega 2 la etiqueta lo dice.
+  assert.match(resultado.pagina, /\| Fecha de la corrida \(UTC\) \| 2026-11-20 \|/);
 });
