@@ -23,7 +23,8 @@ URL viva se pueden revisar.
 Los artefactos de GitHub Actions expiran. Por eso la cobertura y los resultados
 de cada entrega se **congelan** en el repositorio con
 `npm run wiki:evidencias -- entrega-N`: el script toma el run de CI verde del
-commit actual, descarga su artefacto y escribe las tablas. Así la evidencia
+commit actual, descarga sus artefactos (`cobertura` y, desde la Entrega 3, el
+JUnit de los E2E) y escribe las tablas. Así la evidencia
 dice "esto lo produjo CI, sobre este commit", y no "funcionaba en mi máquina".
 
 ## Protección de `main`
@@ -106,6 +107,10 @@ gh api repos/MiraPdS/mira/branches/main --jq .protection.required_status_checks.
 
 ## Entrega 3
 
+- **Pruebas, cobertura y E2E congelados:**
+  [Evidencias de la Entrega 3](Evidencias-Entrega-3.md), generadas desde el
+  [run de CI 44683341339](https://github.com/MiraPdS/mira/actions/runs/44683341339)
+  del commit `4c612d4` (PR de MIR-76), como preparación del release.
 - **Suite E2E completa en verde en `develop`:**
   [run 44676923221](https://github.com/MiraPdS/mira/actions/runs/44676923221)
   del commit `9a16fcf`: `38 passed (19.9s)` en el paso `Pruebas E2E`, con los
