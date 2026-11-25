@@ -126,8 +126,13 @@ gh api repos/MiraPdS/mira/branches/main --jq .protection.required_status_checks.
   [Protección de `main`](#protección-de-main).
 - **Trazabilidad historia → spec E2E:**
   [Requisitos y trazabilidad](Proyecto-Requisitos-y-trazabilidad.md#pruebas-e2e-entrega-3).
-- **Humo contra la demo y release:** se agregan con MIR-76, desde el run del
-  push del release a `main`.
+- **Release:** [v3.0-entrega3 — Entrega 3](https://github.com/MiraPdS/mira/releases/tag/v3.0-entrega3), publicado sin draft ni
+  prerelease, sobre el merge commit `6bd4016` del
+  [PR #81](https://github.com/MiraPdS/mira/pull/81).
+- **Despliegue y humo contra la demo:** [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) de
+  `main`, con `Desplegar` (`La API corre 6bd4016…`, intento 8) y `Humo E2E`
+  (`5 passed`) en verde. Detalle en
+  [Cierre del release](Entrega-3.md#cierre-del-release-mir-76).
 
 ## Ambiente desplegado
 

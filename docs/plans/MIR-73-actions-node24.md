@@ -114,8 +114,10 @@ igual que con MIR-71. El enlace se agrega en un commit después de abrir el PR.
 6. Cuando el CI del PR termine: los checks en verde y la tabla de anotaciones
    (D3) en la descripción del PR.
 7. Revisión cruzada (IsaiasACF) y merge. Repetir D3 en el push a `develop`.
-8. **Benjamín, en el release MIR-76:** comprobar que `Humo E2E` tampoco tiene
-   anotaciones y enlazar el run aquí.
+8. ~~**Benjamín, en el release MIR-76:** comprobar que `Humo E2E` tampoco tiene
+   anotaciones y enlazar el run aquí.~~ Hecho en el [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) de `main`, con la consulta de D3 a
+   `/check-runs/{id}/annotations`: ningún job tiene `Node.js 20 is
+   deprecated`; `Desplegar` y `Humo E2E` solo traen su propio `notice`.
 
 ## Fuera de alcance
 

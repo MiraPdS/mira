@@ -5,7 +5,7 @@ Herramienta: **Playwright**
 ([D15](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d15--playwright-como-herramienta-e2e)) ·
 CI/CD: **GitHub Actions** con avisos en **Discord**
 ([D14](https://github.com/MiraPdS/mira/blob/develop/docs/decisiones-tecnicas.md#d14--github-actions-como-cicd-oficial)) ·
-Tag previsto: `v3.0-entrega3` (MIR-76).
+Release: [`v3.0-entrega3`](https://github.com/MiraPdS/mira/releases/tag/v3.0-entrega3) (MIR-76).
 
 ## 1. Objetivo
 
@@ -246,6 +246,33 @@ commit `fccdea0`) y llega el aviso 🟢:
 
 ![Aviso de Discord: el pipeline volvió a pasar](images/e3-mir62-8-discord-verde.png)
 
+### Cierre del release (MIR-76)
+
+El [PR #81](https://github.com/MiraPdS/mira/pull/81) se fusionó a `main` con el
+merge commit
+[`6bd401677780c2b818fdc9cb9ec4abc67c406533`](https://github.com/MiraPdS/mira/commit/6bd401677780c2b818fdc9cb9ec4abc67c406533).
+El [tag `v3.0-entrega3`](https://github.com/MiraPdS/mira/tree/v3.0-entrega3)
+apunta a ese commit y el
+[GitHub Release «v3.0-entrega3 — Entrega 3»](https://github.com/MiraPdS/mira/releases/tag/v3.0-entrega3) está publicado, sin draft
+ni prerelease.
+
+El push corrió por primera vez `Desplegar` con la espera del commit y
+`Humo E2E` contra la demo. En el [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) los seis
+jobs terminaron en success:
+
+- **`Desplegar` (MIR-71):** siete intentos respondieron sin `commit` (la API
+  anterior) y el intento 8 registró `La API corre 6bd401677780c2b818fdc9cb9ec4abc67c406533`.
+  [`/api/health`](https://mira-pds.vercel.app/api/health) responde
+  `"commit":"6bd401677780c2b818fdc9cb9ec4abc67c406533"`.
+- **`Humo E2E` (MIR-72):** la demo publicó el frontend de `6bd4016` en el
+  primer intento y el humo dio `5 passed (8.9s)`: los 3 inicios de sesión y
+  los 2 casos `@humo`. El artefacto `reporte-humo` está en el run.
+- **Node 24 (MIR-73):** ningún job tiene anotaciones de deprecación; solo los
+  dos `notice` del propio pipeline.
+
+Este registro complementa la [evidencia congelada](Evidencias-Entrega-3.md) del
+run `44683341339`; no la regenera ni cambia su commit ni sus cifras.
+
 ### Enlaces
 
 - **Suite completa en verde en `develop`:**
@@ -258,8 +285,8 @@ commit `fccdea0`) y llega el aviso 🟢:
   [run rojo](https://github.com/MiraPdS/mira/actions/runs/44657161160) y
   [run verde](https://github.com/MiraPdS/mira/actions/runs/44658912087).
 - **Primer job `E2E`:** [PR #64](https://github.com/MiraPdS/mira/pull/64).
-- **Humo contra la demo:** se ejecuta con el push del release a `main`
-  (MIR-76); su run se enlaza en el cierre del release.
+- **Humo contra la demo:** [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) del release
+  (ver [Cierre del release](#cierre-del-release-mir-76)).
 - **Historial del pipeline:**
   [ejecuciones de `ci.yml`](https://github.com/MiraPdS/mira/actions/workflows/ci.yml).
 - **PRs de la entrega:**
@@ -277,7 +304,11 @@ commit `fccdea0`) y llega el aviso 🟢:
   [#73](https://github.com/MiraPdS/mira/pull/73) tablero ·
   [#74](https://github.com/MiraPdS/mira/pull/74) filtros y comentarios ·
   [#75](https://github.com/MiraPdS/mira/pull/75) columnas ·
-  [#76](https://github.com/MiraPdS/mira/pull/76) Node 24.
+  [#76](https://github.com/MiraPdS/mira/pull/76) Node 24 ·
+  [#77](https://github.com/MiraPdS/mira/pull/77) Wiki ·
+  [#78](https://github.com/MiraPdS/mira/pull/78) evidencia congelada ·
+  [#80](https://github.com/MiraPdS/mira/pull/80) cápsula ·
+  [#81](https://github.com/MiraPdS/mira/pull/81) release.
 - **Evidencia congelada:** [Evidencias de la Entrega 3](Evidencias-Entrega-3.md),
   con Vitest, cobertura y las 38 pruebas E2E del
   [run 44683341339](https://github.com/MiraPdS/mira/actions/runs/44683341339)
@@ -359,9 +390,6 @@ commit en `/api/health` (MIR-71) y el meta `mira-commit` en la web (MIR-72).
 
 ## 8. Pendientes
 
-- **Release `v3.0-entrega3` (MIR-76):** PR `develop → main`, tag y GitHub
-  Release. Su push a `main` corre por primera vez `Desplegar` seguido de
-  `Humo E2E` contra la demo.
 - **Conteo de tests fallidos en el aviso de Discord:** hoy dice qué job falló
   y dónde están los traces, no cuántos tests. Se dejó fuera porque igual hay
   que abrir la ejecución.

@@ -166,7 +166,9 @@ Estado al cierre de la Entrega 3: ✅ fusionado en `develop` para el release
 | MIR-72 | Humo E2E contra la demo desplegada | ✅ | [#72](https://github.com/MiraPdS/mira/pull/72) | E [humo](https://github.com/MiraPdS/mira/blob/develop/e2e/specs/humo.spec.ts) `@humo` (2 tests); job `Humo E2E` en cada push a `main` |
 | MIR-73 | Actions con Node 24 | ✅ | [#76](https://github.com/MiraPdS/mira/pull/76) | `checkout`, `setup-node` y `upload-artifact` en v7 en [`ci.yml`] |
 | MIR-74 | Defectos encontrados por los E2E | ➡️ sin defectos | — | Los E2E no destaparon defectos de la aplicación; no se abrió ningún Bug |
-| MIR-75 | Wiki de la Entrega 3 | ✅ | este PR | [Entrega 3](Entrega-3.md) con los ocho puntos del Anexo B; `verificar` de [`wiki.yml`] |
+| MIR-75 | Wiki de la Entrega 3 | ✅ | [#77](https://github.com/MiraPdS/mira/pull/77) | [Entrega 3](Entrega-3.md) con los ocho puntos del Anexo B; `verificar` de [`wiki.yml`] |
+| MIR-76 | Release `v3.0-entrega3` | ✅ v3.0-entrega3 | [#78](https://github.com/MiraPdS/mira/pull/78), [#81](https://github.com/MiraPdS/mira/pull/81) | [Evidencias de la Entrega 3](Evidencias-Entrega-3.md); [release](https://github.com/MiraPdS/mira/releases/tag/v3.0-entrega3); `Desplegar` y `Humo E2E` en el [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) |
+| MIR-77 | Cápsula de video de la Entrega 3 | ✅ | [#80](https://github.com/MiraPdS/mira/pull/80) | [Video](https://youtu.be/eX3-Vx8km5Q) ([issue #79](https://github.com/MiraPdS/mira/issues/79)) |
 
 Suite completa en verde en `develop`:
 [run 44676923221](https://github.com/MiraPdS/mira/actions/runs/44676923221),
