@@ -193,8 +193,12 @@ antes.
 9. Commits convencionales en español con la clave MIR-71, y PR a `develop`. En
    el CI del PR: los tres checks en verde y `Desplegar` _Skipped_.
 10. Revisión cruzada y fusión en `develop`.
-11. **Benjamín, en el release MIR-76:** la evidencia de D7, y enlazar el run
-    aquí.
+11. ~~**Benjamín, en el release MIR-76:** la evidencia de D7, y enlazar el run
+    aquí.~~ Hecho en el [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) de `main` (merge commit `6bd4016` del
+    [PR #81](https://github.com/MiraPdS/mira/pull/81)): `Desplegar` en verde;
+    los intentos 1 a 7 respondieron sin `commit` (la API anterior) y el 8
+    registró `La API corre 6bd401677780c2b818fdc9cb9ec4abc67c406533`. `/api/health` abierto a mano responde
+    `"commit":"6bd401677780c2b818fdc9cb9ec4abc67c406533"`. No hizo falta el hotfix del riesgo de D7.
 
 ## Fuera de alcance
 

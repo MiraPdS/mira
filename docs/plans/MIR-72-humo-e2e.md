@@ -230,8 +230,11 @@ enlace al run se anota en este plan.
 10. Revisión cruzada (IsaiasACF) y fusión en `develop`.
 11. ~~Confirmar en Vercel que `VERCEL_GIT_COMMIT_SHA` llega al build (D3).~~
     Hecho en el preview del PR #72.
-12. **Benjamín, en el release MIR-76:** la evidencia de D7, con el enlace al
-    run.
+12. ~~**Benjamín, en el release MIR-76:** la evidencia de D7, con el enlace al
+    run.~~ Hecho en el [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110) de `main`: `Humo E2E` en verde; la espera
+    vio el meta `mira-commit` igual a `6bd4016` en el intento 1 y el humo dio
+    `5 passed (8.9s)` (3 de `setup` y 2 `@humo`). `reporte-humo` está en el
+    run y `Avisar en Discord` terminó en success. No hubo Bug para MIR-74.
 
 ## Fuera de alcance
 

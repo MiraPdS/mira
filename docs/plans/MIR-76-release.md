@@ -131,13 +131,22 @@ Release se confirman con Benjamín antes de hacerlos.
 
 ## Verificación
 
-_Se completa en el PR de cierre (D3)._
+Completado en el PR de cierre (D3), 2026-11-25.
 
-- PR a `develop`: —
-- PR de release: —
-- Run de `main` (`Desplegar`, `Humo E2E`): —
-- `/api/health`: —
-- Release: —
+- **PR a `develop`:** [#78](https://github.com/MiraPdS/mira/pull/78), después de
+  [#80](https://github.com/MiraPdS/mira/pull/80) (cápsula), como pide D2.
+  Evidencia congelada del run 44683341339 sobre `4c612d4`.
+- **PR de release:** [#81](https://github.com/MiraPdS/mira/pull/81), aprobado por
+  IsaiasACF, con `Lint, tipos y pruebas`, `Build` y `E2E` en verde. Merge
+  commit `6bd401677780c2b818fdc9cb9ec4abc67c406533`.
+- **Run de `main`:** [run 45537008110](https://github.com/MiraPdS/mira/actions/runs/45537008110), los seis jobs en success. `Desplegar`:
+  `La API corre 6bd401677780c2b818fdc9cb9ec4abc67c406533` en el intento 8. `Humo E2E`: meta coincidente en el
+  intento 1 y `5 passed (8.9s)`. Sin anotaciones de deprecación (D4).
+- **`/api/health`:** `{"status":"ok","db":"ok","commit":"6bd401677780c2b818fdc9cb9ec4abc67c406533"}`.
+- **Tag y Release:** tag anotado `v3.0-entrega3` sobre `6bd4016` y
+  [GitHub Release](https://github.com/MiraPdS/mira/releases/tag/v3.0-entrega3)
+  publicado como latest.
+- **Jira:** MIR-76 en Done; MIR-59 en Backlog (D6).
 
 ## Fuera de alcance
 
