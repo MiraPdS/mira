@@ -327,3 +327,115 @@ MIR-58 Capsula de video de la Entrega 2,Task,High,3,,"Calidad, infraestructura y
 Criterios de aceptacion:
 - Cubre alcance de la herramienta, trabajo realizado y dependencias entre GitHub Actions y la aplicacion, uso de GitHub Actions y problemas con sus soluciones.
 - El enlace queda publicado en el README y en la Wiki."
+Pruebas E2E,Epic,High,,Pruebas E2E,,entrega-3,Epica de la Entrega 3.
+MIR-60 Alcance de D14 en la Entrega 3 y D15 Playwright,Task,Highest,1,,Pruebas E2E,"docs,decisiones,entrega-3","Como equipo queremos dejar por escrito que GitHub Actions y Discord siguen siendo el CI/CD oficial en la Entrega 3 y por que usamos Playwright en lugar de Selenium.
+
+Criterios de aceptacion:
+- D14 cita la confirmacion del profesor de que la autorizacion cubre tambien la Entrega 3 (enlace o captura del mensaje).
+- Existe D15 - Playwright como herramienta E2E, con por que, descartado (Selenium WebDriver) y consecuencias, citando la clausula del enunciado que permite alternativas.
+- La tabla de decisiones pendientes marca resuelta la herramienta E2E."
+MIR-61 Andamiaje de Playwright,Task,Highest,5,,Pruebas E2E,"e2e,pruebas,infra,entrega-3","Como equipo queremos una base comun de Playwright para que cada integrante escriba los E2E de su modulo sin reinventar login ni datos.
+
+Criterios de aceptacion:
+- Existe e2e/ con playwright.config.ts que lee BASE_URL del entorno (por defecto http://localhost:4173) y nunca hardcodea la URL en las specs.
+- Proyectos chromium (desktop) y mobile (375 px); headless siempre en CI.
+- globalSetup hace migrate reset + seed una sola vez; un proyecto setup guarda storageState para ada (OWNER), alan (MEMBER) y grace (VIEWER).
+- Fixture proyectoPropio crea via API un proyecto con clave unica (E2E + sufijo) para los tests que modifican datos; el proyecto MIR del seed queda solo para lectura.
+- trace retain-on-failure, screenshot y video only-on-failure, retries 0; reporters html y junit.
+- npm run test:e2e levanta API y web (webServer) y corre la suite en local; documentado en el README.
+- Una spec de ejemplo (abrir /login) pasa en local."
+MIR-62 Job E2E en GitHub Actions como check obligatorio,Task,Highest,3,,Integracion y despliegue continuo,"ci,e2e,github-actions,entrega-3","Como equipo queremos que cada push y PR ejecute los E2E y que un E2E rojo bloquee el merge y el despliegue.
+
+Criterios de aceptacion:
+- ci.yml tiene el job E2E (needs: build) que levanta Postgres como service, migra, siembra, arranca la API compilada y vite preview, e instala solo chromium con sus dependencias.
+- Si falla cualquier E2E el job queda rojo; Desplegar pasa a necesitar tambien E2E.
+- Artefactos con if: always(): reporte HTML de Playwright, JUnit y, si hubo fallos, traces, screenshots y videos.
+- El aviso de #mira-ci indica si fallo E2E con enlace a la ejecucion.
+- E2E se agrega como check obligatorio de main el mismo dia que se fusiona (ci-cd.md actualizado).
+- Evidencia de un rojo controlado: PR con un E2E roto a proposito, captura del job rojo, del trace y del aviso, y luego se revierte."
+MIR-63 E2E de autenticacion y sesion,Task,Highest,3,,Pruebas E2E,"e2e,pruebas,auth,entrega-3","Como equipo queremos verificar en un navegador real que registrarse, entrar y salir funciona de punta a punta.
+
+Criterios de aceptacion:
+- Registro: un correo nuevo completa el formulario y llega a /proyectos autenticado (MIR-1, MIR-2).
+- Login con contrasena incorrecta muestra el mensaje generico y no entra (MIR-3).
+- Login correcto, recargar mantiene la sesion; cerrar sesion lleva a /login y /proyectos redirige a /login (MIR-4)."
+MIR-64 E2E del CRUD de elementos y sus validaciones,Task,Highest,3,,Pruebas E2E,"e2e,pruebas,elementos,entrega-3","Como equipo queremos verificar el ciclo completo de un elemento de trabajo como lo haria un usuario.
+
+Criterios de aceptacion:
+- Happy path en un proyecto propio: crear, aparece en el backlog, abrir el detalle, editar y ver el cambio, eliminar y desaparece (MIR-11, 12, 14, 15, 16).
+- Validaciones: enviar sin titulo muestra el error junto al campo y no crea nada (MIR-11)."
+MIR-65 E2E de proyectos y permisos,Task,High,3,,Pruebas E2E,"e2e,pruebas,permisos,entrega-3","Como equipo queremos verificar la creacion de proyectos y que cada rol ve solo lo que puede hacer.
+
+Criterios de aceptacion:
+- Crear proyecto con clave valida aparece en la lista como OWNER; clave con formato invalido y clave duplicada muestran su error (MIR-5, MIR-6).
+- grace (VIEWER) en MIR no ve crear elemento, editar proyecto ni configurar columnas (MIR-7, MIR-50, D7)."
+"MIR-66 E2E de busqueda, filtros y comentarios",Task,High,3,,Pruebas E2E,"e2e,pruebas,backlog,entrega-3","Como equipo queremos verificar que el backlog se puede buscar y filtrar y que se puede comentar un elemento.
+
+Criterios de aceptacion:
+- Buscar por texto y filtrar por estado, prioridad y responsable reduce el backlog a lo esperado y limpiar filtros lo restaura (MIR-13).
+- Comentar un elemento muestra el comentario con autor y fecha sin recargar (MIR-21)."
+MIR-67 E2E del tablero y el historial,Task,High,3,,Pruebas E2E,"e2e,pruebas,tablero,entrega-3","Como equipo queremos verificar que mover una tarjeta en el tablero persiste y queda registrado.
+
+Criterios de aceptacion:
+- Mover una tarjeta con el menu Mover a la cambia de columna, persiste al recargar y aparece en el historial del elemento (MIR-19, MIR-22).
+- Tarjetas y columnas tienen data-testid estable; el resto de los selectores usa rol y etiqueta.
+- El arrastre con dnd-kit queda fuera a proposito (camino determinista, estrategia de pruebas 7) y se explica en la Wiki."
+MIR-68 E2E del ciclo de un sprint,Task,High,3,,Pruebas E2E,"e2e,pruebas,sprints,entrega-3","Como equipo queremos verificar el flujo Scrum completo en un navegador.
+
+Criterios de aceptacion:
+- En un proyecto propio: crear sprint, asignarle un elemento, iniciarlo, el tablero muestra el sprint activo con su nombre (MIR-43 a MIR-47).
+- Cerrar el sprint con un elemento sin terminar lo devuelve al backlog y el sprint cerrado muestra puntos comprometidos y completados (MIR-46)."
+MIR-69 E2E de columnas configurables,Task,High,3,,Pruebas E2E,"e2e,pruebas,columnas,entrega-3","Como equipo queremos verificar que el OWNER adapta las columnas y el tablero las refleja.
+
+Criterios de aceptacion:
+- En un proyecto propio el OWNER agrega una columna, la reordena y la ve en el tablero en ese orden (MIR-48 a MIR-50).
+- Eliminar una columna con elementos pide destino y los elementos aparecen en la columna elegida."
+MIR-70 E2E de navegacion en movil,Task,Medium,2,,Pruebas E2E,"e2e,pruebas,responsive,entrega-3","Como equipo queremos verificar que las vistas principales se pueden usar en un telefono.
+
+Criterios de aceptacion:
+- Con el proyecto mobile (375 px) se navega proyectos, backlog, tablero y sprints sin errores ni scroll horizontal de la pagina (MIR-24).
+- El tablero se desplaza horizontalmente de forma legible (MIR-49)."
+MIR-71 Commit desplegado en /api/health,Task,High,2,,Integracion y despliegue continuo,"ci,deploy,api,entrega-3","Como equipo queremos que /api/health diga que commit esta corriendo para que un Desplegar verde pruebe la version nueva.
+
+Criterios de aceptacion:
+- /api/health responde el commit (RENDER_GIT_COMMIT o equivalente) ademas del estado.
+- El paso Comprobar que la API responde espera hasta que el commit coincida con github.sha o falla tras un timeout.
+- Pendiente de la Entrega 2 cerrado en la Wiki."
+MIR-72 Humo E2E contra la demo desplegada,Task,Medium,2,,Integracion y despliegue continuo,"ci,e2e,deploy,entrega-3","Como equipo queremos comprobar en un navegador que la demo publica funciona despues de cada despliegue.
+
+Criterios de aceptacion:
+- Job Humo E2E en main despues de Desplegar con BASE_URL de la URL publica.
+- Dos tests de solo lectura etiquetados @humo: login con la cuenta de demo y abrir el tablero de MIR. No crean ni modifican datos.
+- No es check obligatorio, pero un fallo avisa en #mira-ci y sube su reporte como artefacto."
+MIR-73 Actions con Node 24,Task,Low,1,,Integracion y despliegue continuo,"ci,mantencion,entrega-3","Como equipo queremos eliminar la advertencia de GitHub sobre acciones que corren con Node 20.
+
+Criterios de aceptacion:
+- actions/checkout, setup-node, upload-artifact y demas acciones en versiones con Node 24.
+- El pipeline queda verde sin advertencias de deprecacion; pendiente de la Entrega 2 cerrado."
+MIR-74 Defectos encontrados por los E2E,Task,Medium,3,,Pruebas E2E,"defecto,pruebas,entrega-3","Como equipo queremos registrar y corregir lo que los E2E destapen, con la trazabilidad que pide la estrategia de pruebas.
+
+Criterios de aceptacion:
+- Cada defecto se registra como Bug en Jira con pasos, esperado, obtenido, severidad y evidencia (trace o screenshot).
+- Cada correccion llega con una prueba que falla antes del arreglo, en rama fix/MIR-n.
+- Un test intermitente se trata como defecto, no se resuelve con reintentos.
+- La Wiki enlaza los defectos encontrados y su correccion."
+MIR-75 Wiki de la Entrega 3,Task,High,3,,"Calidad, infraestructura y entrega","docs,entrega-3","Como equipo queremos documentar la Entrega 3 segun el Anexo B del enunciado.
+
+Criterios de aceptacion:
+- Pagina Entrega 3 con los ocho puntos del Anexo B: objetivo, herramienta y por que, set de pruebas (nombre y que valida, escenarios cubiertos), como ejecutar local, integracion con CI/CD (job, disparadores, BASE_URL), evidencias, problemas y soluciones, pendientes.
+- Evidencias: logs del job, reporte HTML, el rojo controlado con su trace y enlace a ejecuciones.
+- Estrategia de pruebas con el cuarto nivel (E2E) y trazabilidad requisito a spec actualizadas.
+- Problemas anotados mientras ocurren, desde la primera ola."
+MIR-76 Release v3.0-entrega3,Task,Highest,2,,"Calidad, infraestructura y entrega","release,entrega-3","Como equipo queremos cerrar la Entrega 3 desde un commit estable de main.
+
+Criterios de aceptacion:
+- PR de release de develop a main con Lint, tipos y pruebas, Build y E2E en verde.
+- Tag v3.0-entrega3 sobre el merge commit, desplegado por el pipeline y con el humo E2E en verde.
+- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas (incluido el resultado E2E) y limitaciones conocidas.
+- Evidencia congelada con npm run wiki:evidencias -- entrega-3."
+MIR-77 Capsula de video de la Entrega 3,Task,High,3,,"Calidad, infraestructura y entrega","docs,entrega-3","Como equipo queremos explicar en video el trabajo de la Entrega 3.
+
+Criterios de aceptacion:
+- Cubre alcances, herramienta E2E y como corre, paso a paso del trabajo, integracion con el pipeline y ejecucion automatica, y problemas con sus soluciones.
+- Muestra un E2E fallando en CI con su trace y el aviso en Discord.
+- Enlace publicado en el README y en la Wiki."

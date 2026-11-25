@@ -11,10 +11,21 @@ cada item (historia y criterios de aceptación) está en
 - **Columnas configurables** (épica 8, 23 pts): requerimiento funcional nuevo.
 - **CI/CD con GitHub Actions** (épica 9, 11 pts) más el cierre de la entrega (8 pts).
 
-**Estado:** 12 items fusionados en `develop` (52 pts), marcados con ✅ en este
+**Estado histórico al preparar este plan:** 12 items fusionados en `develop` (52 pts), marcados con ✅ en este
 documento. Quedan **5 items · 13 pts** pendientes, más `MIR-52`, que se propone
 cerrar sin trabajo. `MIR-54` cuenta como pendiente mientras su PR (#52) siga
 abierto.
+
+**Cierre documental de MIR-57:** las referencias prospectivas del plan sobre
+el despliegue y el release describen la planificación original. El
+[PR #57](https://github.com/MiraPdS/mira/pull/57) ya se fusionó; el
+[CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260) pasó
+con sus cuatro jobs, y se verificó un deploy por Deploy Hook del commit
+`9d2e518` en Render Live y Vercel Production Ready, sin duplicados.
+El [tag `v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2) y el
+[GitHub Release](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2)
+están publicados. Evidencia en la [Wiki de Entrega 2](wiki/Entrega-2.md#cierre-del-release-mir-57).
+Este cierre no actualiza el resto del reparto ni sus estados.
 
 ---
 

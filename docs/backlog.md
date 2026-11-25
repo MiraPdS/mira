@@ -1,12 +1,15 @@
 # Backlog — Mira
 
-Backlog de las Entregas 1 y 2. **Ya está cargado en Jira**, con los mismos IDs
+Backlog de las Entregas 1, 2 y 3. **Ya está cargado en Jira**, con los mismos IDs
 que aparecen en este documento:
 
 - Tablero: https://bolgunn.atlassian.net/jira/software/projects/MIR/boards
 - `MIR-1` … `MIR-30` — Entrega 1 (`MIR-30` se agregó al verificar el release)
 - `MIR-31`, `MIR-33` y `MIR-43` … `MIR-58` — Entrega 2 (`MIR-31` y `MIR-33`
   eran reservas y se reutilizaron)
+- `MIR-60` … `MIR-77` — Entrega 3, y `MIR-59` su épica (Pruebas E2E). Se
+  cargaron con `acli` después de la épica: el documento se escribió con las
+  claves ya asignadas
 - `MIR-32` — organizaciones y multi-equipo, fuera de alcance
 - `MIR-34` … `MIR-42` — las épicas (`MIR-40` a `MIR-42` son de la Entrega 2)
 
@@ -936,6 +939,296 @@ Compromiso pendiente de la Entrega 1. Fusionado en #43.
 
 ---
 
+# Entrega 3
+
+La Entrega 3 ([`deliverables/entrega3.md`](../deliverables/entrega3.md)) pide
+**pruebas E2E/UI en modo headless integradas al pipeline**, de modo que un E2E
+rojo deje el build rojo, con evidencia (logs, reportes y capturas) y avisos del
+resultado. No pide requerimientos funcionales nuevos.
+
+Las decisiones de diseño, tomadas en equipo antes de cargar los items:
+
+- **Pipeline:** sigue siendo GitHub Actions con avisos en Discord. D14 se
+  extiende a la Entrega 3 y `MIR-60` deja la confirmación del profesor por
+  escrito.
+- **Herramienta:** Playwright, no Selenium. El enunciado lo permite para un
+  equipo que no lo haya usado antes, y trae de serie las esperas automáticas,
+  el trace, las capturas, el video y el reporte HTML/JUnit. Se registra como
+  D15 en `MIR-60`.
+- **Ambiente:** la suite completa corre en cada push y PR contra un stack
+  efímero levantado en el runner (Postgres como `services:`, API compilada y
+  `vite preview`), y es **bloqueante**. Después de `Desplegar` en `main` corre
+  además un humo de solo lectura contra la URL pública (`MIR-72`), que no
+  bloquea.
+- **Datos:** `globalSetup` hace reset + seed **una sola vez**. Cada test que
+  modifica datos crea su propio proyecto con una clave única a través de la
+  API. El proyecto `MIR` del seed queda solo para lectura y para probar los
+  permisos. El login se hace con `storageState` por rol (ada OWNER, alan
+  MEMBER, grace VIEWER).
+- **Set:** 12 flujos críticos, más 2 de humo. El arrastre con dnd-kit queda
+  fuera: el menú "Mover a…" es el camino determinista (estrategia de pruebas
+  §7).
+- **Gate:** `E2E` es un check obligatorio de `main` y `Desplegar` lo espera.
+  Corre **sin reintentos**: un test intermitente se trata como defecto. Los
+  artefactos se suben siempre.
+- **Selectores:** `getByRole` / `getByLabel` como en RTL, y `data-testid` solo
+  donde no hay nombre accesible (tarjetas y columnas del tablero).
+- **Alcance extra:** se cierran las dos mejoras que quedaron pendientes de la
+  Entrega 2 (commit en `/api/health` y actions con Node 24), y se reserva una
+  bolsa para los defectos que destapen los E2E. No hay funcionalidad nueva, y
+  organizaciones (`MIR-32`) sigue fuera de alcance.
+
+El reparto, el DAG y el orden sugerido están en
+[`plan-trabajo-entrega3.md`](./plan-trabajo-entrega3.md).
+
+---
+
+## Épica 10 — Pruebas E2E (`MIR-59`)
+
+### MIR-60 · Alcance de D14 en la Entrega 3 y D15 Playwright
+
+**Tipo:** Documentación · **Prioridad:** Highest · **Estimación:** 1
+
+- D14 cita la confirmación del profesor de que la autorización también cubre
+  la Entrega 3 (enlace o captura del mensaje).
+- Existe **D15 — Playwright como herramienta E2E**, con su por qué, lo
+  descartado (Selenium WebDriver) y sus consecuencias, citando la cláusula del
+  enunciado que permite alternativas.
+- La tabla de decisiones pendientes marca resuelta la herramienta E2E.
+
+---
+
+### MIR-61 · Andamiaje de Playwright
+
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 5
+
+- Existe `e2e/` con un `playwright.config.ts` que lee `BASE_URL` del entorno
+  (por defecto `http://localhost:4173`). Ninguna spec fija la URL a mano.
+- Proyectos `chromium` (desktop) y `mobile` (375 px), siempre headless en CI.
+- `globalSetup` hace `migrate reset` + seed una vez, y un proyecto `setup`
+  guarda el `storageState` de ada, alan y grace.
+- El fixture `proyectoPropio` crea por API un proyecto con clave única para
+  los tests que modifican datos.
+- `trace: 'retain-on-failure'`, screenshot y video solo al fallar,
+  `retries: 0`, y reporters `html` y `junit`.
+- `npm run test:e2e` levanta la API y la web (`webServer`) y corre la suite en
+  local. Queda documentado en el README.
+- Una spec de ejemplo (abrir `/login`) pasa en local.
+
+---
+
+### MIR-63 · E2E de autenticación y sesión
+
+**Tipo:** Prueba · **Prioridad:** Highest · **Estimación:** 3
+
+- **Dado** un correo nuevo, **cuando** completo el registro, **entonces** llego
+  a `/proyectos` autenticado (MIR-1, MIR-2).
+- **Dada** una contraseña incorrecta, **cuando** inicio sesión, **entonces** veo
+  el mensaje genérico y no entro (MIR-3).
+- **Dada** una sesión iniciada, **cuando** recargo, **entonces** sigo dentro; al
+  cerrar sesión vuelvo a `/login`, y `/proyectos` me redirige a `/login`
+  (MIR-4).
+
+---
+
+### MIR-64 · E2E del CRUD de elementos y sus validaciones
+
+**Tipo:** Prueba · **Prioridad:** Highest · **Estimación:** 3
+
+- **Dado** un proyecto propio, **cuando** creo un elemento, **entonces**
+  aparece en el backlog, puedo abrir su detalle, editarlo y ver el cambio, y
+  al eliminarlo desaparece (MIR-11, 12, 14, 15 y 16).
+- **Dado** el formulario sin título, **cuando** lo envío, **entonces** veo el
+  error junto al campo y no se crea nada (MIR-11).
+
+---
+
+### MIR-65 · E2E de proyectos y permisos
+
+**Tipo:** Prueba · **Prioridad:** High · **Estimación:** 3
+
+- **Dada** una clave válida, **cuando** creo el proyecto, **entonces** aparece
+  en la lista conmigo como OWNER. Una clave inválida y una clave duplicada
+  muestran su error (MIR-5, MIR-6).
+- **Dado** que soy grace (VIEWER) en `MIR`, **cuando** navego el proyecto,
+  **entonces** no veo crear elemento, editar proyecto ni configurar columnas
+  (MIR-7, MIR-50, D7).
+
+---
+
+### MIR-66 · E2E de búsqueda, filtros y comentarios
+
+**Tipo:** Prueba · **Prioridad:** High · **Estimación:** 3
+
+- **Dado** el backlog, **cuando** busco por texto y filtro por estado,
+  prioridad y responsable, **entonces** veo solo lo esperado, y limpiar los
+  filtros lo restaura (MIR-13).
+- **Dado** un elemento, **cuando** lo comento, **entonces** el comentario
+  aparece con autor y fecha sin recargar (MIR-21).
+
+---
+
+### MIR-67 · E2E del tablero y el historial
+
+**Tipo:** Prueba · **Prioridad:** High · **Estimación:** 3
+
+- **Dada** una tarjeta, **cuando** la muevo con "Mover a…", **entonces** cambia
+  de columna, el cambio persiste al recargar y aparece en el historial del
+  elemento (MIR-19, MIR-22).
+- Las tarjetas y columnas tienen un `data-testid` estable.
+- El arrastre con dnd-kit queda fuera a propósito, y la Wiki explica por qué.
+
+---
+
+### MIR-68 · E2E del ciclo de un sprint
+
+**Tipo:** Prueba · **Prioridad:** High · **Estimación:** 3
+
+- **Dado** un proyecto propio, **cuando** creo un sprint, le asigno un
+  elemento y lo inicio, **entonces** el tablero muestra el sprint activo con
+  su nombre (MIR-43 a MIR-47).
+- **Dado** el sprint activo con un elemento sin terminar, **cuando** lo cierro,
+  **entonces** el elemento vuelve al backlog y el sprint cerrado muestra los
+  puntos comprometidos y los completados (MIR-46).
+
+---
+
+### MIR-69 · E2E de columnas configurables
+
+**Tipo:** Prueba · **Prioridad:** High · **Estimación:** 3
+
+- **Dado** que soy OWNER de un proyecto propio, **cuando** agrego una columna y
+  la reordeno, **entonces** el tablero la muestra en ese orden (MIR-48 a
+  MIR-50).
+- **Dada** una columna con elementos, **cuando** la elimino, **entonces** se me
+  pide un destino y los elementos aparecen en la columna elegida.
+
+---
+
+### MIR-70 · E2E de navegación en móvil
+
+**Tipo:** Prueba · **Prioridad:** Medium · **Estimación:** 2
+
+- **Dado** el proyecto `mobile` (375 px), **cuando** recorro proyectos,
+  backlog, tablero y sprints, **entonces** no hay errores ni scroll horizontal
+  de la página (MIR-24).
+- El tablero se desplaza horizontalmente de forma legible (MIR-49).
+
+---
+
+### MIR-74 · Defectos encontrados por los E2E
+
+**Tipo:** Defectos · **Prioridad:** Medium · **Estimación:** 3
+
+Bolsa para lo que destapen los E2E. Cada uno corrige los defectos de su
+módulo.
+
+- Cada defecto se registra como Bug en Jira con pasos, resultado esperado,
+  resultado obtenido, severidad y evidencia (trace o screenshot).
+- Cada corrección llega con una prueba que falla antes del arreglo, en una
+  rama `fix/MIR-n-…`.
+- Un test intermitente se trata como defecto y no se resuelve con
+  reintentos.
+
+---
+
+## Épica 9 — Integración y despliegue continuo (Entrega 3)
+
+### MIR-62 · Job E2E en GitHub Actions como check obligatorio
+
+**Tipo:** Tarea técnica · **Prioridad:** Highest · **Estimación:** 3
+
+- `ci.yml` tiene el job `E2E` (`needs: build`), que levanta Postgres, migra,
+  siembra, arranca la API compilada y `vite preview`, e instala solo chromium.
+- Si falla cualquier E2E, el job queda rojo, y `Desplegar` también espera a
+  `E2E`.
+- Sube los artefactos con `if: always()`: el reporte HTML, el JUnit y, si algo
+  falló, traces, screenshots y videos.
+- El aviso de `#mira-ci` indica si falló E2E, con el enlace a la ejecución.
+- `E2E` pasa a ser check obligatorio de `main` el mismo día en que se fusiona,
+  y `ci-cd.md` queda actualizado.
+- Evidencia de un rojo controlado: un PR con un E2E roto a propósito, con
+  capturas del job, del trace y del aviso, que después se revierte.
+
+---
+
+### MIR-71 · Commit desplegado en `/api/health`
+
+**Tipo:** Tarea técnica · **Prioridad:** High · **Estimación:** 2
+
+Pendiente de la Entrega 2.
+
+- `/api/health` responde el commit que está corriendo, además del estado.
+- "Comprobar que la API responde" espera a que ese commit coincida con
+  `github.sha` y falla si se agota el tiempo.
+
+---
+
+### MIR-72 · Humo E2E contra la demo desplegada
+
+**Tipo:** Tarea técnica · **Prioridad:** Medium · **Estimación:** 2
+
+- Job `Humo E2E` en `main`, después de `Desplegar`, con `BASE_URL` apuntando a
+  la URL pública.
+- Dos tests `@humo` de solo lectura: login con la cuenta de demo y abrir el
+  tablero de `MIR`.
+- No es obligatorio, pero un fallo avisa en `#mira-ci` y sube su reporte.
+
+---
+
+### MIR-73 · Actions con Node 24
+
+**Tipo:** Mantención · **Prioridad:** Low · **Estimación:** 1
+
+Pendiente de la Entrega 2.
+
+- `checkout`, `setup-node`, `upload-artifact` y las demás actions pasan a sus
+  versiones con Node 24, y el pipeline queda verde sin advertencias.
+
+---
+
+## Épica 6 — Calidad, infraestructura y entrega (Entrega 3)
+
+### MIR-75 · Wiki de la Entrega 3
+
+**Tipo:** Documentación · **Prioridad:** High · **Estimación:** 3
+
+- Página `Entrega 3` con los ocho puntos del Anexo B: objetivo, herramienta y
+  por qué, set de pruebas (nombre, qué valida y escenarios cubiertos), cómo
+  ejecutar en local, integración con CI/CD (job, disparadores, `BASE_URL`),
+  evidencias, problemas y soluciones, y pendientes.
+- Evidencias: logs del job, el reporte HTML y el rojo controlado con su trace.
+- La estrategia de pruebas suma el cuarto nivel (E2E), y la trazabilidad
+  requisito → spec queda al día.
+- Los problemas se anotan mientras ocurren, desde la Ola 0.
+
+---
+
+### MIR-76 · Release `v3.0-entrega3`
+
+**Tipo:** Tarea · **Prioridad:** Highest · **Estimación:** 2
+
+- PR de release de `develop` a `main` con `Lint, tipos y pruebas`, `Build` y
+  `E2E` en verde.
+- Tag `v3.0-entrega3` sobre el merge commit, desplegado y con el humo E2E en
+  verde.
+- GitHub Release con funcionalidades, defectos corregidos, pruebas ejecutadas
+  (incluido el resultado E2E) y limitaciones conocidas.
+- Evidencia congelada con `npm run wiki:evidencias -- entrega-3`.
+
+---
+
+### MIR-77 · Cápsula de video de la Entrega 3
+
+**Tipo:** Documentación · **Prioridad:** High · **Estimación:** 3
+
+- Cubre los alcances, la herramienta E2E y cómo corre, el paso a paso, la
+  integración con el pipeline y los problemas con sus soluciones.
+- Muestra un E2E fallando en CI, con su trace y el aviso en Discord.
+- Enlace publicado en el README y en la Wiki.
+
+---
+
 ## Resumen por épica
 
 | Épica | Items | Story points |
@@ -952,6 +1245,10 @@ Compromiso pendiente de la Entrega 1. Fusionado en #43.
 | 9 — Integración y despliegue continuo | 6 | 11 |
 | 6 — Calidad y entrega (Entrega 2) | 3 | 8 |
 | **Total Entrega 2** | **18** | **65** |
+| 10 — Pruebas E2E | 11 | 32 |
+| 9 — Integración y despliegue continuo (Entrega 3) | 4 | 8 |
+| 6 — Calidad y entrega (Entrega 3) | 3 | 8 |
+| **Total Entrega 3** | **18** | **48** |
 
 La Entrega 2 bajó de 72 a 65 puntos al alinearse con D14: `MIR-51` pasó de 5 a 1
 y `MIR-52` de 3 a 0. Sigue contando 18 items porque `MIR-52` se conserva con su

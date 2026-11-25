@@ -14,6 +14,8 @@ URL viva se pueden revisar.
 | Trazabilidad historia → PR → pruebas | [Requisitos y trazabilidad](Proyecto-Requisitos-y-trazabilidad.md) | permanente |
 | Runs de CI (formato, lint, tipos, pruebas, build) | [GitHub Actions](https://github.com/MiraPdS/mira/actions/workflows/ci.yml) | logs: 90 días |
 | Reporte de cobertura HTML | artefacto `cobertura` de cada run | 90 días |
+| Reporte E2E (HTML y JUnit) | artefactos `reporte-e2e` y `reporte-junit-e2e` de cada run | 90 días |
+| Trace, captura y video de un E2E fallido | artefacto `evidencia-fallos-e2e` (o `evidencia-fallos-humo`) del run rojo | 90 días; las capturas clave quedan en la Wiki |
 | **Cobertura y resultados de pruebas por entrega** | página `Evidencias-Entrega-N`, congelada desde el run de CI y commit identificados en la página | **permanente** |
 | Ambiente desplegado | [mira-pds.vercel.app](https://mira-pds.vercel.app) · [`/api/health`](https://mira-pds.vercel.app/api/health) | mientras exista la demo |
 | Release y tag de cada entrega | [Releases](https://github.com/MiraPdS/mira/releases) | permanente |
@@ -21,7 +23,8 @@ URL viva se pueden revisar.
 Los artefactos de GitHub Actions expiran. Por eso la cobertura y los resultados
 de cada entrega se **congelan** en el repositorio con
 `npm run wiki:evidencias -- entrega-N`: el script toma el run de CI verde del
-commit actual, descarga su artefacto y escribe las tablas. Así la evidencia
+commit actual, descarga sus artefactos (`cobertura` y, desde la Entrega 3, el
+JUnit de los E2E) y escribe las tablas. Así la evidencia
 dice "esto lo produjo CI, sobre este commit", y no "funcionaba en mi máquina".
 
 ## Protección de `main`
@@ -61,6 +64,17 @@ En la Entrega 2 se activó `enforce_admins` (MIR-33): la regla aplica también
 a los administradores, y un `hotfix/*` también va por PR. Ver
 [`docs/ci-cd.md`](https://github.com/MiraPdS/mira/blob/develop/docs/ci-cd.md#checks-obligatorios-de-main).
 
+En la Entrega 3 (MIR-62) se agregó `E2E` a los checks obligatorios. La API
+pública de la rama lo muestra (consulta del 2026-11-20):
+
+```bash
+gh api repos/MiraPdS/mira/branches/main --jq .protection.required_status_checks.contexts
+```
+
+```json
+["Lint, tipos y pruebas", "Build", "E2E"]
+```
+
 ## Entrega 1
 
 - **Pruebas y cobertura:** [Evidencias de la Entrega 1](Evidencias-Entrega-1.md)
@@ -78,9 +92,42 @@ a los administradores, y un `hotfix/*` también va por PR. Ver
   [Evidencias de la Entrega 2](Evidencias-Entrega-2.md), generadas desde el
   [run de CI 41553706231](https://github.com/MiraPdS/mira/actions/runs/41553706231)
   del commit `fa5f0c7` en `develop`, como preparación de MIR-57.
-- **Release, tag y primer despliegue desde Actions (pendientes):** sus
-  evidencias se enlazarán en [Entrega 2](Entrega-2.md#evidencia) durante el
-  release real de `v2.0-entrega2`. El run de preparación no acredita esos hitos.
+- **Release:** [v2.0-entrega2 — Entrega 2](https://github.com/MiraPdS/mira/releases/tag/v2.0-entrega2), publicado sin draft ni prerelease.
+- **PR y tag:** [#57](https://github.com/MiraPdS/mira/pull/57) y
+  [`v2.0-entrega2`](https://github.com/MiraPdS/mira/tree/v2.0-entrega2), sobre el
+  merge commit `9d2e518abf9f753415401bee6a1866f045ccc402`.
+- **Primer despliegue desde Actions:** [CI 41563910260](https://github.com/MiraPdS/mira/actions/runs/41563910260),
+  push de ese commit a `main`, con calidad, build, despliegue y aviso en success.
+  Las verificaciones manuales confirmaron un deploy por Deploy Hook en Render
+  (Live) y uno en Vercel Production (Ready), ambos de `9d2e518`, sin duplicados;
+  health 200 y aviso de Discord aceptado. Detalle en
+  [Cierre del release](Entrega-2.md#cierre-del-release-mir-57).
+  Esta evidencia posterior complementa el run de preparación y conserva intacto
+  el reporte congelado histórico.
+
+## Entrega 3
+
+- **Pruebas, cobertura y E2E congelados:**
+  [Evidencias de la Entrega 3](Evidencias-Entrega-3.md), generadas desde el
+  [run de CI 44683341339](https://github.com/MiraPdS/mira/actions/runs/44683341339)
+  del commit `4c612d4` (PR de MIR-76), como preparación del release.
+- **Suite E2E completa en verde en `develop`:**
+  [run 44676923221](https://github.com/MiraPdS/mira/actions/runs/44676923221)
+  del commit `9a16fcf`: `38 passed (19.9s)` en el paso `Pruebas E2E`, con los
+  artefactos `reporte-e2e` y `reporte-junit-e2e`.
+- **Un E2E rojo bloquea el pipeline (rojo controlado):**
+  [PR #66](https://github.com/MiraPdS/mira/pull/66), cerrado sin fusionar;
+  [run rojo](https://github.com/MiraPdS/mira/actions/runs/44657161160) con
+  `evidencia-fallos-e2e` y aviso 🔴, y
+  [run verde](https://github.com/MiraPdS/mira/actions/runs/44658912087) con
+  aviso 🟢. Capturas del check, el grafo, los artefactos, el trace y los
+  avisos en [Entrega 3](Entrega-3.md#6-evidencias).
+- **`E2E` es check obligatorio de `main`:** ver
+  [Protección de `main`](#protección-de-main).
+- **Trazabilidad historia → spec E2E:**
+  [Requisitos y trazabilidad](Proyecto-Requisitos-y-trazabilidad.md#pruebas-e2e-entrega-3).
+- **Humo contra la demo y release:** se agregan con MIR-76, desde el run del
+  push del release a `main`.
 
 ## Ambiente desplegado
 

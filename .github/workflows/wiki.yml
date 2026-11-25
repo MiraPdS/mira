@@ -22,6 +22,8 @@ on:
     paths:
       - 'docs/wiki/**'
       - 'scripts/wiki.mjs'
+      - 'scripts/wiki-evidencias.mjs'
+      - 'scripts/test/**'
       - '.github/workflows/wiki.yml'
   # Sin filtro de rutas: el PR de release a main debe pasar el gate de
   # pendientes aunque no toque docs/wiki/. Es barato, no instala dependencias.
@@ -45,14 +47,17 @@ jobs:
     name: Verificar Wiki
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
       - name: Reglas de forma
         run: node scripts/wiki.mjs verificar
+
+      - name: Regresiones del generador de evidencias
+        run: node --test scripts/test/wiki-evidencias.test.mjs
 
       - name: Sin pendientes (PR de release)
         # En la Entrega 2, ajustar PENDIENTES_PERMITIDOS_EN_RELEASE en
@@ -67,9 +72,9 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: ${{ env.NODE_VERSION }}
 
@@ -103,7 +108,7 @@ jobs:
 
       - name: Subir vista previa
         if: github.event_name == 'pull_request'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: wiki-preview
           path: |

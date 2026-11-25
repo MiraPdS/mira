@@ -45,6 +45,9 @@ export interface WorkItemCardProps {
  * compensan ese tamano para que la tarjeta no crezca. Mientras se arrastra,
  * la tarjeta se queda en su lugar como hueco atenuado y lo que sigue al dedo
  * es TarjetaArrastrada, dentro del DragOverlay del tablero.
+ *
+ * MIR-67: `data-testid="tarjeta-elemento"` y `data-elemento-id` son estables
+ * para los E2E; la copia arrastrada no los lleva, asi nunca hay dos.
  */
 export function WorkItemCard({ item, columns, onMove }: WorkItemCardProps) {
   const titleId = `tarjeta-${item.id}-titulo`;
@@ -58,6 +61,8 @@ export function WorkItemCard({ item, columns, onMove }: WorkItemCardProps) {
     <li ref={setNodeRef}>
       <article
         aria-labelledby={titleId}
+        data-testid="tarjeta-elemento"
+        data-elemento-id={item.id}
         {...listeners}
         className={cn(
           'rounded-md border border-slate-200 bg-white p-3 shadow-sm',

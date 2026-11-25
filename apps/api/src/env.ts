@@ -32,6 +32,11 @@ const envSchema = z.object({
   CORS_ORIGIN: z.string().default('http://localhost:5173'),
 
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(10),
+
+  // Sha completo del commit que corre. Lo define Render en build y runtime;
+  // fuera de Render (local, CI, E2E) no existe y el health responde null.
+  // El job `Desplegar` lo compara con GITHUB_SHA (MIR-71).
+  RENDER_GIT_COMMIT: z.string().optional(),
 });
 
 function loadEnv() {
